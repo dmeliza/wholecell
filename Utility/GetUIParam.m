@@ -15,9 +15,18 @@ module = lower(module);
 sfp = sprintf('isfield(wc.%s.handles,''%s'')',module,param);
 if (eval(sfp))
     sf = sprintf('wc.%s.handles.%s', module, param);
-    if (strcmp(field,'StringVal'))
+    switch field
+    case {'StringVal','stringval','Stringval'}
         out = str2num(get(eval(sf),'String'));
-    else
+    case {'Selected','selected'}
+        i = get(eval(sf),'Value');
+        s = get(eval(sf),'String');
+        if i <= length(s)
+            out = s(i,:);
+        else
+            out = s;
+        end
+    otherwise    
         out = get(eval(sf), field);
     end
 else
