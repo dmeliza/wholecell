@@ -14,14 +14,12 @@ function varargout = FlashEpisode(varargin)
 %
 % Alternative implementation: use cglib's playmovie function
 %
-% void FlashEpisode(action, control)
+% Issues as of 1.1:
+% Timing of flash is imprecise and inaccurate (from 182 ms to 204 ms)
+% Length of flash varies (by up to 4 integral multiples of frame length) (v. bad)
+% change in luminance at beginning of each episode (solved - photocell V depends on load)
+% on and off timecourses are different (but this might be a photocell issue)
 %
-% action is ('init') 'play', 'record', or 'stop'
-% control is a structure that defines parameters for the experiment
-%
-% control.length - time, in seconds for each episode
-% control.frequency - frequency, in Hz, of episode acquisition
-% control.stim_delay - time, in seconds, to wait to trigger the stimulator
 %
 % $Id$
 
