@@ -17,6 +17,7 @@ function [] = AutoAnalyzePlasticity(fid)
 %   .dirs       - 3x1 array with the INDICES of the dirs to use
 %   .t_pre      - Nx2 array of times specifying the onset and peak latency
 %   .t_post     - as with t_pre, but for post-induction
+%   .induced    - the index of the bar used for spatial induction
 %
 % $Id$
 
@@ -36,7 +37,7 @@ ANALYSIS_FN_SPIKE   = 'AutoAnalyzeSpikeTiming';
 DAQ2MAT_MODE    = 'stack';
 DAQ2MAT_CHAN    = 1;
 LOCAL_CONTROL   = 'auto.mat';
-MIN_TRIALS      = 50;       % minimum number of trials for pre/post dirs
+MIN_TRIALS      = 70;       % minimum number of trials for pre/post dirs
 MIN_INDUCE      = 10;       % minimum nu8mber of trials for induction
 DEBUG           = 0;
 
@@ -140,7 +141,7 @@ end
 fprintf(fid, 'Post: %s (%d files)\n', dd{3}, n(3));
 
 % check that the n's are at least reasonable:
-if n(1) < MIN_TRIALS | n(3) < MIN_TRIALS
+if (n(1) < MIN_TRIALS | n(3) < MIN_TRIALS) %& ~isfield(control,'dirs')
     fprintf(fid,'(too few trials - experiment ignored)\n');
     return
 end
@@ -168,6 +169,8 @@ end
 fprintf(fid, '----\n');
 if induced ~= -1
     t_post       = feval(ANALYSIS_FN_SPIKE,dd{2}, fid);
+else
+    t_post       = [];
 end
 
 % now we plot and write data to disk, if the correct global variables are
@@ -200,9 +203,11 @@ function figh   = plotdata(pre, pst, t_post)
 BINSIZE = 1;        % bin the IR and SR data to 1 minutes
 figh    = figure;
 set(figh,'visible','off')
-% adjust times
-offset  = etime(pst.start, pre.start)/60;   % time in min between starts
-pst.time= pst.time + offset;
+% adjust times (if both episodes are available)
+if ~isempty(pst.start) & ~isempty(pre.start)
+    offset  = etime(pst.start, pre.start)/60;   % time in min between starts
+    pst.time= pst.time + offset;
+end
 % some serious subplot-fu here
 ax      = subplot(4,3,[1 2 4 5]);
 plotTimeCourse(ax,pre.time,pre.resp,pst.time,pst.resp);
@@ -210,14 +215,14 @@ xlim    = get(ax,'Xlim');
 ylabel(sprintf('Response (%s)',pre.units));
 title('Time Course');
 
-if ~isempty(pre.ir)
+if ~(isempty(pre.ir) & isempty(pst.sr))
     set(ax,'XTickLabel',[])
     ax      = subplot(4,3,[7 8]);
     plotTimeCourse(ax,pre.time,pre.ir,pst.time,pst.ir,BINSIZE);
     set(ax,'Xlim',xlim)
     ylabel('IR')
 end
-if ~isempty(pre.sr)
+if ~(isempty(pre.sr) & isempty(pst.sr))
     set(ax,'XTickLabel',[])
     ax      = subplot(4,3,[10 11]);
     plotTimeCourse(ax,pre.time,pre.sr,pst.time,pst.sr,BINSIZE);
@@ -227,29 +232,37 @@ end
 xlabel('Time (min)')
 
 % plot the two average responses and their difference
-ax      = subplot(4,3,3);
-tr1     = pre.trace;% - mean(pre.trace(1:50));
-tr2     = pst.trace;% - mean(pst.trace(1:50));
-h       = plot(pre.time_trace,tr1,'k',pst.time_trace,tr2,'r');
-axis tight, set(gca,'XTickLabel',[])
+ax      = subplot(4,3,3);hold on
+tr1     = pre.trace;
+tr2     = pst.trace;
+if ~isempty(tr1)
+   h    = plot(pre.time_trace,tr1,'k');
+   vline(pre.t_peak,'k:')
+end
+if ~isempty(tr2)
+   h    = plot(pst.time_trace,tr2,'r');
+   vline(pst.t_peak,'r:')
+end
+axis tight
 xlim    = get(gca,'XLim');
-vline(pre.t_peak,'k:')
-vline(pst.t_peak,'r:')
-end
 title('Temporal RF')
-ax      = subplot(4,3,6);
-% this may break...
-if length(tr1) > length(tr2)
-    d       = tr1(1:length(tr2)) - tr2;
-    h       = plot(pst.time_trace,d,'k');
-else
-    d       = tr1 - tr2(1:length(tr1));
-    h       = plot(pre.time_trace,d,'k');
-end
+
+if ~isempty(tr1) & ~isempty(tr2)
+    set(gca,'XTickLabel',[])
+    ax      = subplot(4,3,6);
+    % this may break...
+    if length(tr1) > length(tr2)
+        d       = tr1(1:length(tr2)) - tr2;
+        h       = plot(pst.time_trace,d,'k');
+    else
+        d       = tr1 - tr2(1:length(tr1));
+        h       = plot(pre.time_trace,d,'k');
+    end
     
-set(gca,'Xlim',xlim)
-if ~isempty(t_post)
-    vline(t_post,'k:'),hline(0)
+    set(gca,'Xlim',xlim)
+    if ~isempty(t_post)
+        vline(t_post,'k:'),hline(0)
+    end
 end
 xlabel('Time (s)')
 
@@ -257,18 +270,26 @@ xlabel('Time (s)')
 function [] = plotTimeCourse(ax, pre_time, pre_data, pst_time, pst_data, binsize)
 axes(ax),cla,hold on
 if nargin > 5
-    [t,d,n,st]  = TimeBin(pre_time,pre_data,binsize);
-    mn          = nanmean(d);
-    h           = errorbar(t,d,st./sqrt(n),'k.');
-    [t,d,n,st]  = TimeBin(pst_time,pst_data,binsize);
-    h           = errorbar(t,d,st./sqrt(n),'k.');
-    h           = hline([mn * 1.3, mn * .7]);
+    if ~isempty(pst_time)
+        [t,d,n,st]  = TimeBin(pst_time,pst_data,binsize);
+        h           = errorbar(t,d,st./sqrt(n),'k.');
+    end
+    if ~isempty(pre_time)
+        [t,d,n,st]  = TimeBin(pre_time,pre_data,binsize);
+        mn          = nanmean(d);
+        h           = errorbar(t,d,st./sqrt(n),'k.');
+        h           = hline([mn * 1.3, mn * .7]);
+    end
 else
-    h       = plot(pre_time,pre_data,'k.');
-    set(h,'markersize',6)
-    mn      = nanmean(pre_data);
-    h       = plot(pst_time,pst_data,'k.');
-    set(h,'markersize',6)
-    h       = hline(mn);
+    if ~isempty(pst_time)
+        h       = plot(pst_time,pst_data,'k.');
+        set(h,'markersize',6)
+    end
+    if ~isempty(pre_time)
+        h       = plot(pre_time,pre_data,'k.');
+        set(h,'markersize',6)
+        mn      = nanmean(pre_data);
+        h       = hline(mn);
+    end
 end
 
