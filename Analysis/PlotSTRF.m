@@ -50,7 +50,7 @@ for i = 1:NUM
         set(gca,'YLim',[-mx mx]);
     else
         h   = imagesc(strf(i).data(:,:,1),[-mx mx]);
-        text(1,1,num2str(1));
+        text(1,1,getTime(1));
         set(h,'buttondownfcn',click)
         set(gca,'UserData',strf(i).data,'NextPlot','replacechildren',...
             'XTick',[],'YTick',[]);
@@ -72,6 +72,19 @@ else
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Internals:
+
+function str = getTime(ind)
+% If there is a frame rate, convert index into time
+% Otherwise return the index
+frate       = get(gcf,'UserData');
+if isempty(frate)
+    str = num2str(ind);
+else
+    str = num2str((ind-1)/frate);
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Callbacks:
 
 function [] = moveSlider(obj, event)
@@ -86,7 +99,7 @@ for i = 1:length(a)
     mx  = max(max(max(abs(R))));
     h   = imagesc(R(:,:,val),[-mx mx]);
     set(h,'buttondownfcn',click);
-    text(1,1,num2str(val))
+    text(1,1,getTime(val))
 end
 
 function [] = clickSTRF(obj,event)
