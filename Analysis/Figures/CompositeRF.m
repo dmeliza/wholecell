@@ -207,6 +207,7 @@ switch MODE
         vline(0),hline(0)
         xlabel('Time from Spike (ms)');
         ylabel('Change in EPSC (Normalized)');
+        text(t(size(rf,1))*.4,mx*.6,sprintf('(n = %d)',trials));        
         % compute significance of 50 ms bins
         for i = -150:50:100
             tt      = find(t>=i&t<(i+50));
@@ -252,6 +253,7 @@ switch MODE
         vline(0),hline(0)
         xlabel('Time from Spike (ms)');
         ylabel('Change in EPSC (Normalized)');
+        text(t(size(rf,1))*.4,mx*.6,sprintf('(n = %d)',trials));        
         tt      = find(t>=0&t<50);
         X       = mean(induced(tt,:),1);
         Y       = mean(noninduced(tt,:),1);

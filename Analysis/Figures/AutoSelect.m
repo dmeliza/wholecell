@@ -156,8 +156,8 @@ for i = 1:length(sel)
     Z(i).shift_ir   = shift_ir;
     Z(i).shift_sr   = shift_sr;
     if ~isempty(Z(i).t_spike)
-        t_pre   = pre.(['t_' PRE_SPIKE_TIME]);
-        Z(i).spike_time = Z(i).t_spike - t_pre;
+        Z(i).spike_peak = Z(i).t_spike - pre.t_peak;
+        Z(i).spike_onset = Z(i).t_spike - pre.t_onset;
     end
     % also, for futher analysis we're only going to keep the induced bars
     Z(i).pre    = pre;
@@ -171,13 +171,13 @@ if nargin > 1
     rats    = str2num(rats(:,4:end));
     cells   = char({Z.cell}');
     cells   = str2num(cells(:,5:end));
-    values  = [Z.pre_value;Z.pst_value;Z.P_shift;Z.spike_time]';
+    values  = [Z.pre_value;Z.pst_value;Z.P_shift;Z.spike_onset;Z.spike_peak]';
     fid = fopen(output,'w');
     try
         for i = 1:length(rats)
             fprintf(fid,'%d/%d,%3.4f,%3.4f,%3.1f,%3.4f\n',...
                 rats(i),cells(i),Z(i).pre_value,Z(i).pst_value,...
-                Z(i).spike_time*1000,Z(i).P_shift);
+                Z(i).spike_onset*1000,Z(i).spike_peak*1000);
         end
         fclose(fid);
     catch
