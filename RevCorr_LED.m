@@ -187,16 +187,16 @@ if (queued < 0.1 * update)
     m = lower(get(wc.ai,'LoggingMode'));
     if ~strcmp('memory',m)
         lf = get(wc.ai,'Logfilename');
-        writeStimulus(lf, wn,t_res,a_int);
+        writeStimulus(lf, wn, 1000 / t_res, a_int);
     end
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function writeStimulus(filename, stimulus, time_resolution, analysis_interval)
+function writeStimulus(filename, stimulus, stimrate, analysis_interval)
 % writes stimulus waveform to a mat file for later analysis
 [pn fn ext] = fileparts(filename);
 save([pn filesep fn '.mat'],...
-    'stimulus', 'time_resolution', 'analysis_interval');
+    'stimulus', 'stimrate', 'analysis_interval');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
 function updateDisplay(obj, event)
@@ -221,21 +221,22 @@ window = [-1000 200];
 index = wc.control.amplifier.Index;
 stim = Spool('stim','retrieve');
 samplerate = get(obj,'SampleRate');
-stimrate = GetParam(me,'t_res','value');
+t_res = GetParam(me,'t_res','value');
 stimstart = get(wc.ao,'InitialTriggerTime');
 c = revcorr(data(:,index)', stim, samplerate,...
-    1000 / stimrate, stimstart, abstime, window);
+    1000 / t_res, stimstart, abstime, window);
 s = [me '.analysis'];
 f = findobj('tag', s);
 if isempty(f) | ~ishandle(f)
     f = figure('tag', s, 'numbertitle', 'off', 'name', s);
 end
-t = window(1):stimrate:window(2);
+t = window(1):t_res:window(2);
 figure(f);
 d = get(f,'UserData');
 d = cat(1,d,c);
 a = mean(d,1);
 p = plot(t, [c; a]);
+xlabel('Time (ms)');
 set(f,'name',[s ' - ' num2str(size(d,1)) ' scans']);
 set(f,'UserData',d);
 Spool('stim','delete');

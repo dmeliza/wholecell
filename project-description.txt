@@ -44,10 +44,14 @@ loading and storing preferences
 seal test window
 gap-free, view and record
 
-ToDo:
-
 a simple PSP protocol, using hardware triggers
 on-line analysis and control for the PSP protocol - 
     baseline, potentiation, and post-potentiation,
     dynamically measure PSP slope and average results
     averaging
+    
+white noise (1D) and analysis
+    
+Todo:
+
+fix episode protocol again
