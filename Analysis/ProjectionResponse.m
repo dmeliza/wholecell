@@ -1,10 +1,11 @@
-function [X,P] = project(y, y_est, bin_num)
+function [X,P] = projectionresponse(y, y_est, bin_num)
 % Computes the projection of y_est onto y
+% Bins are normalized (-1 is maximum negative projection, +1 maximum positive)
 % [x,p] = project(y, y_est, [bins])
 % y - the response (column vector)
 % y_est - the estimated response (column vector)
 % bins - the number of bins (default 10)
-% x - the bin center
+% x - the bin centers
 % p - the average y value for y_est = x
 % is there a good way to do this without a loop?
 % $Id$
@@ -25,12 +26,16 @@ if nargin < 3
 end
 mn = min(y_est);
 mx = max(y_est);
-X = (mn:(mx-mn)/bin_num:mx)';
+bins = (mn:(mx-mn)/bin_num:mx)';
+X = (-1:2/bin_num:+1)';
 
 % Fill the bins (lower edge inclusive)
 [P,N] = deal(zeros(length(X)-1,1));
 for i = 1:(length(X)-1)
-    j = find(y_est>=X(i) & y_est<X(i+1)); % indexes of points in that bin
+    j = find(y_est>=bins(i) & y_est<bins(i+1)); % indexes of points in that bin
+    if i == length(X)-1
+        j = cat(1,j,find(y_est==bins(i+1)));
+    end
     P(i) = sum(y(j));
     N(i) = length(j);
 end
