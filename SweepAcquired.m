@@ -45,8 +45,9 @@ if (isfield(wc.control.telegraph,'gain'))
     gainChannel = wc.control.telegraph.gain;
     gainVoltage = mean(data(:,gainChannel));
     gain = gain(gainVoltage);
-    ir = get(wc.control.amplifier, 'SensorRange');
-    set(wc.control.amplifier,'UnitsRange',ir ./ gain);
+    ChannelGain(wc.control.amplifier,'set',gain);
+%     ir = get(wc.control.amplifier, 'SensorRange');
+%     set(wc.control.amplifier,'UnitsRange',ir ./ gain);
 end
 
 if (isfield(wc.control.telegraph,'mode'))
