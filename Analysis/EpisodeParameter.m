@@ -1,118 +1,119 @@
-function out = EpisodeParameter(varargin)
+function out = EpisodeParameter(param, ds)
 %
-% An internal function used to display the time course and statistics
-% of some measured parameter in an episodic acquisition (e.g. input resistance)
+% An internal function used to calculate the values of
+% some measured parameter in an episodic acquisition (e.g. input resistance)
 %
 % Usage:
 %
-%       p = EpisodeParameter('init',paramstruct)        
-%           - opens the figure, returns an updated parameter structure
-%       EpisodeParameter('update',h,r0)               
-%           - updates the data in the figure (h is the handle of the figure)
-%       res = EpisodeParameter('calc',paramstruct,r0)
-%           - calculates the value of the parameter
+%       res = EpisodeParameter(paramstruct,r0)
+%           - calculates the value of the parameter. r0 is a structure
+%             that must contain the fields 'data' and 'time'
 %
-% This function is responsible for maintaining the parameter's representation
-% in the main figure's appdata.  That way, when the figure is closed, the
-% main figure will still contain the data necessary to reopen the figure.
 %
 % $Id$
-
 if nargin < 2
     disp('EpisodeParameter is started from EpisodeAnalysis')
+    out = [];
+    return
+end
+if strcmpi(param.action,'none')
+    out = [];
     return
 end
 
-switch lower(varargin{1})
-case 'init'
-    action  = varargin{1};
-    p       = varargin{2};
-    p       = initFigure(p);
-    out     = p;
-case 'update'
-    updateFigure(varargin{2:3});
-case 'calc'
-    p       = varargin{2};
-    d       = varargin{3};
-    if ishandle(p.handle)
-        ch  = findobj(p.handle,'tag','channel');
-        c   = str2num(get(ch,'string'));
-    else
-        c   = 1;
+% cycle through all the various shit in the ds to produce the output
+% structure array
+ct  = 0;
+for i = 1:length(ds)
+    ind     = getIndices(param.marks, ds(i).time);
+    dt      = mean(diff(double(ds(i).time)));
+    chan    = ds(i).chan;
+    for j = 1:length(chan)
+        c   = chan(j);
+        [res, units] = compute(param.action, double(ds(i).data(:,:,j)),...
+                               ind, ds(i).units, dt);
+        ct  = ct + 1;
+        out(ct) = struct('fn',ds(i).fn,'channel',ds(i).channels{c},...
+                         'start',ds(i).start,'units',units,'color',ds(i).color(c,:),...
+                         'abstime',ds(i).abstime,'value',res);
     end
-    out     = getResults(p.type, d.data(:,:,c), d.time, p.marks);
-    
-otherwise
-    disp(varargin{1})
+end
+
+function [out, units] = compute(action, data, ind, units, dt)
+% Makes the calculations
+out = [];
+switch lower(action)
+case 'none'
     return
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-function [] = updateFigure(f, d)
-% plots the data
-if nargin == 1
-    d    = getappdata(f, 'data');
-else
-    setappdata(f,'data',d);
-end
-% axis 1
-a   = findobj(f,'tag','trace');
-if ishandle(a)
-    % for each file, plot the individual traces and the average
-    h   = findobj(f,'tag','channel');
-    ch  = str2num(get(h,'String'));
-    axes(a)
-    cla
-    hold on
-    c   = cat(1,[0 0 0],get(a,'ColorOrder'));      % default colors
-    cd  = (c + 1) / 2;                            % whitened colors
-    for i = 1:length(d)
-        % indivs
-        if length(d) == 1
-            p = plot(d(i).time,d(i).data(:,:,ch));
-            set(p,'color',cd(i,:))
-        end
-        % mean
-        p = plot(d(i).time,squeeze(mean(d(i).data(:,:,ch),2)));
-        set(p,'color',c(i,:),'linewidth',2)
+case {'amplitude','difference','slope'}
+    % absolute value of the amplitude difference between two marks
+    % if three marks, baseline is mean of values between first two
+    % if four marks, 2nd value is mean of values between 2nd two
+    switch length(ind)
+    case 4
+        bs  = mean(data(ind(1:2),:),1);
+        vl  = mean(data(ind(3:4),:),1);
+        out = (vl - bs);
+        dt  = dt * (ind(3) - ind(2));
+    case 3
+        bs  = mean(data(ind(1:2),:),1);
+        out = (data(ind(3),:) - bs);
+        dt  = dt * (ind(3) - ind(2));
+    case 2
+        out = (diff(data(ind,:)));
+        dt  = dt * (ind(2) - ind(1));
     end
-    axis(a,'tight')
-end
-h   = findobj(f,'tag','type');
-v   = get(h,'value');
-s   = get(h,'string');
-s   = lower(s{v});
-if ~strcmpi('none',s)
-    m   = getMarks(a,s);
-    res = getResults(s, d.data(:,:,c), double(d.time), m);
-    plotResults(f,res,d.abstime);
-end
-
-function res = getResults(type, data, time, marks)
-% computes the results
-if strcmpi(type,'none')
-    res = [];
-    return
-else
-    x   = time(1) + marks;                      % real time values
-    T   = (time >= x(1)) & (time <= x(2));      % logical extractor
-    ind = find(T);                              % indices of gap
-    i   = [ind(1), ind(end)];                   % endpoints of gap
-    y   = data(i,:);                            % extract data
-    y(1,:) = mean(data(1:i(1),:));              % compute baseline
-    switch lower(type)
+    switch lower(action)
     case 'amplitude'
-        % absolute value of the amplitude difference between two marks
-        % with the baseline taken to be everything prior to the first mark
-        res = abs(diff(y));
+        out = abs(out);
     case 'slope'
-        % average slope of line between two marks
-        % with the baseline taken to be everything prior to the first mark
-        res = diff(y) / diff(x) / 1000;     % (units)/ms
-    case 'difference'
-        res = diff(y);
+        out     = out / dt / 1000;
+        units   = sprintf('%s/%s',units,'ms');
     end
+end
+% case 'slope'
+%     % average slope of line between two marks
+%     switch length(ind)
+%     case 4
+%         bs  = mean(data(ind(1:2),:),1);
+%         vl  = mean(data(ind(3:4),:),1);
+%         out = vl - bs;
+%     case 3
+%         bs  = mean(data(ind(1:2),:),1);
+%         out = data(ind(3),:) - bs;
+%     case 2
+%         out = abs(diff(data(ind,:)));
+%     end    
+%     res = diff(y) / diff(x) / 1000;     % (units)/ms
+% case 'difference'
+%     res = diff(y);
+% end
+%     x   = time(1) + marks;                      % real time values
+%     T   = (time >= x(1)) & (time <= x(2));      % logical extractor
+%     ind = find(T);                              % indices of gap
+%     i   = [ind(1), ind(end)];                   % endpoints of gap
+%     y   = data(i,:);                            % extract data
+%     y(1,:) = mean(data(1:i(1),:));              % compute baseline
+%     switch lower(type)
+%     case 'amplitude'
+%         % absolute value of the amplitude difference between two marks
+%         % with the baseline taken to be everything prior to the first mark
+%         res = abs(diff(y));
+%     case 'slope'
+%         % average slope of line between two marks
+%         % with the baseline taken to be everything prior to the first mark
+%         res = diff(y) / diff(x) / 1000;     % (units)/ms
+%     case 'difference'
+%         res = diff(y);
+%     end
+% end
+
+function ind = getIndices(times, time)
+% converts time offsets into indices into the time vector
+% where the time offset falls between two sample times, the lower value is chosen
+for i = 1:length(times)
+    TI      = find(time >= times(i));
+    ind(i)  = TI(1);
 end
 
 function [] = plotResults(f, res, abstime)
