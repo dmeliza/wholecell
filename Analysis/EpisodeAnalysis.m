@@ -78,10 +78,10 @@ case 'load_traces_callback'
     % loads traces from a .mat file and stores them in the figure
     [fn pn] = uigetfile('*.mat');
     if (fn ~= 0)
+        wait('Loading data...');
         SetUIParam(me,'filename','String',fullfile(pn,fn));
         d = load(fullfile(pn,fn));
         SetUIParam(me,'filename','UserData',d);
-        SetUIParam(me,'status','String',['Loaded data from ' fn]);
         SetUIParam(me,'last_trace','StringVal',length(d.abstime));
         SetUIParam(me,'lp_factor','StringVal',d.info.t_rate);
         SetUIParam(me,'lp_factor','UserData',d.info.t_rate);
@@ -92,6 +92,7 @@ case 'load_traces_callback'
         if (isfield(d,'times'))
             setTimes(d.times);
         end
+        wait(['Loaded data from ' fn]);
     end
     
     
@@ -128,6 +129,14 @@ case 'color_trace_callback'
     c = uisetcolor(c);
     set(h,'Color',c);
     updateStats;
+    
+case 'save_trace_callback'
+    % saves the selected traces to a new file
+    [fn pn] = uiputfile('*.mat');
+    if (fn ~= 0)
+        traces = str2num(GetUIParam(me,'trace_list','Selected'));
+        saveData(fullfile(pn,fn), traces);
+    end
     
 case 'property_changed_callback'
     % redraws the traces if the post-processing properties change
@@ -213,39 +222,32 @@ case 'export_times_callback'
 case 'export_stats_callback'
     [fn pn] = uiputfile('*.csv');
     if (fn ~= 0)
-        [pspdata, srdata, irdata, abstime] = updateStats;
+        wait('Writing statistics...');
+        [pspdata, srdata, irdata, abstime] = getStats;
         csvwrite(fullfile(pn,fn), cat(2,abstime',pspdata',srdata',irdata'));
-        SetUIParam(me,'status','String',['Statistics exported to ' fullfile(pn,fn)]);
+        wait(['Statistics exported to ' fullfile(pn,fn)]);
     end
     
 case 'save_analysis_callback'
     % stores a complete analysis in one file
     [fn pn] = uiputfile('*.mat');
     if (fn ~=0)
-        d = GetUIParam(me,'filename','UserData');
-        time = d.time;
-        info = d.info;
-        info.binfactor = 1;
-        data = getData;
-        [pspdata, srdata, irdata, abstime] = updateStats;
-        times = getTimes;
-        save(fullfile(pn,fn),'data','time','abstime','info','pspdata',...
-            'srdata','irdata','times');
+        wait('Writing file...');
+        saveData(fullfile(pn,fn));
+        wait(['Data written to ' fullfile(pn,fn)]);
     end
     
 case 'align_episodes_callback'
     % calls AlignEpisodes on the complete data set
     d = GetUIParam(me,'filename','UserData');
-    setptr(gcf,'watch');
-    SetUIParam(me,'status','String','Aligning episodes...');
+    wait('Aligning episodes...');
     [d.data d.time] = AlignEpisodes(d.data, d.time, 1000:5000);
     SetUIParam(me,'filename','UserData',d);
     updateDisplay;
-    SetUIParam(me,'status','String','Episodes realigned.');
-    setptr(gcf,'arrow');
+    wait('Episodes realigned.');
     
 case 'display_stats_callback'
-    disp = GetUIParam(me,'disp_stats','Value');
+    disp = GetUIParam(me,'display_stats','Value');
     if boolean(disp)
         updateStats;
     else
@@ -253,8 +255,11 @@ case 'display_stats_callback'
         clearAxes(GetUIHandle(me,'resist_axes'));
     end
     
-case 'invert_stats_callback'
+case {'invert_stats_callback', 'show_selected_callback'}
     updateStats;
+    
+case 'show_mark_callback'
+    keyboard;
         
     
 case 'close_callback'
@@ -429,34 +434,48 @@ for i = 1:length(tags)
     SetUIParam(me,[tags{i} '_txt'],'ForegroundColor',colors{i});
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+function [pspdata, srdata, irdata, abstime, color] = getStats(varargin)
+d = GetUIParam(me,'filename','UserData');
+times = getTimes;
+if nargin > 0
+    [data, abstime, color] = getData(varargin{1});
+else
+    [data, abstime, color] = getData;
+end
+dt = 1 / d.info.t_rate;
+w = warning('off');
+pspdata = ComputeSlope(data, [times.pspbs times.pspbe], times.pspm, dt) / 1000;
+srdata = ComputeDiff(data, [times.rbs times.rbe], times.srm, dt) / times.curr;
+irdata = ComputeDiff(data, [times.rbs times.rbe], times.irm, dt) / times.curr;
+invert = GetUIParam(me,'invert_psp','Value');
+if boolean(invert)
+    pspdata = -pspdata;
+end
+warning(w);
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function [pspdata, srdata, irdata, abstime] = updateStats()
+function updateStats()
 % this method updates the statistics display using the times data
 % and the traces in the window. Deleted traces are ignored, but hidden ones
 % are included.  This method should be safe to call at any time, even
 % if the times are invalid.
+
 disp = GetUIParam(me,'display_stats','Value');
 if ~boolean(disp)
-    pspdata = [];
-    srdata = [];
-    irdata = [];
-    abstime = [];
     return;
 end
+wait;
 S = 50;
-d = GetUIParam(me,'filename','UserData');
-times = getTimes;
-[data, abstime, color] = getData;
-dt = 1 / d.info.t_rate;
-w = warning('off');
-pspdata = ComputeSlope(data, [times.pspbs times.pspbe], times.pspm, dt) / 1000;
-invert = GetUIParam(me,'invert_stats','Value');
-if boolean(invert)
-    pspdata = -pspdata;
+show = GetUIParam(me,'show_selected','Value');
+if boolean(show)
+    traces = str2num(GetUIParam(me,'trace_list','Selected'));
+    [pspdata, srdata, irdata, abstime, color] = getStats(traces);
+else
+    [pspdata, srdata, irdata, abstime, color] = getStats;
 end
-srdata = ComputeDiff(data, [times.rbs times.rbe], times.srm, dt) / times.curr;
-irdata = ComputeDiff(data, [times.rbs times.rbe], times.irm, dt) / times.curr;
-warning(w);
+
+
 % plot it
 a = GetUIHandle(me,'psp_axes');
 clearAxes(a);
@@ -469,6 +488,7 @@ sh = scatter(abstime, srdata, S, color);
 ih = scatter(abstime, irdata, S, color, '*');
 set([ph ih sh], 'ButtonDownFcn',[me '(''stats_click_callback'')']);
 xlabel('Time (min)'),ylabel('R (M\Omega)');
+wait;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function clearAxes(axes_handle)
@@ -538,19 +558,21 @@ end
 function adjustBaseline(limits)
 % Adjusts the baseline of the traces in the trace axes
 % Uses adjust_baseline.UserData ms
-SetUIParam(me,'status','String','Adjusting baseline...');
+wait('Adjusting baseline...');
 d = GetUIParam(me,'filename','UserData');
 limits = (limits * d.info.t_rate) + 1;
 adj = mean(d.data(limits(1):limits(2),:),1);
 d.data = d.data - repmat(adj, size(d.data,1),1);
 SetUIParam(me,'filename','UserData',d);
 updateDisplay;
-SetUIParam(me,'status','String','Baseline adjusted.');
+wait('Baseline adjusted.');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [data, abstime, color] = getData()
+function [data, abstime, color] = getData(varargin)
 % this function extracts (binned) Y data from the trace axes
 % and the associated binned relative start times
+% getData() - data from all traces
+% getData(tracenums) - data from specific trace numbers
 trace = GetUIParam(me,'trace_axes','UserData');
 tracehandles = [trace.handle];
 abstime = [trace.abstime]';
@@ -562,6 +584,12 @@ else
 end
 color = get(tracehandles,'Color');
 color = cat(1,color{:});
+if nargin > 0
+    traces = varargin{1};
+    data = data(traces,:);
+    abstime = abstime(traces);
+    color = color(traces,:);
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
 function h = getTraces(varargin)
@@ -580,7 +608,7 @@ function showTraces(tracenum)
 h = getTraces;
 set(h,'Visible','off');
 set(h(tracenum),'Visible','on');
-
+updateStats;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function deleteTrace(tracenum)
@@ -598,6 +626,27 @@ SetUIParam(me,'trace_axes','UserData',tr);
 n = 1:length(tr);
 SetUIParam(me,'trace_list','String', num2str(n'));
 SetUIParam(me,'trace_list','Value', n);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+function saveData(filename, varargin)
+% saves the analysis, either all traces [saveData(filename)]
+% or specific traces [saveData(filename,tracenums)]
+wait('Saving data...');
+if nargin == 1
+    data = getData;
+    [pspdata, srdata, irdata, abstime] = getStats;
+else
+    data = getData(varargin{1});
+    [pspdata, srdata, irdata, abstime] = getStats(varargin{1});
+end
+d = GetUIParam(me,'filename','UserData');
+time = d.time;
+info = d.info;
+info.binfactor = 1;
+times = getTimes;
+save(filename,'data','time','abstime','info','pspdata',...
+    'srdata','irdata','times');
+wait(['Data saved in ' filename]);
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -619,6 +668,21 @@ end
 set(trace,'Color',newcolor,'UserData',newcolor);
 psp_patches = GetUIParam(me, 'psp_axes', 'Children');
 set(psp_patches(traceindex),'EdgeColor',newcolor,'UserData',newcolor);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function wait(varargin)
+% changes pointer to an hourglass or back, depending on the pointer's state
+% sets the status bar, if a string is supplied
+if nargin > 0
+    SetUIParam(me,'status','String',varargin{1});
+end
+p = getptr(gcf);
+switch p{2}
+case 'arrow'
+    setptr(gcf,'watch');
+otherwise
+    setptr(gcf,'arrow');
+end
 
 % Shows summary information
 function showSummary(stats, handles)

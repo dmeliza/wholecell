@@ -6,7 +6,7 @@ $Revision$
 alignepisodes function - done
 color traces in gui - done (retain color when baseline/episodes are reprocced)
 delete traces - done
-save subset of traces
+save subset of traces -done
 
 fix color by clicking
 unify select and zoom mode
