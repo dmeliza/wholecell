@@ -68,6 +68,10 @@ out = mfilename;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function updatewc(obj, event)
 % updates the wc control structure with critical values
+% this is necessary for them to be stored in the prefs file
+global wc
+wc.control.data_dir = GetUIParam(me,'data_dir','String');
+wc.contro.data_prefix = GetUIParam(me,'data_prefix','String');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function pick(obj, event)
