@@ -29,7 +29,15 @@ function varargout = SweepAcquired(obj, event, callback)
 global wc
 
 samples = length(wc.control.pulse);
-[data, time] = getdata(wc.ai, samples); % extract data
+% switch get(wc.ai,'Logging')
+% case 'Off'
+%     return;
+% end
+try
+    [data, time] = getdata(wc.ai, samples); % extract data
+catch
+    return;
+end
 %flushdata(wc.ai);
 % I would prefer to use peekdata to determine the gain setting
 % but since this call is incompatible with ManualTriggerHwOn
