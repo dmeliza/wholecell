@@ -259,8 +259,6 @@ case 'uparrow'
         updateDS,plotTraces
     end
 end
-    
-
 
 function [] = clickaxes(obj, event)
 % Handles rbbox operations in the axes; the action depends on the state of
@@ -273,6 +271,15 @@ s1  = GetUIParam(me,'mousezoom','State');
 s2  = GetUIParam(me,'paramselect','State');
 if strcmpi(s1,'on')
     zoom(gcbf,'down')
+elseif strcmpi(s0,'on')
+    o   = get(obj,'CurrentObject');
+    t   = get(o,'Tag');
+    if strcmpi(t,'mark')
+        dragHandler = @dragMark;
+        releaseHandler = @releaseMark;
+        set(obj,'WindowButtonMotionFcn',dragHandler);
+        set(obj,'WindowButtonUpFcn',releaseHandler);
+    end
 elseif strcmpi(s2,'on')
     button = get(obj,'selectiontype');
     if strcmpi(button,'normal')
@@ -287,6 +294,31 @@ elseif strcmpi(s2,'on')
     end
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+% these functions define a drag operation; we have to do some fancy callback
+% magic
+function dragMark(obj, event)
+h   = get(gcf,'CurrentObject');
+pt  = get(gca,'CurrentPoint');
+x   = pt(1);
+set(h,'XData',[x x]);
+
+function releaseMark(obj, event)
+set(gcf,'WindowButtonMotionFcn','');
+set(gcf,'WindowButtonUpFcn','');
+h   = get(gcf,'CurrentObject');
+mh  = getappdata(gcf,'param_handles');
+ind = find(mh==h);
+if ~isempty(ind)
+    p       = getappdata(gcf,'parameters');
+    v       = GetUIParam(me,'parameters','Value');
+    x       = get(h,'XData');
+    p(v).marks(ind) = x(1);
+    setappdata(gcf,'parameters',p);
+    plotParameter(p(v));
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function [] = menu(obj, event)
 % handles menu callbacks
 tag = get(obj, 'tag');
@@ -384,14 +416,9 @@ case 'm_param'
     if ~isnumeric(fn)
         d       = load('-mat',fullfile(pn,fn));
         if isfield(d,'params')
-            % we have to delete all the existing parameters
-            p  = getappdata(gcf,'parameters');
-            if isstruct(p)
-                h  = [p.handle];
-                delete(h(find(ishandle(h))));
-            end
             setappdata(gcf,'parameters',d.params);
             SetUIParam(me,'parameters','String',{d.params.name});
+            updateParameters
             SetUIParam(me,'status','String',sprintf('Loaded %d parameters from %s',...
                 length(d.params),fn));
         else
@@ -584,9 +611,9 @@ function [] = createparameter(window)
 % app data field.
 dt      = diff(window);
 params  = getappdata(gcbf,'parameters');
-p       = struct('window',window,'name','New Parameter','action','none',...
-                 'binning',1,'channel',GetUIParam(me,'channels','Value'),...
-                 'marks',[dt * 0.3, dt * 0.7]);
+p       = struct('marks',window,'name','New Parameter','action','none',...
+                 'binning',1,'channel',GetUIParam(me,'channels','Value'));%,...
+%                 'marks',[dt * 0.3, dt * 0.7]);
 if isempty(params)
     params = p;
 else
@@ -750,11 +777,14 @@ if ~isempty(p)
     % clear marks, draw marks
     mh  = getappdata(gcbf,'param_handles');
     delete(mh(ishandle(mh)));
-    mh = vline(p(v).window,{'k','k:'});
+    mh = vline(p(v).marks,{'k','k:'});
+    set(mh,'tag','mark','handlevisibility','callback');
     setappdata(gcbf,'param_handles',mh);
     % calculate things
     plotParameter(p(v));
 else
+    mh  = getappdata(me,'param_handles');
+    delete(mh(ishandle(mh)));
     SetUIParam(me,'parametername','Enable','Off');
     SetUIParam(me,'parameteraction','Enable','Off');
 end
@@ -764,18 +794,6 @@ function [] = plotParameter(param)
 ds  = getSelected;
 if ~isempty(ds)
 end 
-
-function d = windowR0(window,r0)
-% snips out the relevant bit of the r0 for each parameter
-% what is returned is a 2D or 3D array containing the data points (time, sweep, channel)
-% corresponding to the selected items in the main window
-for j = 1:length(r0)
-    r  = r0(j);
-    t  = r.time >= window(1) & r.time <= window(2);   % logical array
-    i  = find(t);                                           % indices
-    r0(j).time = double(r.time(i));
-    r0(j).data = double(r.data(i,:,:));
-end
 
 function out = me()
 out = mfilename;
@@ -790,3 +808,4 @@ for i = 1:length(fns)
     sf = sprintf('out.%s = @%s;',fns{i},fns{i});
     eval(sf);
 end
+
