@@ -8,6 +8,11 @@ function out = ComputeFilter(lag)
 % 1.5: Complete rework
 % $Id$
 
+%%%%%%%%%%%
+% Options
+LP_RESPONSE = 1;  % lowpass filter data
+HP_RESPONSE = 0;  % highpass filter response
+
 error(nargchk(1,1,nargin))
 
 % load response data
@@ -49,19 +54,35 @@ r = resp(1:fix(0.05*Fs_resp));
 var = abs((r - mean(r))/std(r));
 [m i] = max(var);
 resp = resp(i(1):end);
+if LP_RESPONSE
+    % a 1 kHz filter designed with SPTool
+    % designed for Fs of 10khz
+    fprintf('Lowpass filtering response...\n');
+    num = [0.0198 0.0595 0.0595 0.0198];
+    den = [1 -1.7153 1.1387 -0.2647];
+    resp = filtfilt(num,den,resp);
+end
 resp = bindata(resp,fix(Fs_resp/Fs_stim));
 % Response conditioning: the basal leak current can shift significantly during
 % an experiment.  A 0.1 Hz stop-band butterworth filter eliminates this
 % quite nicely (designed elsewhere)
-num = [0.9412 -0.9412];
-den = [1 -0.8823];
-resp = filtfilt(num,den,resp);
+if HP_RESPONSE
+    fprintf('Highpass filtering response ...\n');
+    num = [0.9412 -0.9412];
+    den = [1 -0.8823];
+    resp = filtfilt(num,den,resp);
+else
+    resp = resp - mean(resp);
+end
 
 % compute the filter and return the values.  No correction should be necessary
 % as the input will have no auto-correlation.
-options.correct = 'no';
-frames = ceil(lag*Fs_stim/1000);
-h1_est = danlab_revcor(stim(1:length(resp)),resp,frames,Fs_stim,options);
-out.filt = h1_est;
+[h1_est, h2_est, h2_sig] = revcor12(stim(1:length(resp)),resp,lag,Fs_stim);
+% options.correct = 'no';
+% frames = ceil(lag*Fs_stim/1000);
+% h1_est = danlab_revcor(stim(1:length(resp)),resp,frames,Fs_stim,options);
+out.k1 = h1_est;
+out.k2 = h2_est;
+out.k2_eigen = h2_sig;
 out.resp = resp;
 out.stim = stim(1:length(resp));
