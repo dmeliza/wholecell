@@ -1,31 +1,27 @@
 function varargout = ProtocolControl(varargin)
-% ProtocolControl is the GUI module used to load and execute protocols (which
-% are just mfiles)
+% ProtocolControl is the GUI module used to load and execute protocols.  It is
+% one of the top-level modules which should always be loaded.  The user can select
+% a protocol, choose a data directory and prefix, and then execute actions on the
+% protocol in a convenient way.  The Init button calls the 'init' action, the Play
+% button calls the 'start' action, Record 'record', Stop 'stop' and so on.  The Seal
+% Test button directly starts the Seal Test module, which is used often enough to justify
+% its own button.
 %
-% Usage: ProtocolControl(action) ['init' is the only "public" action"
+% Usage: ProtocolControl(action) 'init' is the only "public" action
 %
 % 1.3: ProtocolControl.fig is eliminated and the layout significantly changed
 %
 % $Id$
-
 global wc
 
+error(nargchk(1,Inf,nargin));
+action  = lower(varargin{1});
 
-if nargin > 0
-	action = lower(varargin{1});
-else
-	action = 'init';
-end
-
-switch action
-    
-case 'init'
-    
+if strcmp(action,'init')
     fig = createFigure;
-    
-otherwise
-    func = GetUIParam(me,'protocol','String');
-    funcpath = GetUIParam(me,'protocol','ToolTipString');
+else
+    func        = GetUIParam(me,'protocol','String');
+    funcpath    = GetUIParam(me,'protocol','ToolTipString');
 end
 
 switch action
@@ -71,15 +67,15 @@ function updatewc(obj, event)
 % updates the wc control structure with critical values
 % this is necessary for them to be stored in the prefs file
 global wc
-wc.control.data_dir = GetUIParam(me,'data_dir','String');
+wc.control.data_dir   = GetUIParam(me,'data_dir','String');
 wc.contro.data_prefix = GetUIParam(me,'data_prefix','String');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function pick(obj, event)
 % opens a window that allows the user to pick a file/path
 global wc
-t = get(obj,'tag');
-i = findstr(t,'_btn');
+t   = get(obj,'tag');
+i   = findstr(t,'_btn');
 if isempty(i)
     return
 end
