@@ -22,7 +22,7 @@ function [] = ProcessResponse(signals)
 error(nargchk(0,1,nargin))
 
 filters = {'highpass','bandpass','lowpass','custom','bin','framebin','threshhold',...
-           'clip','dcblock','static','null'};
+           'clip','dcblock','static','combine','null'};
 
 initFigure;
 initValues(filters);
