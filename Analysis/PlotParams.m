@@ -114,15 +114,17 @@ end
 
 function m = makemenu()
 % Generates the context menu
-colmaps   = {'gray','hot','hsv','pink','cool','bone','prism'};
+colmaps   = {'gray','jet','hot','hsv','pink','cool','bone','prism'};
 colmap_cb = @changeColormap;
 exp       = @exportSTRF;
+ref       = @reshapeParams;
 m = uicontextmenu;
 h = uimenu(m,'Label','Colormap');
 for i = 1:length(colmaps)
     l(i) = uimenu(h,'Label',colmaps{i},'Callback',colmap_cb);
 end
 set(l(1),'Checked','On');
+uimenu(m,'Label','Reshape','Callback',{ref,gca});
 uimenu(m,'Label','Export','Callback',{exp,gca});
 
 function [] = changeColormap(obj, event)
@@ -148,3 +150,27 @@ if isnumeric(fn)
 end
 save(fullfile(pn,fn),'param');
 fprintf('Params written to file %s\n', fn);
+
+function [] = reshapeParams(obj, event, handle)
+% Tries to reshape the PTRF into a three dimensional
+% response function.  This is most likely to be useful with
+% something like a hartley grating basis set where the
+% responses to wave numbers should be meaningful. It tries
+% to find the matrix which is closest to square to reshape
+% into
+c    = findobj(handle,'Type','image');
+if isempty(c)
+    errordlg('No data stored in object!');
+    error('Unable to retreive parameter response');
+end
+param = get(c,'CData');
+time  = get(c,'XData');
+[m n] = size(param);
+% this is cool:
+x = max(factor(m));           % largest integral factor
+y = m/x;                      % has to be an integer!
+strf = reshape(param,x,y,n);
+strf = permute(strf,[2 1 3]);   % this is a hack for use with the parameters for hartley bs
+map = colormap;
+PlotSTRF(struct('data',strf,'frate',1/mean(diff(time))));
+colormap(map);
