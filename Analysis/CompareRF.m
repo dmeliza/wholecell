@@ -1,4 +1,4 @@
-function d = compareRF(rf1, rf2, bar, window, pos, mode)
+function [d, a, b, T] = compareRF(rf1, rf2, bar, window, pos, mode)
 %
 % D = COMPARERF(rf1, rf2, bar, window, [pos, mode])
 %
