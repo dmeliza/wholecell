@@ -11,16 +11,21 @@ function varargout = RevCorr_2D(varargin)
 % Q: how to ensure synchronization?  The LCD panel has a vsync line which
 % can be run into a channel on the DAQ.  However, this is the internal refresh
 % of the display, and not the time at which the frame changes.  cgflip returns
-% a timestamp which may be of use.
+% a timestamp which may be of use.  In addition, because the DAQ timer is used
+% to switch sprites and flip the frames, we may be good enough using the DAQ
+% engine's timestamps for these timer events.
+%
+% Alternatively, a loop could be used to play each frame, using pause() to
+% separate them from one another temporally.  However, pause appears to be
+% blocking, which isn't good for performance.
 %
 % Another concern is the maximum framerate, which is limited by the refresh rate
 % of the display system.  85 Hz = ~12 ms.  NTSC is 60 Hz, but this is interlaced,
 % so the true frame rate is more like ~33 ms.  Interlacing creates additional
 % problems because there is a 16 ms transition between fully formed frames.
 %
-% The raw voltage trace isn't displayed because the program will be constantly
-% looping in order to play the movie, and any callbacks will probably mean dropped
-% frames.
+% The raw voltage trace isn't displayed so that we avoid dropping frames as much as
+% possible.  Buy an oscillscope.
 % 
 % void RevCorr_2D(action)
 %
@@ -114,7 +119,7 @@ global wc;
     p.y_res = cell2struct({'Y Pixels','value',4},f_s,2);
     p.x_res = cell2struct({'X Pixels','value',4},f_s,2);
     
-    p.a_int = cell2struct({'Sequence Length','value',30,'s'},f,2);
+    p.a_frames = cell2struct({'Stimulus Frames','value',1000,'s'},f,2);
     p.stim = cell2struct({'Stim File','file_in',''},f_s,2);
     p.display = cell2struct({'Display', 'value', 2},f_s,2);
     p.input.description = 'Amplifier Channel';
@@ -129,92 +134,92 @@ global wc;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function setupHardware()
 % Sets up the hardware for this mode of acquisition
+% The timer is used to tell the software when to flip to the next frame
 global wc
 analyze = @analyze;
+flip = @nextFrame;
 sr = get(wc.ai, 'SampleRate');
-a_int = sr * GetParam(me,'a_int','value');
+t_res = GetParam(me,'t_res','value');
+a_int = sr/1000 * t_res * GetParam(me,'a_frames','value');
 set(wc.ai,'SamplesPerTrigger', a_int);
 set(wc.ai,'SamplesAcquiredActionCount', a_int);
 set(wc.ai,'SamplesAcquiredAction',{me,analyze});
 set(wc.ai,'DataMissedAction',{me,'showerr'});
 set(wc.ai,'TriggerType','Manual');
 set(wc.ai,'ManualTriggerHwOn','Trigger');
+set(wc.ai,'TimerPeriod', t_res / 1000);
+set(wc.ai,'TimerAction',{me,flip})
 
-% t_res = GetParam(me,'t_res','value');
-% sr = 1000 / t_res ;
-
+% this would be better served by a custom field in the param
+% window that sets up the display window whenever the user changes
+% the value.  This would allow the sprites to remain in video memory
+% and speed up loading prior to protocol initiation.
 disp = GetParam(me,'display','value');
 cgopen(1,8,0,disp);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%55555
 function startSweep()
-% Begins a sweep
-global wc;
+% Begins a sweep.  Persistant data stored in two global variables
+global wc timing frame gprimd;
 stop([wc.ai wc.ao]);
 flushdata(wc.ai);
 fn = get(wc.ai,'LogFileName');
 set(wc.ai,'LogFileName',NextDataFile(fn));    
 SetUIParam('scope','status','String',get(wc.ai,'logfilename'));
-% start([wc.ai]);
-% trigger([wc.ai]);
-runStimulus;
+queueStimulus;  % move this elsewhere to save time
+% reset timing data and clear screen
+a_frames = GetParam(me,'a_frames','value');
+timing = zeros(a_frames,2);
+frame = 1;
+cgflip(0);
+gprimd = cggetdata('gpd');
+% bombs away
+start([wc.ai]);
+trigger([wc.ai]);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
-function runStimulus()
-% Presents stimulus to the animal through the graphics toolkit.
-% The stimulus file is always the same, so what we need to store is
-% some kind of timing data so that we can figure out what was displayed when.
-% Currently we play data as fast as possible (ignoring t_res param). At least
-% two strategies to reduce frame rate: (1) insert pause into loop,
-% (2) use the DAQ's timer to cause flips.
-global wc
-t_res = GetParam(me,'t_res','value'); % ignored for the moment
+function queueStimulus()
+% Loads a "movie" in the form of sprites.  Once the sprites are loaded into
+% video memory they can be rapidly accessed.
+% load parameters:
 x_res = GetParam(me,'x_res','value');
 y_res = GetParam(me,'y_res','value');
-a_int = GetParam(me,'a_int','value');
+a_frames = GetParam(me,'a_frames','value');
 mseqfile = GetParam(me,'stim','value');
-d = load(mseqfile);
-if (isfield(d,'msequence'))
-    mseq = d.msequence(1:1000,:);
-else
-    error('Stimulus file does not contain msequence data');
-end
-
-update = a_int * 1000 / t_res; % ignored for the moment
-colmap = gray(2); % 1 bit stimulus
+stim = getStimulus(mseqfile);
+% setup colormap:
+colmap = gray(2);
 cgcoltab(0,colmap);
 cgnewpal;
-gpd = cggetdata('gpd');
-x_lim = gpd.PixWidth;
-y_lim = gpd.PixHeight;
-S = zeros(length(mseq)+1,1);
-S(1) = now;
-for i = 1:length(mseq)
-    % load data into video memory.  Alternatively, we could try to load all
-    % the sprites: it looks like we have room for 10000 sprites, which at
-    % our frame rate is something like 500 s of stimulus.
-    cgloadarray(1,x_res,y_res,mseq(i,:),colmap,0);
-    cgdrawsprite(1,0,0,x_lim,y_lim);
-    S(i+1) = cgflip;
+% load sprites:
+pix = x_res * y_res;
+h = waitbar(0,['Loading movie (0/' num2str(a_frames) ' frames)']);
+for i = 1:a_frames
+    o = (i - 1) * pix + 1;
+    cgloadarray(i,x_res,y_res,stim(o:o+pix-1),colmap,0);
+    waitbar(i/a_frames,h,['Loading movie (' num2str(i) '/' num2str(a_frames) ' frames)']);
 end
-keyboard;
+close(h);
 
-function wn = mseq(mseqfile, samples)
-% loads mseq data from a file
-s_max = GetParam(me,'s_max','value');
-s_min = GetParam(me,'s_min','value');
-d = load(mseqfile);
-if isfield(d,'msequence')
-    [m n] = size(d.msequence); 
-    wn = d.msequence(1:samples,1);
-    % adjust data to proper LED stimulus
-    wn(find(wn>0)) = s_max;
-    wn(find(wn<=0)) = s_min;
-else
-   errordlg('Invalid input file');
-   error([mseqfile ' is not a valid input file']);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function nextFrame(obj, event)
+% for speed, global variables contain critical parameters
+global timing frame gprimd;
+if frame < gprimd.NextRASKey
+    cgdrawsprite(frame,0,0, gprimd.PixWidth, gprimd.PixHeight);
+    timing(frame,:) = [now,cgflip];
+    frame = frame + 1;
 end
-    
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
+function stim = getStimulus(filename)
+% loads a mat file and returns the first (numeric) variable in the file
+d = load(filename);
+n = fieldnames(d);
+if length(n) < 1
+    error('No data in stimulus file');
+end
+stim = getfield(d,n{1});
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function writeStimulus(filename, stimulus, stimrate, analysis_interval)
@@ -228,6 +233,8 @@ function analyze(obj, event)
 % this method analyzes the data, using getdata to clear the latest
 % data from the buffer
 global wc
+stop(wc.ai);
+keyboard;
 window = [-1000 200];
 [data, time, abstime] = getdata(obj);
 index = wc.control.amplifier.Index;
@@ -254,8 +261,6 @@ set(f,'UserData',d);
 Spool('stim','delete');
 
 startSweep;
-
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%5
 function showerr(obj, event)
