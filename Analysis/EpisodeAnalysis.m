@@ -541,7 +541,7 @@ case 'm_combine'
             else
                 r0  = combineDataSets(ds);
                 storeData(r0, a{1});
-                SetUIParam(me,'status','String','Traces combined.')
+                SetUIParam(me,'status','String','Traces combined.');
             end
         end
     end
@@ -631,6 +631,8 @@ cnum = size(r0.data,3);
 if isfield(r0,'channels') & ~isempty(r0.channels)
     if isnumeric(r0.channels)
         c = {r0.info.channels(r0.channels).ChannelName};
+    elseif iscell(r0.channels)
+        c = r0.channels;
     else
         c = {r0.channels.ChannelName};
     end
@@ -660,12 +662,13 @@ time    = {ds.time};
 abstime = {ds.abstime};
 nt      = sum(cellfun('length',abstime));   % # of traces
 [ns,ms] = max(cellfun('length',time));      % # of samples
-nc      = max(cellfun('size',data,3));      % # of channels
+[nc,mc] = max(cellfun('size',data,3));      % # of channels
+cnames  = ds(mc).channels(ds(mc).chan);
 t       = time{ms};
 Fs      = 1 / mean(diff(double(t)));
 r0      = struct('data',zeros([ns nt nc]),'time',t,'abstime',zeros([1 nt]),...
     't_rate',Fs,'y_unit',ds(fir).units,'start_time',ds(fir).start,...
-    'info',[],'channels',[]);
+    'info',[],'channels',{cnames});
 % this loop is probably unneccessary but I want to keep sweeps with duplicate
 % abstimes
 o       = 0;
