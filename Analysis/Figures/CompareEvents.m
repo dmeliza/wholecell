@@ -7,12 +7,14 @@ function [d, t] = CompareEvents(pre, post, time, binsize)
 SZ   =  [3.4    5.6];
 SZ1  = [3.4    2];
 SZ2  = [3.4    2.6];
+PP   = 1;                % plot both pre and post?
 BS   = 61;               % binrate
 THRESH  = 2;          % z-score
-WIN = 1000:8000;        % samples
+WIN     = 1000:8000;        % samples to analyze
+%DWIN    = -100:200;         % time to display
 SCATTER = 1;
 NORM    = 0;
-xlim    = [-100 600];
+xlim    = [-50 300];
 N   = 4;
 mode = 'amppsth';     % psth, amppsth, meanevent
 
@@ -21,8 +23,8 @@ if nargin > 3
     BS  = binsize;
 end
 
-A   = load('-mat',pre);
-B   = load('-mat',post);
+A   = loadFile(pre);
+B   = loadFile(post);
 
 a   = double(A.r0.data(WIN,:));
 b   = double(B.r0.data(WIN,:));
@@ -66,18 +68,24 @@ end
 t   = at;
 
 if nargout > 1
-    return
+    %return
 end
 
 f   = figure;
 set(f,'color',[1 1 1],'name',pre)
 ResizeFigure(f,SZ)
 movegui('center')
+if nargin > 2
+    ind     = find(time >= at);
+    time    = at(ind(end)) - (at(2)-at(1))/2;
+else
+    time    = [];
+end
 
 subplot(4,1,1)
 p       = imagesc(at,1:size(AR,2),AR');
-set(gca,'XTickLabel',[],'Box','On');
-xlim    = get(gca,'XLim');
+set(gca,'XTickLabel',[],'Box','On','Xlim',xlim);
+%xlim    = get(gca,'XLim');
 if nargin > 2
     vline(time,'k:')
 end
@@ -87,7 +95,7 @@ ylabel('Trial #')
 if PP
     subplot(4,1,2)
     p       = imagesc(bt,1:size(BR,2),BR');
-    set(gca,'XTickLabel',[],'Box','On');
+    set(gca,'XTickLabel',[],'Box','On','XLim',xlim);
     if nargin > 2
         vline(time,'k:')
     end
@@ -104,7 +112,7 @@ if nargin > 2
     vline(time,'k:')
 end
 set(gca,'XTickLabel',[],'Box','On','XLim',xlim)
-ylabel('Mean Event Size (pA)')
+ylabel('wPSTH (pA)')
 
 subplot(4,1,4)
 h   = plot(at,d,'k');
@@ -114,4 +122,15 @@ end
 set(gca,'Box','On','Xlim',xlim)
 set(h,'Linewidth',2)
 xlabel('Time (ms)')
-ylabel('Pre - Post (pA)')
+ylabel('Post - Pre (pA)')
+
+
+function D  = loadFile(filename)
+[pn fn ext] = fileparts(filename);
+seqfile     = fullfile(pn,[fn '.txt']);
+D           = load('-mat',filename);
+if exist(seqfile)
+    S       = load('-ascii',seqfile);
+    fprintf('Applied sequence file to %s...\n',filename);
+    D.r0.data   = D.r0.data(:,S,:);
+end
