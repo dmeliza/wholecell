@@ -1,0 +1,10 @@
+
+To do:
+
+alignepisodes function
+color traces in gui
+delete traces
+save subset of traces
+
+fix color by clicking
+unify select and zoom mode
