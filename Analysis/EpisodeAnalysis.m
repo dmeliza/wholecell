@@ -251,6 +251,25 @@ case 'align_episodes_callback'
     updateDisplay;
     wait('Episodes realigned.');
     
+case 'rescale_traces_callback'
+    d = GetUIParam(me,'filename','UserData');
+    if ~isempty(d)
+        y_unit = d.info.y_unit;
+        a = inputdlg({'Data scaling factor:','Units:'},'Data Rescaling',...
+            1,{'1', y_unit});
+        if length(a) == 2
+            s = str2num(a{1});
+            if isnumeric(s)
+                d.data = d.data * s;
+            end
+            if ~isempty(a{2})
+                d.info.y_unit = a{2};
+            end
+            SetUIParam(me,'filename','UserData',d);
+            updateDisplay;
+        end
+    end
+    
 case 'display_stats_callback'
     disp = GetUIParam(me,'display_stats','Value');
     if boolean(disp)
