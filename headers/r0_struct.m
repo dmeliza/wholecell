@@ -22,4 +22,4 @@ function [s, fields] = r0_struct()
 
 fields = {'data','time','abstime','t_rate','y_unit'};
 C      = {[],[],[],[],''};
-s      = cell2struct(C, fields, 1);
+s      = cell2struct(C, fields, 2);
