@@ -26,10 +26,14 @@ end
 cgcoltab(1,movie.colmap);
 cgnewpal;
 if strcmpi(movie.type,'s1')
-    % for s1 structs, just check to make sure we can load the frames
+    % for s1 structs, just check to make sure we can load the frames and pop up
+    % a nice informational window
     if ~exist(movie.mfile)
         errordlg('Could not find the frame-generating function','Load Movie Failed')
         error('Could not find the frame-generating function')
+    else
+        len = size(movie.param,1);
+        msgbox(sprintf('Loaded %d frame movie',len),'Movie Loaded');
     end
 else
     % for s0 structures, the frames have to be pre-loaded
