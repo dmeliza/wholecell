@@ -34,12 +34,18 @@ x_spike = [Z.induced];
 
 warning off MATLAB:divideByZero
 for i = 1:cells
+    t_adjust    = datenum(Z(i).pst(x_spike(i)).start) - datenum(Z(i).pre(x_spike(i)).start);
+    PRE{i}  = Z(i).pre(x_spike(i)).ampl;
+    PRE_T{i}= Z(i).pre(x_spike(i)).time- t_adjust*1440;
+    PST{i}  = Z(i).pst(x_spike(i)).ampl;
+    PST_T{i}= Z(i).pst(x_spike(i)).time;
     for j = 1:length(Z(i).(FIRST))
         mn(j)   = mean(Z(i).(FIRST)(j).ampl);
     end
     [m,x_center(i)] = max(mn);
     t_onset(i)      = Z(i).(FIRST)(x_center(i)).t_onset;
     t_peak(i)       = Z(i).(FIRST)(x_spike(i)).t_peak;
+    t_peak_post(i)  = Z(i).pst(x_spike(i)).t_peak;
     mn_pre(i)       = mn(x_spike(i));
 end
 warning on MATLAB:divideByZero
@@ -51,28 +57,39 @@ ind_ltd  = t_spike < t_peak & ind_clean;
 ind_center = x_center == x_spike & ind_clean;
 ind_surround = abs(x_center - x_spike) == 1 & ind_clean;
 
+% stuck in here because it's not worth writing a whole new script
+delta    = (t_spike - t_peak)'*1000;
+latency_shift = (t_peak_post - t_peak)'*1000;
+mn_shift = mean(latency_shift(delta>0));
+se_shift = std(latency_shift(delta>0)) ./ sqrt(sum(delta>0));
+
 [rf_pre,rf_pst,t,INDEX]  = combine(Z(ind_clean), t_onset(ind_clean),...
                                    x_center(ind_clean), WINDOW, NORM);
 rf_pre       = collapse(rf_pre,2);
 rf_pst       = collapse(rf_pst,2);
 
-% figure
-% ResizeFigure(gcf,[2.66, 1.41]);
-% plot(t,rf_pre);
-% legend({'peak','1','2','3'});
-% legend boxoff
-% addscalebar(gca,{'ms',''},[50 0]);
+figure
+ResizeFigure(gcf,[2.66, 1.41]);
+plot(t,rf_pre);
+axis tight
+legend({'peak','1','2','3'});
+legend boxoff
+addscalebar(gca,{'ms',''},[50 0]);
 
 figure
 subplot(3,3,1)
-ind     = ind_surround;
-compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
-title('LTP/LTD');
-ylabel('Condition Surround');
+
+title('Grand Mean RF (pre)');
+
+% ind     = ind_surround;
+% compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
+% title('LTP/LTD');
+
 
 subplot(3,3,2)
 ind     = ind_surround & ind_ltp;
 compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
+ylabel('Condition Surround');
 title('LTP');
 
 subplot(3,3,3)
@@ -80,31 +97,32 @@ ind     = ind_surround & ind_ltd;
 compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
 title('LTD');
 
-subplot(3,3,4)
-ind     = ind_center;
-compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
-ylabel('Condition Center');
+% subplot(3,3,4)
+% ind     = ind_center;
+% compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
+
 
 subplot(3,3,5)
 ind     = ind_center & ind_ltp;
 compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
+ylabel('Condition Center');
 
 subplot(3,3,6)
 ind     = ind_center & ind_ltd;
 compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
 
-subplot(3,3,7)
-compare(Z,t_onset, x_center, WINDOW, 1:length(x_center), NBOOT);
-ylabel('All locations');
-
-subplot(3,3,8)
-ind     = ind_ltp;
-compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
-xlabel('Time From Spike (ms)')
-
-subplot(3,3,9)
-ind     = ind_ltd;
-compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
+% subplot(3,3,7)
+% compare(Z,t_onset, x_center, WINDOW, 1:length(x_center), NBOOT);
+% ylabel('All locations');
+% 
+% subplot(3,3,8)
+% ind     = ind_ltp;
+% compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
+% xlabel('Time From Spike (ms)')
+% 
+% subplot(3,3,9)
+% ind     = ind_ltd;
+% compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
     
 
 function [mu] = compare(Z, t_onset, x_center, WINDOW, index, NBOOT)
@@ -112,9 +130,11 @@ function [mu] = compare(Z, t_onset, x_center, WINDOW, index, NBOOT)
 if NBOOT == 1
     pre       = collapse(pre,2);
     pst       = collapse(pst,2);
-    %mu        = getdelta(pre, pst, t);
+    mu        = getdelta(pre, pst, t);
+    bar(0:3,mu);
     %plot(0:3,mu);
-    plot(t,(pre-pst));
+%     d         = pre - pst;
+%     plot(t,d(:,1:4));
 else
     nexp    = length(find(index));
     for i=1:NBOOT
@@ -139,7 +159,8 @@ ind     = t >= PLAST_WINDOW(1) & t <= PLAST_WINDOW(2);
 mu      = mean(delta(ind,:),1);
 
 function [PRE_RF,PST_RF,t,INDEX] = combine(Z, t_onset, x_center, WINDOW, NORM)
-% sorts the columns of each experiment into bins for distance from x_center
+% sorts the columns of each experiment into bins for the (absolute) distance 
+% from x_center.
 if nargin < 5
     NORM     = 0;
 end
@@ -174,10 +195,9 @@ for i = 1:cells
         PST_RF{J}   = cat(2,PST_RF{J},pst);
     end
 end
-% compute the grand mean RF
 t   = time;
 
-function [mu] = collapse(RF, dim, collapser, INDEX)
+function [mu, sigma, n] = collapse(RF, dim, collapser, INDEX)
 % collapses a cell array into a matrix along a given direction
 % if INDEX and collapser are specified, then we pick out the entries
 % corresponding to the indices in collapser.
@@ -196,6 +216,6 @@ for i = 1:length(RF)
     else
         mu(:,i)      = mean(data,dim);
     end
-%    n(:,i)       = size(data,dim);
-%    sigma(:,i)   = std(data,[],dim);% ./ sqrt(size(RF{i},2));
+    n(:,i)       = size(data,dim);
+    sigma(:,i)   = std(data,[],dim);% ./ sqrt(size(RF{i},2));
 end
