@@ -62,7 +62,7 @@ for i = 1:length(data)
     fprintf('Conditioning response... ');
     Fs = data(i).info.t_rate;
     w = w * Fs / 1000;
-    R = FrameShift(resp,timing,w);
+    R = FrameShift(resp,timing,w,'correct');
     clear('resp','timing');
     
     % parameterize response
