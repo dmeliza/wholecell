@@ -15,7 +15,7 @@ initValues;
 
 function initValues()
 % sets initial values
-methods = {'Sparse','PCA'};
+methods = {'Xcorr','Sparse','PCA'};
 SetUIParam(me,'directory','String',pwd);
 updateLists;
 SetUIParam(me,'stimulusstatus','String','No stimulus loaded.');
@@ -213,7 +213,7 @@ for  i = 1:n
         str     = sprintf('%s%s: invalid file\n', str, [fn ext]);
     end
     % not enough room for more than 5 lines, no sense in running the loop any more
-    if i > 5, break, end
+    if i >= 5, break, end
 end
 SetUIParam(me,'responsestatus','String',str);
 
@@ -248,8 +248,8 @@ if isempty(stim)
     setstatus('Analysis failed: No stimulus selected');
 elseif isempty(resp)
     setstatus('Analysis failed: No response selected');
-elseif ~exist(m)
-    setstatus('Analysis failed: Could not find mfile');
+% elseif ~exist(m)
+%     setstatus('Analysis failed: Could not find mfile');
 else
     switch lower(m)
     case 'sparse'
@@ -258,12 +258,21 @@ else
         else
             SparseAnalysis(stim,resp, fix(lags * frate), fix(bin * frate));
         end
-    case 'pca_2d'
-            results = PCA_2D(stim, resp, win, bin, lags);
+    case 'pca'
+        stim = stimuluswindow(stim,win);
+        PCA_2D(stim, resp, lags);
+    case 'xcorr'
+        stim = stimuluswindow(stim,win);
+        PCA_2D(stim, resp, lags,'xcorr');
     otherwise
         setstatus('Analysis failed: adaptor has not been written for this analysis method.');
     end
 end
+
+function s = stimuluswindow(s,window)
+s.stimulus = s.stimulus(window(2,1):window(2,2),window(1,1):window(1,2),:);
+% s.x_res    = diff(window(1,:));
+% s.y_res    = diff(window(2,:));
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Internal functions
@@ -311,12 +320,15 @@ for i = 1:length(fns)
 end
 
 function [] = plotStimulus(stim)
-    cb = @pickregion;
-    a = GetUIHandle(me,'stimulusaxes');
+    cb      = @pickregion;
+    a       = GetUIHandle(me,'stimulusaxes');
     set(a,'xlimmode','auto','ylimmode','auto');
-    [X Y] = size(stim.stimulus(:,:,1));
-    h = image(stim.stimulus(:,:,1),'parent',a);
+    %S       = stim.stimulus(:,:,1);
+    S       = permute(stim.stimulus(:,:,1),[2 1]);  % rotate by 90 for proper display
+    [X Y]   = size(S);
+    h = image(S,'parent',a);
     set(a,'xlim',[0 X+1],'ylim',[0 Y+1]);
+    axis(a,'ij')
     set(h,'buttondownfcn',cb);
     drawLines(h);
     a = GetUIHandle(me,'clut');
@@ -343,8 +355,8 @@ else
     fin   = bounds(3:4);                % relative location of the lower right corner
     x(1)  = round(start(1) * U(2) / pos(3)) + U(1);
     x(2)  = round((start(1) + fin(1)) * U(2) / pos(3));
-    y(1)  = round(start(2) * V(2) / pos(4)) + V(1);
-    y(2)  = round((start(2) + fin(2)) * V(2) / pos(4));
+    y(2)  = Y(2) - round(start(2) * V(2) / pos(4)) + V(1) + 1;
+    y(1)  = Y(2) - round((start(2) + fin(2)) * V(2) / pos(4)) + 1;
     if x(1) < X(1)
         x(1) = X(1)
     end
@@ -357,10 +369,7 @@ else
     if y(2) > Y(2)
         y(2) = Y(2);
     end
-    
 
-%     x     = x - [0.5 0];
-%     y     = y - [0.5 0];
 end
 % clear existing lines
 h   = findobj(a,'type','line');
@@ -371,7 +380,6 @@ line(x, [y(1) y(1)], 'parent',a);
 line(x, [y(2) y(2)], 'parent',a);
 str = sprintf('[%d %d; %d %d]',x(1), x(2), y(1), y(2));
 SetUIParam(me,'analysiswindow','String',str);
-
 
 function out = me()
 out = mfilename;
