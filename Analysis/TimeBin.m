@@ -5,7 +5,9 @@ function [time,data] = TimeBin(time, data, bins, option)
 % [TIME,DATA] = TIMEBIN(time, data, binwidth) uses a fixed binwidth
 % (units are those of the time vector).  Bins with more than one
 % data point are represented by the mean, while bins with no data
-% points are dropped from the output vector
+% points are dropped from the output vector.  Note that the bins generated
+% begin on the first integer multiple of the binsize (which comes in useful
+% when comparing multiple datasets as this synchronizes the data)
 %
 % [TIME,DATA] = TIMEBIN(time, data, bins), where BINS is a vector of
 % length greater than 1, rebins the data into the vector.  Invalid and
@@ -21,7 +23,9 @@ error(nargchk(3,4,nargin))
 
 nbin    = length(bins);
 if nbin == 1
-    XI  = min(time):bins:max(time);
+    mn  = min(time);
+    mn  = mn - mod(mn,bins);
+    XI  = mn:bins:max(time);
 else
     XI  = bins(bins<=max(time));
 end
@@ -41,6 +45,6 @@ elseif strcmpi(option,'interp')
 end
 % clean up output
 ind     = ~isnan(YI);
-time    = XI(ind);
-data    = YI(ind);
+time    = XI(ind)';
+data    = YI(ind)';
     
