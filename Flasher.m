@@ -62,7 +62,6 @@ case {'init','reinit'}
     if isempty(fig)                                   % open
         fig = ParamFigure(me, p);
     end
-    getScope;
     
 case 'start'
     setupHardware;
@@ -160,6 +159,8 @@ set(wc.ai,'LogFileName',NextDataFile(fn));
 SetUIParam('protocolcontrol','status','String',get(wc.ai,'logfilename'));
 % Load visual data
 [seq, fnum] = setupVisual;
+% Store fnum in wc.ai's UserData so it can be extracted from the file later. Brilliant, huh?
+set(wc.ai, 'UserData', fnum);
 queueStimulus(fnum);
 start([wc.ai wc.ao]);
 playFrames(seq);
@@ -264,6 +265,13 @@ if ~isnumeric(fn2)
     set(h,'string',fn2,'tooltipstring',v)
     s       = SetParam(mod, param, v);
 end
+% make sure the analysis figure has the right number of subplots
+[s st]   = LoadStimulusFile(stimfile);
+if isempty(s)
+    error(st)
+else
+    f   = getScope('init', size(s.stimulus,3) - 1);   % number of subplots
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function clearDAQ()
@@ -287,7 +295,8 @@ function analyze(obj, event)
 % plots and analyzes the data
 stop(obj)
 [data, time, abstime] = getdata(obj);
-plotData(data, time, abstime);
+fnum                  = get(obj,'UserData');
+plotData(data, time, abstime, fnum);
 t                     = GetParam(me,'iti','value');
 pause(t/1000);
 a                     = get(obj,'SamplesAcquiredAction');
@@ -297,12 +306,12 @@ else
     ClearAI(obj);
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function plotData(data, time, abstime)
+function plotData(data, time, abstime, fnum)
 % plots the data
 
 index       = GetParam(me,'input','value');
 data        = data(:,index);
-axes(getScope)
+axes(getScope('get',fnum))
 % plot the data and average response
 a               = get(gca, 'UserData'); % avgdata is now a cell array
 if isempty(a)
@@ -311,22 +320,40 @@ if isempty(a)
 else
     avgdata     = a{2};
     numtraces   = a{1} + 1;
-    avgdata     = avgdata + (data - avgdata) / (numtraces);
+    if length(avgdata) == length(data)
+        avgdata     = avgdata + (data - avgdata) / (numtraces);
+    else
+        avgdata     = data;
+        numtraces   = 1;
+    end
 end
 plot(time * 1000, [data avgdata])
 a               = {numtraces, avgdata};
 set(gca,'UserData', a);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function a = getScope()
-% retrieves the handle for the scope axes
-f       = findfig([me '.scope']);
-set(f,'position',[288 314 738 508],'name','scope','numbertitle','off');
-a       = get(f,'Children');
-if isempty(a)
-    a   = axes;
-    set(a,'NextPlot','ReplaceChildren')
-    set(a,'XTickMode','Auto','XGrid','On','YGrid','On','YLim',[-5 5])
-    xlabel('Time (ms)')
-    ylabel('amplifier (V)')
+function a = getScope(action, arg)
+% the scope is a series of plots, one for each frame number
+% action can be 'init' (arg is number of parameters), or 'get' (arg is number of 
+switch lower(action)
+case 'init'
+    f       = findfig([me '.scope']);
+    set(f,'position',[288 314 738 508],'name','scope','numbertitle','off');
+    clf
+    for i = 1:arg
+        a = subplot(arg,1,i);
+        set(a,'NextPlot','ReplaceChildren')
+        set(a,'XTickMode','Auto','XGrid','On','YGrid','On','YLim',[-5 5])
+        xlabel('Time (ms)')
+        ylabel('amplifier (V)')
+    end
+    a       = f;
+    set(a,'UserData',arg);
+otherwise
+    f       = findfig([me '.scope']);
+    num     = get(f,'UserData');
+    if isempty(num)
+        num = 1;
+    end
+    a       = subplot(num,1,arg);
 end
