@@ -88,6 +88,12 @@ case 'data_dir_callback'
 case 'seal_test_callback'
     SealTest('init');
     
+case 'start_scope_callback'
+    GapFree('start');
+    
+case 'stop_callback'
+    GapFree('stop'); % this will need to change when running protocols
+    
 case 'wcdump_callback';
     keyboard;
     
