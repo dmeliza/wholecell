@@ -28,6 +28,6 @@ else
 end
 
 if nargin > 2
-    out = out.value;
+    out = GetPValue(out);
 end
     
