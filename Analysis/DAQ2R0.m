@@ -58,6 +58,7 @@ out.y_unit      = units;  %  this breaks the r0 spec if multiple channels are se
 out.t_rate      = info(1).t_rate;
 out.data        = out.data(:,ind,:);
 out.info        = info(1);
+out.channels    = info(1).channels(channels);
 
 function [abstime, ind] = reltimes(abstime)
 clocks    = datenum(abstime);                   % convert clock vectors to datenums
