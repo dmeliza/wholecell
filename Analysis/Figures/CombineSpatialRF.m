@@ -77,6 +77,10 @@ LTP_cent        = cell(1,offset_offset);
 LTD_cent        = cell(1,offset_offset);
 LTP_surr        = cell(1,offset_offset * 2 - 1);
 LTD_surr        = cell(1,offset_offset * 2 - 1);
+LTP_surr_cent   = [];
+LTD_surr_cent   = [];
+LTP_surr_surr   = [];
+LTD_surr_surr   = [];
 % Cycle through the data and assign things to categories.
 for i = 1:trials
     % each RF should be normalized against the strongest response
@@ -111,14 +115,25 @@ for i = 1:trials
                 o       = offset + offset_offset;
                 if isLTP(i)
                     LTP_surr{o}    = cat(1,LTP_surr{o},change);
+                    if x2 == 0
+                        LTP_surr_cent   = cat(1,LTP_surr_cent,change);
+                    elseif x1 ~= 0
+                        LTP_surr_surr   = cat(1,LTP_surr_surr,change);
+                    end
                 else
                     LTD_surr{o}    = cat(1,LTD_surr{o},change);
+                    if x2 == 0
+                        LTD_surr_cent   = cat(1,LTD_surr_cent,change);
+                    elseif x1 ~= 0
+                        LTD_surr_surr   = cat(1,LTD_surr_surr,change);
+                    end
                 end
             end
         end
     end
     fprintf('\n')
 end
+
 % Plot 1: LTP and LTD in two graphs
 f   = figure;
 SZ  = [3.0 2.9];
@@ -126,21 +141,37 @@ ResizeFigure(f,SZ)
 
 subplot(2,3,1);hold on;
 plotCell(LTP)
+printStats(cat(1,LTP{2:end}),0,'Off-position LTP');
 
 subplot(2,3,4);hold on;
 plotCell(LTD)
+printStats(cat(1,LTD{2:end}),0,'Off-position LTD');
 
 subplot(2,3,2);hold on;
 plotCell(LTP_cent)
+printStats(cat(1,LTP_cent{2:end}),0,'Off-center LTP');
 
 subplot(2,3,5);hold on;
 plotCell(LTD_cent)
+printStats(cat(1,LTD_cent{2:end}),0,'Off-center LTD');
 
 subplot(2,3,3);hold on;
 plotCell(LTP_surr,(1:length(LTP_surr))-offset_offset)
+printStats(LTP_surr_cent,0,'Center (surround LTP)')
+printStats(LTP_surr_surr,0,'Surround (surround LTP)')
 
 subplot(2,3,6);hold on;
 plotCell(LTD_surr,(1:length(LTD_surr))-offset_offset)
+printStats(LTD_surr_cent,0,'Center (surround LTD)')
+printStats(LTD_surr_surr,0,'Surround (surround LTD)')
+
+function [] = printStats(X, m_prime, string)
+% prints out a line giving the stats of a collection of data (ttest vs
+% m_prime)
+m       = mean(X);
+se      = std(X)/sqrt(length(X));
+[h,p]   = ttest(X,m_prime);
+fprintf('%s: %1.3f +/- %1.3f, p = %1.3f\n', string, m, se, p);
 
 function [] = plotCell(y, x)
 % plots the mean and standard error of each array in a cell array along a
