@@ -44,7 +44,7 @@ out = mfilename;
 function param = initDisplay(param)
 cgloadlib;       % error checking needed here for missing toolkit
 cgshut;
-cgopen(1,8,0,0); % opens a 640x480x8 display on the second monitor by default
+cgopen(1,8,0,2); % opens a 640x480x8 display on the second monitor by default
 gpd                 = cggetdata('gpd');
 param.v_res.value   = gpd.RefRate100 / 100;
 param.d_res.value   = sprintf('%d x %d x %d', gpd.PixWidth, gpd.PixHeight, gpd.BitDepth);
@@ -57,8 +57,8 @@ function p = defaultParams;
 f_s = {'description','fieldtype','value'};
 f = {'description','fieldtype','value','units'};
 p.theta     = cell2struct({'Rotate:','value',0,'deg'},f,2);     % not trivial to implement
-p.width     = cell2struct({'Width:','value',100,'px'},f,2);
-p.height    = cell2struct({'Height:','value',100,'px'},f,2);
+p.width     = cell2struct({'Width:','value',640,'px'},f,2);
+p.height    = cell2struct({'Height:','value',480,'px'},f,2);
 p.cent_y    = cell2struct({'Y:','value',0,'px'},f,2);
 p.cent_x    = cell2struct({'X:','value',0,'px'},f,2);
 
