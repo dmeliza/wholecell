@@ -21,7 +21,9 @@ end
 
 cgloadlib
 cgopen(1,8,0,display)
-cgpencol(1,1,1)
+cgcoltab(0,[gray(2); 1 0 0])
+cgnewpal
+cgpencol(1)
 cgfont('Courier',10)
 gsd = cggetdata('gsd');
 ScrWid = gsd.ScreenWidth;
@@ -34,23 +36,25 @@ width   = 20;
 c       = 1;                              % state variable
 makesprite(length, width, angle, ScrDep); % initialize the first sprite
 step    = 2;
-dots    = [];                             % click locations
+dots    = [-ScrHgh, -ScrWid];                             % click locations
 
 while c
     % first draw the sprite
     [x,y,bs,bp]  = cgmouse;
-    if bs
+    if bs & ~ismember([x y], dots, 'rows')
         dots = cat(1,dots,[x y]);
+        fprintf('[%4d, %4d]\n',x,y);
+        pause(0.01);
     end
     drawDots(dots)
-    cgpencol(1,1,1)
+    cgpencol(1)
     drawInstructions(-ScrWid/2, ScrHgh/2 - 40);
     cgalign('c','c')
     cgdrawsprite(1,x,y)
-    str = sprintf('HandMap %s  Pos: [%d, %d]  Size: [%d, %d]  Angle: [%d]',...
+    str = sprintf('HandMap %s  Pos: [%4d, %4d]  Size: [%3d, %3d]  Angle: [%3d]',...
                   '$Revision$', x, y, length, width, angle);
     cgtext(str, 0, ScrHgh/2 -5)
-    cgflip(0,0,0)
+    cgflip(0)
     % now check the keyboard
     ks           = cgkeymap;
     if any(ks)
@@ -67,7 +71,7 @@ while c
         elseif ks(72)
             length   = hmdim(length, step);
         elseif ks(46)
-            dots     = [];
+            dots     = [-ScrHgh, -ScrWid];
         elseif ks(1)
             c        = 0;
         end
@@ -113,7 +117,7 @@ function [] = drawDots(dots)
 % draws cute little red dots at all the supplied locations (Nx2 array)
 [rows cols] = size(dots);
 if cols == 2
-    cgpencol(1,0,0)
+    cgpencol(2)
     for i = 1:rows
         cgellipse(dots(i,1),dots(i,2),5,5)
     end
@@ -126,7 +130,7 @@ Z     = MakeBar(length, width, angle);
 [r c] = size(Z);
 if all([r c])
     cmap  = gray(2);
-    cgloadarray(1,r,c,reshape(Z,1,r*c),cmap);
+    cgloadarray(1,r,c,reshape(Z,1,r*c),cmap,0);
     if bpp == 8
         cgtrncol(1,0)
     else
