@@ -137,6 +137,7 @@ function setupHardware()
 global wc
 display = @updateDisplay;
 analyze = @analyze;
+stop = @stopAO;
 sr = get(wc.ai, 'SampleRate');
 u_rate = GetParam(me,'d_rate','value');
 a_int = sr * GetParam(me,'a_int','value');
@@ -147,6 +148,7 @@ set(wc.ai,'TimerAction',{me,display})
 set(wc.ai,'SamplesAcquiredActionCount',a_int);
 set(wc.ai,'SamplesAcquiredAction',{me,analyze});
 set(wc.ai,'DataMissedAction',{me,'showerr'});
+set(wc.ao,'StopAction',{me,stop});
 set(wc.ai,'UserData',update);
 
 t_res = GetParam(me,'t_res','value');
@@ -222,7 +224,7 @@ samplerate = get(obj,'SampleRate');
 stimrate = GetParam(me,'t_res','value');
 stimstart = get(wc.ao,'InitialTriggerTime');
 c = revcorr(data(:,index)', stim, samplerate,...
-    stimrate, stimstart, abstime, window);
+    1000 / stimrate, stimstart, abstime, window);
 s = [me '.analysis'];
 f = findobj('tag', s);
 if isempty(f) | ~ishandle(f)
@@ -292,3 +294,11 @@ Scope('clear');
 function showerr(obj, event)
 keyboard;
 
+%%%%%%%%%%%%%%%%%%%%%%%%%
+function stopAO(obj, event)
+% clears the state of the analog output object
+set(obj,'StopAction',{});
+c = get(obj,'Channel');
+putdata(obj,zeros(length(c)));
+start(obj);
+trigger(obj);
