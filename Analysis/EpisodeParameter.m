@@ -63,11 +63,54 @@ s   = lower(s{v});
 switch s
 case 'none'
     % do nothing
+    res = [];
 case 'amplitude'
     % absolute value of the amplitude difference between two marks
+    % with the baseline taken to be everything prior to the first mark
     m   = getMarks(a,s);
+    t   = double(d.time);
+    x   = t(1) + m;  % real time values
+    T   = (t >= x(1)) & (t <= x(2));    % logical extractor
+    ind = find(T);
+    i   = [ind(1), ind(end)];           % endpoints of gap
+    y   = d.data(i,:,c);
+    y(1,:) = mean(d.data(1:i(1),:,c));
+    res = abs(diff(y))
+    plotResults(f,res,d.abstime);
 case 'slope'
+    % average slope of line between two marks
+    % with the baseline taken to be everything prior to the first mark
+    m   = getMarks(a,s);
+    t   = double(d.time);
+    x   = t(1) + m;  % real time values
+    T   = (t >= x(1)) & (t <= x(2));    % logical extractor
+    ind = find(T);
+    i   = [ind(1), ind(end)];           % endpoints of gap
+    y   = d.data(i,:,c);
+    y(1,:) = mean(d.data(1:i(1),:,c));
+    res = diff(y) / diff(x) * 1000;     % (units)/ms
+    plotResults(f,res,d.abstime);
 end
+
+function [] = plotResults(f, res, abstime)
+% plots the results in the timecourse and hist axes
+a    = findobj(f,'tag','timecourse');
+if ishandle(a)
+    % find binsize
+    axes(a)
+    cla
+    hold on
+    scatter(abstime,res);
+    plot(abstime, mean(res),'k:');
+end
+a   = findobj(f,'tag','histogram');
+if ishandle(a)
+    [n,x] = hist(res);
+    axes(a)
+    barh(x,n);
+    set(a,'YTick',mean(res),'Yaxislocation','right','YGrid','On');
+end   
+    
 
 function m = getMarks(ax,type)
 % returns the location of the marks on the trace, or if the marks are not to be found,
@@ -162,10 +205,11 @@ a1   = axes;
 set(a1,'units','pixels','position',[180 20 150 180],'box','on','ytick',[],'tag','trace');
 % Axes 2: Time-course
 a2   = axes;
-set(a2,'units','pixels','position',[370 40 350 150],'box','on','tag','timecourse');
+set(a2,'units','pixels','position',[370 50 370 150],'box','on','tag','timecourse');
 % Axes 3: Histogram
 a3   = axes;
-set(a3,'units','pixels','position',[750 20 180 180],'box','on','ytick',[],'tag','histogram');
+set(a3,'units','pixels','position',[760 50 140 150],'box','on','ytick',[],...
+    'xtick',[],'tag','histogram');
 set([a1 a2 a3],'nextplot','replacechildren');
 %zoom on;
 % store mark data if supplied
@@ -205,10 +249,11 @@ if ~isempty(i)
         case 'channel'
             parms(i).channel = str2num(s);
         end
-        setappdata(par,'parameters',parms);
-        t = findobj(par,'tag','parameters');
-        set(t,'String',{parms.name});
     end
+    setappdata(par,'parameters',parms);
+    t = findobj(par,'tag','parameters');
+    set(t,'String',{parms.name});
+    
     updateFigure(gcbf)
 end
 
