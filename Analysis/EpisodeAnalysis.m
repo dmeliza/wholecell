@@ -387,6 +387,7 @@ SetUIParam(me,'show_none','Value',1);
 SetUIParam(me,'invert_stats','Value',0);
 SetUIParam(me,'outlier_tolerance','String','1.5');
 SetUIParam(me,'show_marks','Value',1);
+SetUIParam(me,'select_button','Value',1);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function varargout = updateDisplay
@@ -587,13 +588,14 @@ end
 a = GetUIHandle(me,'psp_axes');
 clearAxes(a);
 ph = scatter(abstime, pspdata, S, color);
+set(a, 'ButtonDownFcn',[me '(''stats_click_callback'')']);
 ylabel('PSP Slope (mV/ms)');
 
 a = GetUIHandle(me,'resist_axes');
 clearAxes(a);
 sh = scatter(abstime, irdata, S, color);
 ih = scatter(abstime, srdata, S, color, '*');
-set([ph ih sh], 'ButtonDownFcn',[me '(''stats_click_callback'')']);
+set(a, 'ButtonDownFcn',[me '(''stats_click_callback'')']);
 xlabel('Time (min)'),ylabel('R (M\Omega)');
 showSummary(pspdata, irdata, srdata, abstime);
 wait;
@@ -604,6 +606,7 @@ for i = 1:length(axes_handle)
     a = axes_handle(i);
     axes(a);
     cla;
+    set(a, 'ButtonDownFcn',[]);
     set(a,'NextPlot','Add');
 end
 
@@ -873,7 +876,7 @@ t = sprintf('Mean: %2.4f +/- %2.2f %%', pspmean, (std(pspspline) / pspmean * 100
 y = get(a, 'YLim');
 x = get(a, 'XLim');
 x = diff(x) * 0.80 + x(1);
-text(x, diff(y) * 0.2 + y(1), t, 'Parent',a, 'Color', 'blue', 'FontWeight', 'bold');
+legend(a, t);
 
 a = GetUIHandle(me,'resist_axes');
 [srspline t] = TimeWeight(srdata, abstime, SP, 100);
@@ -882,11 +885,10 @@ plot(t, srspline, 'b', 'Parent', a, 'Linewidth', 2);
 plot(t, irspline, 'r', 'Parent', a, 'Linewidth', 2);
 srmean = mean(srdata);
 irmean = mean(irdata);
-t = sprintf('SR: %2.4f +/- %2.2f %%', srmean, (std(srspline) / srmean * 100));
+t1 = sprintf('SR: %2.4f +/- %2.2f %%', srmean, (std(srspline) / srmean * 100));
 y = get(a, 'YLim');
-text(x, diff(y) * 0.2 + y(1), t, 'Parent', a, 'Color', 'blue', 'FontWeight', 'bold');
-t = sprintf('IR: %2.4f +/- %2.2f %%', irmean, (std(irspline) / irmean * 100));
-text(x, diff(y) * 0.8 + y(1), t, 'Parent', a, 'Color', 'red', 'FontWeight', 'bold');
+t2 = sprintf('IR: %2.4f +/- %2.2f %%', irmean, (std(irspline) / irmean * 100));
+legend(a, t1, t2) 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function handle = getSelectedRadioButton()
