@@ -91,16 +91,20 @@ if nconditions == 0
     fprintf(fid,'(automatic analysis failed)\n');
 else
     % figure out length of episodes
-    pre_t   = cat(1,pre.time);
-    pst_t   = cat(1,pst.time);
-    pre_len = max(pre_t) - min(pre_t);
-    pst_len = max(pst_t) - min(pst_t);
-    if ~isempty(pre_len)
-        fprintf(fid,'(pre)  - %3.1f %s\n', pre_len, 'min');
+    if ~isempty(pre)
+        pre_t   = cat(1,pre.time);
+        pre_len = max(pre_t) - min(pre_t);
+        if ~isempty(pre_len)
+            fprintf(fid,'(pre)  - %3.1f %s\n', pre_len, 'min');
+        end
     end
-    if ~isempty(pst_len)
-        fprintf(fid,'(post) - %3.1f %s\n', pst_len, 'min');
-    end        
+    if ~isempty(pst)
+        pst_t   = cat(1,pst.time);
+        pst_len = max(pst_t) - min(pst_t);
+        if ~isempty(pst_len)
+            fprintf(fid,'(post) - %3.1f %s\n', pst_len, 'min');
+        end        
+    end
     % if at least one side succeeded:
     for i = 1:nconditions
         % this block is necessary to avoid indexing an empty variable
@@ -120,17 +124,17 @@ else
     fprintf(fid,'----\n');
     % extract ir and sr data from all trials
     if isempty(pre)
-        printresult(fid,'IR:',cat(1,pst.ir));
+        printresult(fid,'IR:',cat(1,pst.ir),'');
         fprintf(fid,'\n');
-        printresult(fid,'SR:',cat(1,pst.ir));
+        printresult(fid,'SR:',cat(1,pst.ir),'');
         fprintf(fid,'\n');
-        printresult(fid,'LK:',cat(1,pst.leak));        
+        printresult(fid,'LK:',cat(1,pst.leak),'');        
     elseif isempty(pst)
-        printresult(fid,'IR:',cat(1,pre.ir));
+        printresult(fid,'IR:',cat(1,pre.ir),'');
         fprintf(fid,'\n');
-        printresult(fid,'SR:',cat(1,pre.ir));
+        printresult(fid,'SR:',cat(1,pre.ir),'');
         fprintf(fid,'\n');
-        printresult(fid,'LK:',cat(1,pre.leak));        
+        printresult(fid,'LK:',cat(1,pre.leak),'');        
     else
         printdifference(fid,'IR:',cat(1,pre.ir),cat(1,pst.ir),'');
         fprintf(fid,'\n');
