@@ -65,7 +65,13 @@ for i = 1:length(names);
             [dat, t, at] = ReadDAQScaled(fn,output.Index, gain.Index, info.y_unit);
         end
         if (length(t) < length(time))
+            % corrupted file
             disp(['Data file ' fn ' too short; ignored.']);
+%         elseif length(t) > length(time)
+%             % this usually happens if the first file is corrupted
+%             % in which case we rezero out the data and basically start over
+%             disp('corrupted data file')
+%             data = zeros(length(t), length(names));
         else
             time = t;
             data(:,i) = dat;

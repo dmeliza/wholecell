@@ -7,9 +7,21 @@ d = dir;
 
 for i = 1:length(d)
     if d(i).isdir
-        cd(d(i).name);
-        daq2mat;
-        cd(mydir);
+        n = d(i).name;
+        switch(n)
+        case {'.' '..'}
+            % do nothing
+        otherwise
+            cd(d(i).name);
+            recursivedaq2mat;
+%             try
+%                 daq2mat;
+%             catch
+%                 disp(lasterr);
+%                 %disp(['error processing ' d(i).name]);
+%             end
+            cd(mydir);
+        end
     end
 end
 daq2mat;
