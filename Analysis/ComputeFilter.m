@@ -60,68 +60,8 @@ resp = filtfilt(num,den,resp);
 % compute the filter and return the values.  No correction should be necessary
 % as the input will have no auto-correlation.
 options.correct = 'no';
-h1_est = danlab_revcor(stim(1:length(resp)),resp,lag*Fs_stim/1000,Fs_stim,options);
+frames = ceil(lag*Fs_stim/1000);
+h1_est = danlab_revcor(stim(1:length(resp)),resp,frames,Fs_stim,options);
 out.filt = h1_est;
 out.resp = resp;
 out.stim = stim(1:length(resp));
-
-
-% if isa(varargin{1},'char')
-%     filename = varargin{1};
-%     window = varargin{2};
-%     r_file = [filename '.daq'];
-%     s_file = [filename '.mat'];
-% 
-%     if exist(r_file,'file') == 0
-%         error([r_file ' does not exist.']);
-%     end
-%     info = daqread(r_file,'info');
-%     samplerate = info.ObjInfo.SampleRate;
-%     stimstart = info.ObjInfo.InitialTriggerTime;
-%     [data, time, datastart] = daqread(r_file);
-%     response = data(:,1);
-% 
-%     if nargin == 3
-%         stimchannel = varargin{3};
-%         stimrate = samplerate;
-%         stimulus = data(:,stimchannel);
-%     elseif exist(s_file,'file') ~= 0
-%         info = load(s_file);
-%         stimrate = info.stimrate;
-%         stimulus = info.stimulus;
-%     else
-%         error([s_file ' does not exist.']);
-%     end
-% else
-%     stimulus = varargin{1};
-%     response = varargin{2};
-%     window = varargin{3};
-%     samplerate = varargin{4};
-%     stimrate = samplerate;
-%     if length(stimulus) ~= length(response)
-%         error('Stimulus and response must be same length');
-%     end
-% end
-% 
-% c = RevCorr(response, stimulus, samplerate, stimrate,...
-%     stimstart, datastart, window);
-% 
-% f = c(fliplr(1:length(c)));
-% sr = 1000 / stimrate;
-% t = 0:sr:(-window(1));
-% if nargout == 0
-%     figure,plot(t,f);
-%     xlabel('Time (ms)');
-% else
-%     filt = f;
-% end
-% 
-% resp = bindata(response, samplerate / stimrate);
-% if nargout == 0
-%     checkfilter(stimulus, resp, f, sr);
-% end
-% m = 5 * Fs_stim;
-% n = floor(length(resp)/m);
-% r = reshape(resp(1:m*n), m, n);
-% offset = repmat(mean(r,1),m,1);
-% r = reshape(r - offset, m*n, 1);
