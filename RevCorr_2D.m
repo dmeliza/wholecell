@@ -88,7 +88,7 @@ case {'init','reinit'}
     if isempty(fig)                                   % open
         fig = ParamFigure(me, p);
     end
-    Scope('init');
+    getScope;
     
 case 'start'
     setupHardware;
@@ -318,7 +318,8 @@ function plotResults(obj, timing)
 in = GetParam(me,'input','value');
 sync = GetParam(me,'sync_c','value');
 [data, time, abstime] = getdata(obj);
-Scope('plot','plot', time, data(:,in));
+axes(getScope)
+plot(time,data(:,in));
 % bin the data (rough, ignores variance in timing)
 t_resp = 1000 / get(obj,'SampleRate'); %ms/sample
 t_res = GetParam(me,'t_res','value'); % frames/sprite
@@ -348,3 +349,17 @@ options.display = 'no';
 Fs = fix(1000/t_stim);
 hl_est = danlab_revcor(s,r,5,Fs,options);
 Plot2DKernel(hl_est,r,s,stim_times,[x_res,y_res],Fs);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+function a = getScope()
+% retrieves the handle for the scope axes
+f       = findfig([me '.scope']);
+set(f,'position',[288 314 738 508],'name','scope','numbertitle','off');
+a       = get(f,'Children');
+if isempty(a)
+    a   = axes;
+    set(a,'NextPlot','ReplaceChildren')
+    set(a,'XTickMode','Auto','XGrid','On','YGrid','On','YLim',[-5 5])
+    xlabel('Time (ms)')
+    ylabel('amplifier (V)')
+end
