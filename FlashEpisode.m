@@ -44,7 +44,10 @@ function varargout = FlashEpisode(varargin)
 %
 % An unfortunate side effect is that the flash must be the first event (in terms
 % of output) because it is impossible to send data to the analog out *after* the
-% trigger has occurred.
+% trigger has occurred.  Furthermore, analog output devices can't be triggered
+% off analog input signals (only digital, but I don't want to implement that except
+% as a last resort), so the analog input has to have a callback on *its* trigger
+% to start the output.  This may lead to jitters in the timing of AO events.
 %
 %
 % $Id$
@@ -170,13 +173,14 @@ sync_v = GetParam(me,'sync_val','value');
 sync_off = GetParam(me,'vis_delay','value') / 1000;
 curr = getsample(wc.ai);
 curr = curr(sync); % current value of sync detector
+ao_sync = @aoTrigger;
 set(wc.ai,'TriggerDelayUnits','seconds');
 set(wc.ai,'TriggerDelay',-sync_off);
-set([wc.ai wc.ao],'TriggerType','HwAnalog');
-set([wc.ai wc.ao],'TriggerCondition','Entering');
-set([wc.ai wc.ao],'TriggerConditionValue',[curr+sync_v, curr+sync_v+10]);
-set([wc.ai wc.ao],'TriggerChannel',wc.ai.Channel(sync));
-
+set(wc.ai,'TriggerType','HwAnalog');
+set(wc.ai,'TriggerCondition','Entering');
+set(wc.ai,'TriggerConditionValue',[curr+sync_v, curr+sync_v+10]);
+set(wc.ai,'TriggerChannel',wc.ai.Channel(sync));
+set(wc.ai,'TriggerAction',{me,ao_sync});
 
 function setupVisual()
 % visual output: the stimulus file has four fields:
@@ -260,6 +264,10 @@ cgflip(0);
 pause(dur/1000);
 cgflip(0);
 
+function aoTrigger(obj,event)
+% triggers the analog output
+global wc
+trigger(wc.ao);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function updateDisplay(obj, event)
