@@ -21,9 +21,9 @@ LTD_DELTA   = [-65 -0.1];
 LTP_DELTA   = [0    50];
 WINDOW = 150;       % ms; switch to 250 for the wider window in fig 2
 Fs     = 10;
-SZ      = [3.4 2.9];
+SZ      = [6.3 3.0];
 SE      = 1;        % if 1, plot standard error
-BINSIZE = 4.3;
+BINSIZE = 4.3;       % 4.3 gives a nice smooth curve
 
 % load control data from file
 [data, files]   = xlsread(control);
@@ -70,13 +70,21 @@ t       = linspace(-WINDOW,WINDOW,size(dd,1));
 % generate the figure
 f   = figure;
 set(f,'Color',[1 1 1])
-%ResizeFigure(f,SZ)
 
 % some specialty graphs (try to keep this shorter than in the last
 % incarnation of this program!)
 switch lower(mode)
+    case 'display'
+        % plots all the delta curves in separate windows
+        for i = 1:size(dd,3)
+            figure
+            plot(t,dd(:,x_induced(i),i));
+            title(files{i,1})
+        end
+            
     case 'induced'
         % plots ONLY the temporal "learning kernel"
+        ResizeFigure(f,SZ)
         subplot(1,4,[2 3])
         black   = select(dd,x_induced);
         rf1     = mean(black,2);
@@ -86,7 +94,6 @@ switch lower(mode)
         set(gca,'Box','On','YLim',[-mx mx]);
         vline(0),hline(0)
         xlabel('Time from Spike (ms)');
-        ylabel('Change in EPSC (Normalized)');
         title('LTP and LTD')
         % now plot the standard error for LTP and LTD separately
         if SE == 0
@@ -96,8 +103,8 @@ switch lower(mode)
         LTP    = select(dd(:,:,ind_ltp),x_induced(ind_ltp));
         LTP_rf  = mean(LTP,2);
         LTD_rf  = mean(LTD,2);
-        LTD_er  = std(LTP,[],2)/sqrt(size(LTD,2)) .* SE;% * tinv(.975,size(LTP,2)-1);
-        LTP_er  = std(LTD,[],2)/sqrt(size(LTD,2)) .* SE;% * tinv(.975,size(LTD,2)-1);
+        LTD_er  = std(LTD,[],2)/sqrt(size(LTD,2)) .* SE;% * tinv(.975,size(LTP,2)-1);
+        LTP_er  = std(LTP,[],2)/sqrt(size(LTD,2)) .* SE;% * tinv(.975,size(LTD,2)-1);
         LTP_ci  = [LTP_rf - LTP_er, LTP_rf + LTP_er];
         LTD_ci  = [LTD_rf - LTD_er, LTD_rf + LTD_er];
         mx      = max(max(abs([LTP_ci LTD_ci])));
