@@ -25,9 +25,9 @@ case '.m'
     else
         error('Invalid .m file!');
     end
-case '.mat'
+case {'.mat' '.s0'}
     if exist(filename, 'file') > 0
-        stim = load(filename);
+        stim = LoadStimulusFile(filename);
     else
         error('Invalid .mat file!');        
     end
