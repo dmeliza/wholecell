@@ -197,7 +197,7 @@ else
     % pick a random frame
     picks   = GetParam(me,'play_frames','value');
     if picks ~= 0
-        fnum    = picks(unidrnd(length(picks),1,1)) - 1;
+        fnum    = picks(unidrnd(length(picks),1,1)) + 1;
     else
         fnum    = unidrnd(z-1,1,1) + 1;             % random frame > 1 (1 is the background)
     end
