@@ -1,9 +1,11 @@
 
 To do:
 
-alignepisodes function
-color traces in gui
-delete traces
+$Revision$
+
+alignepisodes function - done
+color traces in gui - done (retain color when baseline/episodes are reprocced)
+delete traces - done
 save subset of traces
 
 fix color by clicking
