@@ -13,12 +13,38 @@ function varargout = FlashEpisode(varargin)
 % a photocell to know when the screen goes off.
 %
 % Alternative implementation: use cglib's playmovie function
+% Alt impl 2: trigger acquisition off a photocell signal
 %
 % Issues as of 1.1:
 % Timing of flash is imprecise and inaccurate (from 182 ms to 204 ms)
 % Length of flash varies (by up to 4 integral multiples of frame length) (v. bad)
-% change in luminance at beginning of each episode (solved - photocell V depends on load)
-% on and off timecourses are different (but this might be a photocell issue)
+% Change in luminance at beginning of each episode (solved - photocell V depends on load)
+% On and off timecourses are different (but this might be a photocell issue)
+%
+% 1.4:
+% Using matlab's timer decreases frame shift errors in length but increases
+% jitter in start time. Because post-acq alignment can correct for start time
+% errors pretty well (concurrent changes in AlignEpisodes to support this operation)
+% this is a preferable (but not optimal--how to pair current injection, e.g.)
+% situation.  Also there is a pretty significant but systematic increase in the
+% lag between start of episode and flash onset, about 70 ms.  Onset delay is
+% probably caused by a variable amount of execution time between the start of
+% data logging and the execution of the timer or trigger callback (and specifically
+% the cgflip command)
+%
+% 1.5:
+% The triggering scheme is complicated because we need to synchronize
+% data acquisition and output with the frame rate of the video system.
+% Thus, there must be a photocell placed on the monitor that can detect the
+% flash.  Time=0 will be when the hardware detects a rising edge in this signal.
+% Pretriggering allows us to record input signals before the trigger, so
+% a baseline can be accurately measured.  Consequently, ai and ao must be started
+% (but not triggered), and then the video subroutine started.  Currently this
+% uses matlab's timer, but other implementations may work better.
+%
+% An unfortunate side effect is that the flash must be the first event (in terms
+% of output) because it is impossible to send data to the analog out *after* the
+% trigger has occurred.
 %
 %
 % $Id$
@@ -111,6 +137,8 @@ p.vis_delay = cell2struct({'Visual Delay','value', 200, 'ms'},f,2);
 p.vis_image = cell2struct({'Visual Image','fixed','',loadStim},...
     {'description','fieldtype','value','callback'},2);
 p.vis_disp = cell2struct({'Display', 'value', 2},f_s,2);
+p.sync_val = cell2struct({'Sync Voltage','value',2,'V'},f,2);
+p.sync_c = cell2struct({'Sync Channel','list',1,GetChannelList(wc.ai)},f_l,2);
 
 p.stim_len = cell2struct({'Stim Length','value', 300, 'ms'},f,2);
 p.stim_delay = cell2struct({'Stim Delay','value',200,'ms'},f,2);
@@ -125,17 +153,30 @@ function setupHardware()
 % Sets up the hardware for this mode of acquisition
 global wc
 display = @updateDisplay;
-
+% reset display
+setupVisual;
+% acq params
 sr = get(wc.ai, 'SampleRate');
 length = GetParam(me,'ep_length','value');
 len = length * sr / 1000;
 set(wc.ai,'SamplesPerTrigger',len)
 set(wc.ai,'SamplesAcquiredActionCount',len)
 set(wc.ai,'SamplesAcquiredAction',{me, display}) 
+set(wc.ai,'ManualTriggerHwOn','Start');
 set(wc.ao,'SampleRate', 1000)
-set([wc.ai wc.ao],'TriggerType','Manual');
-set(wc.ai,'ManualTriggerHwOn','Trigger');
-setupVisual;
+% hardware triggering:
+sync = GetParam(me,'sync_c','value');
+sync_v = GetParam(me,'sync_val','value');
+sync_off = GetParam(me,'vis_delay','value') / 1000;
+curr = getsample(wc.ai);
+curr = curr(sync); % current value of sync detector
+set(wc.ai,'TriggerDelayUnits','seconds');
+set(wc.ai,'TriggerDelay',-sync_off);
+set([wc.ai wc.ao],'TriggerType','HwAnalog');
+set([wc.ai wc.ao],'TriggerCondition','Entering');
+set([wc.ai wc.ao],'TriggerConditionValue',[curr+sync_v, curr+sync_v+10]);
+set([wc.ai wc.ao],'TriggerChannel',wc.ai.Channel(sync));
+
 
 function setupVisual()
 % visual output: the stimulus file has four fields:
@@ -154,29 +195,31 @@ cgloadarray(1,s.xres,s.yres,s.stim,s.colmap,0);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function queueStimulus()
-% populates the wc.ao data channels and sets up the timer for the flash
-% executed once per episode.
+% populates the wc.ao data channels.  We can only output data after
+% the flash trigger has gone off, so the length of the output data is
+% episode length - visual delay, and delay times must be offset by the
+% visual delay.
 global wc
 
 len = GetParam(me,'ep_length','value'); %ms
+trigger_delay = GetParam(me,'vis_delay','value'); %ms
 dt = 1000 / get(wc.ao,'SampleRate'); %ms/sample
-p = zeros(len, length(wc.ao.Channel));
+len = len - trigger_delay;
+p = zeros(len / dt, length(wc.ao.Channel));
 % stimulator
 ch = GetParam(me,'stim_channel','value');
-del = GetParam(me,'stim_delay','value') / dt; %samples
+del = (GetParam(me,'stim_delay','value') - trigger_delay) / dt; %samples
 i = del+1:(del+ GetParam(me,'stim_len','value'));
 p(i,ch) = GetParam(me,'stim_gain','value');
 % injection
 ch = GetParam(me,'inj_channel','value'); 
-del = GetParam(me,'inj_delay','value') / dt; %samples
+del = (GetParam(me,'inj_delay','value') - trigger_delay) / dt; %samples
 dur = GetParam(me,'inj_length','value') / dt; %samples
 gain = GetParam(me,'inj_gain','value');
 i = del+1:del+dur;
 p(i,ch) = gain;
 putdata(wc.ao,p);
 % visual: setup event callback and load the flash frame into video memory
-flip = @imageOn;
-set(wc.ai,'TriggerAction',{me,flip});
 gprimd = cggetdata('gpd');
 cgdrawsprite(1,0,0, gprimd.PixWidth, gprimd.PixHeight)
 
@@ -207,16 +250,16 @@ end
 stim = getfield(d,n{1});
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function imageOn(obj,event)
-% gets called on each episode trigger. waits duration and flips
-% display for delay
+function imageOn()
+% gets called for each episode. waits delay and flips
+% display for duration (which is what triggers acquisition)
 del = GetParam(me,'vis_delay','value'); % ms
 dur = GetParam(me,'vis_len','value'); % ms
 pause(del/1000);
 cgflip(0);
 pause(dur/1000);
 cgflip(0);
-set(obj,'timeraction',{});
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function updateDisplay(obj, event)
@@ -288,7 +331,7 @@ set(wc.ai,'LogFileName',NextDataFile(fn));
 SetUIParam('scope','status','String',get(wc.ai,'logfilename'));
 queueStimulus;
 start([wc.ai wc.ao]);
-trigger([wc.ai wc.ao]);
+imageOn;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function clearPlot()
