@@ -11,7 +11,7 @@ save subset of traces -done
 fix color by clicking
 unify select and zoom mode - doesn't work; zoom has to be off to avoid zooming
                              (maybe try control-clicking?)
-hide and show marks
-smoothed statistics and average
+hide and show marks -done 
+smoothed statistics and average -done (needs spline toolbox now...)
 
 a dialog to rescale the data
