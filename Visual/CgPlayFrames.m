@@ -28,35 +28,33 @@ if isempty(gprimd)
 end
 
 % check that frames have been loaded
-a_pix = gprimd.NextRASKey - 1;
-if a_pix < 1
+a_frames = gprimd.NextRASKey - 1;
+if a_frames < 1
     error('No frames have been loaded.');
 end
-a_frames = a_pix * frate;
 
 % reset timing data and clear screen
-timing = zeros(a_pix,frate);
+timing = zeros(a_frames,frate);
 sync = 1;
 cgflip(0);
 cgflip(0);
-cgmakesprite(1,1,1,0); % the white sync pixel
-cgmakesprite(2,1,1,1); % the black sync pixel
 pw = gprimd.PixWidth;
 ph = gprimd.PixHeight;
 if nargin < 2
-    syncrect = [0 0 .125 .125];
+    syncrect = [0 0 .2 .2];
 end
 sr = (syncrect + [-1 -1 0 0]) .* [pw/2 ph/2 pw ph];
 if nargin < 3
     syncmap = [0 1];
 end
 % bombs away
-for i = 1:a_frames;
+for frame = 1:a_frames;
     for i = 1:frate
         cgdrawsprite(frame,0,0, pw, ph);
         cgrect(sr(1),sr(2),sr(3),sr(4),syncmap(sync+1));
         timing(frame,i) = cgflip;
     end
+    sync = ~sync;
 end
 cgflip(0);
 cgflip(0);
