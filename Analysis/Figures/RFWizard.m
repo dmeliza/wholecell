@@ -12,8 +12,9 @@ function [] = RFWizard(matfile, mode)
 WINDOW  = [-1000 5000];   % in samples, analysis window (relative to onset)
 FIRST   = 'pre';
 EVENT_MIN   = 10.5;         % minimum size of the induced event (to avoid massive noise problems
-NBOOT   = 1;
+NBOOT   = 100;
 NORM    = 1;
+NAMES   = {'peak','1','2','3'};
 
 error(nargchk(1,2,nargin))
 if nargin < 2
@@ -68,22 +69,16 @@ se_shift = std(latency_shift(delta>0)) ./ sqrt(sum(delta>0));
 rf_pre       = collapse(rf_pre,2);
 rf_pst       = collapse(rf_pst,2);
 
-figure
-ResizeFigure(gcf,[2.66, 1.41]);
-plot(t,rf_pre);
-axis tight
-legend({'peak','1','2','3'});
-legend boxoff
-addscalebar(gca,{'ms',''},[50 0]);
+
 
 figure
 subplot(3,3,1)
-
+plot(t,rf_pre);
+axis tight
+legend(NAMES);
+legend boxoff
+addscalebar(gca,{'ms',''},[50 0]);
 title('Grand Mean RF (pre)');
-
-% ind     = ind_surround;
-% compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
-% title('LTP/LTD');
 
 
 subplot(3,3,2)
@@ -97,11 +92,6 @@ ind     = ind_surround & ind_ltd;
 compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
 title('LTD');
 
-% subplot(3,3,4)
-% ind     = ind_center;
-% compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
-
-
 subplot(3,3,5)
 ind     = ind_center & ind_ltp;
 compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
@@ -111,28 +101,12 @@ subplot(3,3,6)
 ind     = ind_center & ind_ltd;
 compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
 
-% subplot(3,3,7)
-% compare(Z,t_onset, x_center, WINDOW, 1:length(x_center), NBOOT);
-% ylabel('All locations');
-% 
-% subplot(3,3,8)
-% ind     = ind_ltp;
-% compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
-% xlabel('Time From Spike (ms)')
-% 
-% subplot(3,3,9)
-% ind     = ind_ltd;
-% compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
-    
-
 function [mu] = compare(Z, t_onset, x_center, WINDOW, index, NBOOT)
 [pre, pst, t, INDEX] = combine(Z(index),t_onset(index), x_center(index), WINDOW, 1);
 if NBOOT == 1
-    pre       = collapse(pre,2);
-    pst       = collapse(pst,2);
-    mu        = getdelta(pre, pst, t);
-    bar(0:3,mu);
-    %plot(0:3,mu);
+    [mu, sigma, p]          = getdelta(pre, pst, t);
+%    [pre,pre_s,pre_n]       = collapse(pre,2);
+%    [pst,pst_s,pst_n]       = collapse(pst,2);
 %     d         = pre - pst;
 %     plot(t,d(:,1:4));
 else
@@ -141,22 +115,42 @@ else
         sample  = unidrnd(nexp, 1, nexp);
         pre_rf  = collapse(pre, 2, sample, INDEX);
         pst_rf  = collapse(pst, 2, sample, INDEX);
-        mu(i,:) = getdelta(pre_rf, pst_rf, t);
+        mu(:,i) = getdelta(pre_rf, pst_rf, t);
     end
-    sigma    = std(mu,[],1);
-    mu       = mean(mu,1);
-    errorbar(0:3,mu,sigma);
+    sigma    = prctile(mu',[2.5,97.5]);   
+    mu       = mean(mu,2);
+    sigma    = sigma' - repmat(mu,1,2);
 end
+    bar(0:3,mu);
+    hold on
+    errorbar(0:3,mu,sigma(:,1),sigma(:,2),'.');
     axis tight
     hline(0)
         
 
-function [mu] = getdelta(pre, pst, t)
+function [mu, ci, p] = getdelta(pre, pst, t)
+BASEL_WINDOW    = [-100 0];
 PLAST_WINDOW    = [0 100];
-mx      = max(max(abs(pre)));
-delta   = (pre-pst)./mx;
+% mx      = max(max(abs(pre)));
+% delta   = (pre-pst)./mx;
+ind_b   = t >= BASEL_WINDOW(1) & t <= BASEL_WINDOW(2);
 ind     = t >= PLAST_WINDOW(1) & t <= PLAST_WINDOW(2);
-mu      = mean(delta(ind,:),1);
+if iscell(pre)
+    for i = 1:length(pre)
+        pre_val             = mean(pre{i}(ind,:),1); %- mean(pre{i}(ind_b,:),1);
+        pst_val             = mean(pst{i}(ind,:),1); %- mean(pst{i}(ind_b,:),1);
+        mu(i,:)             = mean(pre_val - pst_val);
+        [h,p(i),ci(i,:)]    = ttest2(pre_val, pst_val);
+        ci(i,:)             = ci(i,:) - mu(i);
+    end
+else
+    pre_val             = mean(pre(ind,:),1);
+    pst_val             = mean(pst(ind,:),1);
+    mu                  = (pre_val - pst_val)';
+    p                   = [];
+    ci                  = [];
+end
+
 
 function [PRE_RF,PST_RF,t,INDEX] = combine(Z, t_onset, x_center, WINDOW, NORM)
 % sorts the columns of each experiment into bins for the (absolute) distance 
