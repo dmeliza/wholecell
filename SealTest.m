@@ -100,14 +100,14 @@ out = mfilename;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
 function run(fcn,action)
 global wc
-    state = GetUIParam(me,'runButton','Value');
+    state = GetUIParam(me,'runbutton','Value');
     if (state > 0)
-        SetUIParam(me,'runButton','String','Running');
+        SetUIParam(me,'runbutton','String','Running');
         setupSweep(me);
         wc.sealtest.resist = [];
         StartAcquisition(me,[wc.ai wc.ao]);
     else
-        SetUIParam(me,'runButton','String','Stopped');
+        SetUIParam(me,'runbutton','String','Stopped');
         StopAcquisition(me,[wc.ai wc.ao]);
     end
 
@@ -144,8 +144,6 @@ global wc
 InitWC;
 InitDAQ(5000);
 
-sr = get(wc.ai,'SampleRate');
-set(wc.ao,'SampleRate',sr);ret
 wc.control.amplifier = CreateChannel(wc.ai, 0, {'ChannelName','Units'}, {'Im','nA'});
 wc.control.telegraph.gain = 2;
 CreateChannel(wc.ai, wc.control.telegraph.gain);
@@ -163,7 +161,10 @@ wc.control.pulse = zeros(sweeplen,numouts);
 wc.control.pulse(start:finish,1) = wc.sealtest.pulse;  % here we assume the first channel is the command
 set(wc.ai,'SamplesPerTrigger',inf);
 set(wc.ai,'SamplesAcquiredAction',{'SweepAcquired',me});
-set(wc.ai,'SamplesAcquiredActionCount',length(wc.control.pulse)); 
+set(wc.ai,'SamplesAcquiredActionCount',length(wc.control.pulse));
+sr = get(wc.ai,'SampleRate');
+set(wc.ao,'SampleRate',sr);
+set(wc.ai,'UserData',length(wc.control.pulse));
 set([wc.ai wc.ao],'StopAction','daqaction')
 putdata(wc.ao, wc.control.pulse);
 set(wc.ao,'RepeatOutput',inf);
