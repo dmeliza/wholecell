@@ -49,6 +49,8 @@ function varargout = FlashEpisode(varargin)
 % as a last resort), so the analog input has to have a callback on *its* trigger
 % to start the output.  This may lead to jitters in the timing of AO events.
 %
+% 1.7:
+% Attempts to eliminate jitter: use timer to trigger turning off image
 %
 % $Id$
 
@@ -176,8 +178,8 @@ curr = curr(sync); % current value of sync detector
 ao_sync = @aoTrigger;
 set(wc.ai,'TriggerDelayUnits','seconds');
 set(wc.ai,'TriggerDelay',-sync_off);
-set(wc.ai,'TriggerType','HwAnalog');
-set(wc.ai,'TriggerCondition','Entering');
+set(wc.ai,'TriggerType','HwAnalogChannel');
+set(wc.ai,'TriggerCondition','InsideRegion');
 set(wc.ai,'TriggerConditionValue',[curr+sync_v, curr+sync_v+10]);
 set(wc.ai,'TriggerChannel',wc.ai.Channel(sync));
 set(wc.ai,'TriggerAction',{me,ao_sync});
@@ -189,6 +191,7 @@ function setupVisual()
 % colmap - the colormap
 disp = GetParam(me,'vis_disp','value');
 cgloadlib;
+cogstd('spriority','high');
 cgshut;
 cgopen(5,8,85,disp);
 stimfile = GetParam(me,'vis_image','value');
@@ -224,8 +227,12 @@ i = del+1:del+dur;
 p(i,ch) = gain;
 putdata(wc.ao,p);
 % visual: setup event callback and load the flash frame into video memory
+stim_off = @imageOff;
 gprimd = cggetdata('gpd');
 cgdrawsprite(1,0,0, gprimd.PixWidth, gprimd.PixHeight)
+dur = GetParam(me,'vis_len','value') / 1000; % s
+set(wc.ai,'TimerPeriod', dur);
+set(wc.ai,'TimerAction', {me,stim_off}); 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function loadStimulus(varargin)
@@ -258,11 +265,13 @@ function imageOn()
 % gets called for each episode. waits delay and flips
 % display for duration (which is what triggers acquisition)
 del = GetParam(me,'vis_delay','value'); % ms
-dur = GetParam(me,'vis_len','value'); % ms
 pause(del/1000);
 cgflip(0);
-pause(dur/1000);
+
+function imageOff(obj,event)
+% turns off stimulus
 cgflip(0);
+set(obj,'TimerAction',{});
 
 function aoTrigger(obj,event)
 % triggers the analog output
