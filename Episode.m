@@ -137,7 +137,7 @@ ch = GetParam(me,'inj_channel','value');
 del = GetParam(me,'inj_delay','value') / dt;
 dur = GetParam(me,'inj_length','value') / dt;
 gain = GetParam(me,'inj_gain','value');
-i = del+1:del+dur
+i = del+1:del+dur;
 p(i,ch) = gain;
 putdata(wc.ao,p);
 
