@@ -164,10 +164,12 @@ function setupHardware()
 % Sets up the hardware for this mode of acquisition
 global wc
 analyze = @analyze;
+len = checkMovie; % number of sprites in the movie
+gprimd = cggetdata('gpd');
+v_res = gprimd.RefRate100 / 100; % frames/second
 sr = get(wc.ai, 'SampleRate'); %samples/second
-t_res = GetParam(me,'t_res','value'); %1/x
-v_res = GetParam(me,'v_res','value'); %frames/second
-a_int = GetParam(me,'a_frames','value') / v_res * t_res * sr; %samples
+t_res = GetParam(me,'t_res','value'); % frames/sprite
+a_int = len / v_res * t_res * sr; %samples
 % acq params
 set(wc.ai,'SamplesPerTrigger', a_int);
 set(wc.ai,'SamplesAcquiredActionCount', a_int);
@@ -195,15 +197,6 @@ flushdata(wc.ai);
 fn = get(wc.ai,'LogFileName');
 set(wc.ai,'LogFileName',NextDataFile(fn));    
 SetUIParam('scope','status','String',get(wc.ai,'logfilename'));
-p = GetParam(me,'load_me','value');
-if p
-    queueStimulus;
-end
-stim = GetUIParam('scope','status','UserData');
-if ~strcmp(lower(get(wc.ai,'LoggingMode')),'memory')
-    [pn fn ext] = fileparts(get(wc.ai,'logfilename'));
-    WriteStructure([pn filesep fn '-stim.mat'],stim);
-end
 start([wc.ai]);
 cogstd('spriority','high');
 playStimulus;
@@ -224,6 +217,21 @@ CgPlayFrames(frate);
 function setLoadFlag(varargin)
 % sets the 'load_me' param to 1 so that the stimulus will be requeued
 SetParam(me,'load_me',1);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function len = checkMovie()
+% checks to make sure there's a movie loaded
+% returns the number of frames
+p = GetParam(me,'load_me','value');
+if p
+    queueStimulus;
+end
+stim = GetUIParam('scope','status','UserData');
+if ~strcmp(lower(get(wc.ai,'LoggingMode')),'memory')
+    [pn fn ext] = fileparts(get(wc.ai,'logfilename'));
+    WriteStructure([pn filesep fn '-stim.mat'],stim);
+end
+len = size(stim.stimulus,3);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
 function queueStimulus()
