@@ -53,13 +53,54 @@ case 'normalization_callback'
     set(h,'Value',0);
     set(hit,'Value',1);
     recalcStats;
+
+case 'export_csv_callback'
+    [fn, pn] = uiputfile('*.csv');
+    if fn == 0
+        return
+    end
+    data = [];
+    norm = GetUIParam(me,'norm_none','UserData');
+    [pre, post] = getData(norm);
+    pre = calculateresting(pre);
+    post = calculateresting(post);
+    datatypes = {'pspdata','irdata','srdata','resting'};
+    for i = 1:length(datatypes);
+        ds = datatypes{i};
+        bs = GetUIParam(me,'binsize','stringval');
+        if ~isnumeric(bs)
+            bs = 0.5;
+        end
+        [pre_data, pre_abstime, pre_err, pre_n] = aligndata(pre, 'pre',ds, bs);
+        [post_data, post_abstime, post_err, post_n] = aligndata(post, 'post', ds, bs);
+        d = [pre_data, post_data; pre_err, post_err; pre_n post_n];
+        data = cat(2,data,d');
+    end
+    t = [pre_abstime, post_abstime];
+    data = cat(2,t',data);
+    headers = {'time(min)',...
+            'response','STD','n',...
+            'IR','STD','n',...
+            'SR','STD','n',...
+            'resting','STD','n'};
+    tblwrite(data, char(headers),'',fullfile(pn,fn),',');
+    
+case 'export_report_callback'
+    [fn, pn] = uiputfile('*.csv');
+    if fn == 0
+        return
+    end
+    data = [];
+    norm = GetUIParam(me,'norm_none','UserData');
+    [pre, post] = getData(norm);
+       
     
 case 'close_callback'
     delete(gcbf);
     
 otherwise
     
-    %%disp(['No such action ' action]);
+    disp(['No such action ' action]);
     
 end
 
@@ -78,6 +119,7 @@ h = uimenu(m, 'Label', 'E&xit', 'Callback', [me '(''close_Callback'')'],...
     'separator','on');
 m = uimenu(fig,'Label','&Export');
 h = uimenu(m, 'Label', '&Report', 'Callback', [me '(''export_report_Callback'')']);
+h = uimenu(m, 'Label', '&CSV file', 'Callback', [me '(''export_csv_Callback'')']);
 pl = GetUIHandle(me,'pre_list');
 ppl = GetUIHandle(me,'post_list');
 set([pl ppl],'String',{},'UserData',[]);
@@ -85,7 +127,7 @@ SetUIParam(me,'norm_none','UserData','norm_none');
 SetUIParam(me,'norm_none','Value',1);
 
 
-registerModule({'pspdata','irdata','srdata','psth'});
+registerModule({'pspdata','irdata','srdata','psth','resting'});
 
 %%%%%%%%%%%%%%%%%%%%%5
 function recalcStats()
@@ -197,6 +239,7 @@ end
 SetUIParam(me,'pre_add','UserData',pn);
 d = load(pnfn);
 d.pnfn = pnfn;
+%d = calculateresting(d);
 s = describe(fn, d);
 if isempty(s)
     return
@@ -307,12 +350,25 @@ pos = [min(pos(:,1)), min(pos(:,2)), max(pos(:,3)), max(pos(:,4))];
 % module, which maps a pre-computed statistic into time and histogram space
 function [kids, menu] = pspdata(action, varargin)
 [kids, menu] = prepost(action, 'pspdata', varargin{:});
+% installs the marks for excluding data
+if strcmp(action,'install')
+%    installMarks(varargin{:})
+end
 
 function [kids, menu] = irdata(action, varargin)
 [kids, menu] = prepost(action, 'irdata', varargin{:});
 
 function [kids, menu] = srdata(action, varargin)
 [kids, menu] = prepost(action, 'srdata', varargin{:});
+
+function [kids, menu] = resting(action, varargin)
+if strcmp(action,'install')
+    [kids, menu] = prepost(action, 'resting', varargin{:});
+else
+    pre = calculateresting(varargin{2});
+    post = calculateresting(varargin{3});
+    [kids, menu] = prepost(action, 'resting', varargin{1}, pre, post);
+end
 
 function [kids, menu] = prepost(action, dataset, varargin)
 % Displays pre-computed statistics on two axes, and computes p-values, etc
@@ -338,7 +394,7 @@ case 'install'
     menu = uicontextmenu('parent',gcbf);
     fcn = @pspdata_export;
     h = uimenu(menu,'Label','&Export',...
-        'Callback',{fcn, p_num});
+        'Callback',{fcn, p_num, dataset});
     
 case 'analyze'
     panel = varargin{1};
@@ -348,8 +404,8 @@ case 'analyze'
     if ~isnumeric(bs)
         bs = 0.5;
     end
-    [pre_data, pre_abstime] = aligndata(pre, 'pre',dataset, bs);
-    [post_data, post_abstime, unit] = aligndata(post, 'post', dataset, bs);
+    [pre_data, pre_abstime, pre_err] = aligndata(pre, 'pre',dataset, bs);
+    [post_data, post_abstime, post_err] = aligndata(post, 'post', dataset, bs);
     % time course
     a1 = findobj(gcbf,'tag',[panel dataset '_axes1']);
     set(a1,'nextplot','replacechildren')
@@ -387,14 +443,17 @@ case 'analyze'
     end
     h = findobj(gcbf,'tag',[panel dataset '_text']);
     set(h,'string',sf,'tooltipstring',sf);
+    
 end
 
-function [data, time, err] = aligndata(datacell, mode, dataset, binsize)
+function [data, time, err, n, Y] = aligndata(datacell, mode, dataset, binsize)
 % aligns and averages data sets. If mode=='pre', the last data
 % point in each series is aligned, else, the first data point is aligned
 data = [];
 time = [];
 err = [];
+n = 1;
+Y = {};
 if isempty(datacell)
     return
 end
@@ -415,7 +474,7 @@ else
         end
         binsize = -binsize;
     end
-    [data, time, err] = CombineData(data, time, binsize);
+    [data, time, err, n, Y] = CombineData(data, time, binsize);
 end
 if strcmp(mode,'post')
     time = time + 5;
@@ -447,13 +506,42 @@ if ~isempty(data1) & ~isempty(data2)
     [h,p,ci,stats] = ttest2(data1,data2,0.05);
 end
 
+function [dc] = calculateresting(dc)
+% calculates the mean resting level of each episode
+for i = 1:length(dc)
+    dc{i}.resting = mean(dc{i}.data,1);
+end
+
 function [b,x] = normhist(dataset,bins)
 [b,x] = hist(dataset,bins);
 b = b / length(dataset);
 
 function pspdata_export(varargin)
-keyboard
-
+    [fn, pn] = uiputfile('*.csv');
+    if fn == 0
+        return
+    end
+    norm = GetUIParam(me,'norm_none','UserData');
+    [pre, post] = getData(norm);
+    bs = GetUIParam(me,'binsize','stringval');
+    if ~isnumeric(bs)
+        bs = 0.5;
+    end    
+    pre = calculateresting(pre);
+    post = calculateresting(post);
+    dataset = varargin{4};
+    
+    [pre_dat, pre_at, s, n, pre_Y] = aligndata(pre,'pre',dataset,bs);
+    [post_dat, post_at, s, n, post_Y] = aligndata(post,'post',dataset,bs);
+    if isempty(pre_Y)
+        d = [pre_at, post_at; pre_dat, post_dat]';
+        sparsetblwrite(d, [], [],fullfile(pn,fn), ',');
+    else
+        sparsetblwrite([pre_Y;post_Y], [pre_at, post_at]', [],fullfile(pn,fn), ',');
+    end
+    
+    
+    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [kids, menu] = psth(action, varargin)
 % graphs the first presynaptic response against the first postsynaptic response
