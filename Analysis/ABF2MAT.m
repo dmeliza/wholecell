@@ -61,6 +61,8 @@ abstime = 0:episodeInterval:episodeInterval*(episodes -1);
 
 [path basename] = fileparts(filename);
 fn = [basename '.mat'];
+data = single(data);
+time = single(time');
 save(fn, 'data','time','abstime','info');
 disp(['Wrote data to ' fn]);
 

@@ -49,6 +49,7 @@ else
 end
 info.t_unit = 's';
 info.t_rate = d.ObjInfo.SampleRate;
+info.start_time = d.ObjInfo.InitialTriggerTime;
 info.samples = d.ObjInfo.SamplesAcquired;
 disp(sprintf('File %s contains %i samples at %i /s', names{1} ,info.samples, info.t_rate));
 disp(sprintf('Units are in %s', info.y_unit));
@@ -92,7 +93,8 @@ info.starttime = at(1);
 atv = datevec(at - at(1));
 abstime = atv(:,4)*60 + atv(:,5) + atv(:,6)/60;
 abstime = abstime';
-data = data(:,ind);
+data = single(data(:,ind));
+time = single(time);
 save('daqdata.mat','data','time','abstime','info');
 disp('Wrote data to daqdata.mat');
 cd(oldpn);

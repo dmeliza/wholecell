@@ -387,7 +387,10 @@ if isempty(d)
     return;
 elseif ~isfield(d,'abstime')
     return;
-end    
+end
+% DAQ2MAT stores data in single precision values; convert here to double
+d.data = double(d.data);
+d.time = double(d.time);
 SetUIParam(me,'filename','UserData',d);
 SetUIParam(me,'last_trace','StringVal',length(d.abstime));
 SetUIParam(me,'lp_factor','StringVal',d.info.t_rate);
