@@ -76,10 +76,14 @@ end
 
 % compute error bars
 if iscell(A)
-    [pre_SD, pre_sem, pre_err]       = computeError(A,I,abase);
-    [post_SD, post_sem, post_err]    = computeError(B,I,bbase);
-    [precm,precm_err]               = centroid(pre_rf, pre_err);
-    [postcm,postcm_err]             = centroid(post_rf, post_err);
+%     [pre_SD, pre_sem, pre_err]       = computeError(A,I,abase);
+%     [post_SD, post_sem, post_err]    = computeError(B,I,bbase);
+%     [precm,precm_err]                = centroid(pre_rf, pre_err);
+%     [postcm,postcm_err]              = centroid(post_rf, post_err);
+    pre_values                          = computeValues(A,I,abase);
+    post_values                         = computeValues(B,I,bbase);
+%    [precm,precm_err]                  = centroid
+    keyboard
     fprintf('%3.2f +/- %3.2f (pre); %3.2f +/- %3.2f (post)\n',...
         precm, precm_err, postcm, postcm_err)
 else
@@ -91,7 +95,7 @@ end
 
 
 if nargout > 0
-    %return
+    return
 end
     
 
@@ -161,15 +165,15 @@ for i = 1:length(in)
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function [SD, SEM, CL] = computeError(in, win, base)
+function [tc] = computeValues(in, win, base)
 % computes the 95% Cl of the mean value in the window
 for i = 1:length(in)
     d       = in{i};
     d       = d(win,:) - base;
-    tc      = mean(d,2);                    % time course of mean
-    tval    = tinv(0.975,length(tc)-1);
-    SD(i)   = std(tc);
-    SEM(i)  = SD(i) / sqrt(length(tc));
-    CL(i)   = SEM(i) * tval;
+    tc{i}   = mean(d,1);                    % time course of mean
+%     tval    = tinv(0.975,length(tc)-1);
+%     SD(i)   = std(tc);
+%     SEM(i)  = SD(i) / sqrt(length(tc));
+%     CL(i)   = SEM(i) * tval;
 end
     
