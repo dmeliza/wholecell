@@ -81,6 +81,12 @@ for i = 1:paramCount
         p_u = [w_fn + w_f + x_pad + x_pad, y + 1, w_units, 18];
         u = uicontrol(fig,'position',p_u,'style','text',...
             'String',s.units);
+    elseif strcmp(lower(s.fieldtype),'file_in')
+        p = [w_fn + x_pad, y, w_f, h];
+        p_u = [w_fn + w_f + x_pad + x_pad, y + 2, w_units/2, 18];
+        cb = @file_in_btn;
+        u = uicontrol(fig,'position',p_u,'style','pushbutton',...
+            'String','','Callback', {cb, module, name, s});        
     else
         p = [w_fn + x_pad, y, w_f + x_pad + w_units, h];
     end
@@ -94,7 +100,7 @@ for i = 1:paramCount
                 'HorizontalAlignment','right'};
     case 'list'
         st = {'style','popupmenu','string',s.choices,'BackgroundColor','white'};
-    case 'fixed'
+    case {'fixed','file_in'}
         st = {'style','edit','enable','inactive'};
     end
     t = [module '.' name];
@@ -102,6 +108,22 @@ for i = 1:paramCount
         'callback',{fn_ui, module, name, s});
     s.value = setValue(u,s);
     params = setfield(params,name,s);
+end
+
+function file_in_btn(varargin)
+% handles button presses for file selection
+mod = varargin{3};
+param = varargin{4};
+s = varargin{5};
+t = [mod '.' param];
+h = findobj(gcbf,'tag',t);
+v = get(h,'tooltipstring');
+[pn fn ext] = fileparts(v);
+[fn2 pn2] = uigetfile([pn filesep '*.mat']);
+if ~isnumeric(fn2)
+    v = fullfile(pn2,fn2);
+    set(h,'string',fn2,'tooltipstring',v)
+    s = SetParam(mod, param, v);
 end
 
 function paramChanged(varargin)
