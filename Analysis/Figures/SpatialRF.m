@@ -1,4 +1,4 @@
-function [pre_rf, post_rf] = SpatialRF(pre, post, induction)
+function [pre_rf, post_rf] = SpatialRF(pre, post, induction, peak)
 %
 % Generates a figure comparing two spatial RFs (either two cells or
 % before/after).
@@ -41,9 +41,18 @@ bbase   = mean(mean(b(1:200,:)));
 a   = a - abase;
 b   = b - bbase;
 
-[mx i]  = max(abs(a));
-[mx j]  = max(mx);
-i       = i(j);
+if nargin > 3
+    i       = find(peak <= t);
+    i       = i(1);
+elseif nargin > 2
+    [mx i]  = max(abs(b(:,induction)));
+    fprintf('Max at %d, %3.2f ms\n', induction, t(i));    
+else
+    [mx i]  = max(abs(b));
+    [mx j]  = max(mx);
+    i       = i(j);
+    fprintf('Max at %d, %3.2f ms\n', j, t(i));
+end
 
 w       = fix(RFWIN/Fs);
 I       = (-w:w) + i;
