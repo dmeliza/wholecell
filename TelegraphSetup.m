@@ -40,21 +40,24 @@ case 'init'
     OpenGuideFigure(me,'WindowStyle','modal');
     
     if nargin > 1
-        InitParam(me,'linename',varargin{2});
+        linename = varargin{2};
+        InitParam(me,'linename', linename);
     end
-    if nargin > 2
-        channel = varargin{3};
+
+
+    c = GetParam('control.telegraph', linename);
+    if (~isempty(c))
+        currentchannel = wc.ai.Channel(c).HwChannel;
+        availableChannels = [setdiff(wc.control.ai.channels, wc.control.ai.usedChannels)];
+        channels = char(num2str(currentchannel),num2str(availableChannels'));
     else
-        channel = 0;
+        currentchannel = 1;
+        availableChannels = setdiff(wc.control.ai.channels, wc.control.ai.usedChannels);
+        channels = char(' ',num2str(availableChannels'));
     end
-    
-    availableChannels = setdiff(wc.control.ai.channels, wc.control.ai.usedChannels);
-    channels = ['  '; num2str(availableChannels')];
+
     SetUIParam(me,'channels',{'String', 'Value'}, {channels, 1});
     SetUIParam(me,'line','String', GetParam(me,'linename'));
-%     set(wc.telegraphsetup.handles.channels,'String',channels);
-%     set(wc.telegraphsetup.handles.channels,'Value',1);  % TODO: set to current value
-%     set(wc.telegraphsetup.handles.line,'String',wc.telegraphsetup.lineName);
     
 	% Wait for callbacks to run and window to be dismissed:
 	uiwait(wc.telegraphsetup.fig);
@@ -94,16 +97,18 @@ global wc
 channels = wc.control.ai.usedChannels;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function makeTelegraph(channelName)
+function c = makeTelegraph(channelName)
 global wc
 
     % figure out whether to make a channel
-    channel = str2num(channelName);
-    channelIndex = find(getChannels==channel);
-    if (~isempty(channelIndex))
-        c = wc.ai.Channel(channelIndex);  % channels have to be indexed by Index, not HwChannel
+    channelHW = str2num(channelName);
+    linename = GetParam(me,'linename');
+    c = GetParam('control.telegraph', linename);
+    if (~isempty(c))
+        currentchannel = wc.ai.Channel(c);
+        c = ReassignChannel(currentchannel, channelHW);
     else
-        c = CreateChannel(wc.ai, channel);
+        c = CreateChannel(wc.ai, channelHW);
     end
     % set up the channel
     set(c, 'ChannelName', [GetParam(me, 'linename') ' telegraph']);

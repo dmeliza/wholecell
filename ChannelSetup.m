@@ -116,7 +116,7 @@ global wc
 
 channel = str2num(channelName);
 % figure out whether to make a channel
-if (isfield(wc.channelsetup,'channel'))
+if (~isempty(wc.channelsetup.channel))
     c = ReassignChannel(wc.channelsetup.channel, channel);
 else
     c = CreateChannel(wc.channelsetup.daq,channel);
