@@ -25,8 +25,8 @@ end
 
 % units are in pixels for my sanity
 w_fn = 100;
-w_f = 70;
-w_units = 20;
+w_f = 90;
+w_units = 15;
 h = 23;
 x_pad = 5;
 y_pad = 5;
@@ -55,7 +55,7 @@ set(fig,'Color',get(0,'defaultUicontrolBackgroundColor'));
 paramNames = fieldnames(params);
 paramCount = length(paramNames);
 h_fig = h * (paramCount + 3);  % 4 extra spots provides padding for buttons and menu
-w_fig = w_fn + w_f + w_units + 20;
+w_fig = w_fn + w_f + w_units + 10;
 set(fig,'units','pixels','position',[1040 502 w_fig h_fig]);
 
 % init menus
@@ -76,20 +76,18 @@ for i = 1:paramCount
     InitParam(module, name, s);
     u = uicontrol(fig,'style','edit','String',s.description,'enable','inactive',...
         'position',[x_pad, y, w_fn, h]);
+    p = [w_fn + x_pad, y, w_f, h];
     if isfield(s, 'units')
-        p = [w_fn + x_pad, y, w_f, h];
         p_u = [w_fn + w_f + x_pad + x_pad, y + 1, w_units, 18];
         u = uicontrol(fig,'position',p_u,'style','text',...
             'String',s.units);
     elseif strcmp(lower(s.fieldtype),'file_in')
-        p = [w_fn + x_pad, y, w_f, h];
         p_u = [w_fn + w_f + x_pad + x_pad, y + 2, w_units/2, 18];
         cb = @file_in_btn;
         u = uicontrol(fig,'position',p_u,'style','pushbutton',...
             'String','','Callback', {cb, module, name, s});        
-    else
-        p = [w_fn + x_pad, y, w_f + x_pad + w_units, h];
     end
+%    p = [w_fn + x_pad, y, w_f + x_pad + w_units, h];
     if ~isfield(s,'value')
         wc_param = GetParam(module, name);
         s.value = wc_param.value;
