@@ -31,6 +31,7 @@ h = 23;
 x_pad = 5;
 y_pad = 5;
 
+
 % generate function handles for callbacks
 fn_read_params = @readParams;
 fn_write_params = @writeParams;
@@ -55,18 +56,20 @@ set(fig,'units','pixels','position',[1040 502 w_fig h_fig]);
 
 % init menus
 m = uimenu(fig,'Label','&File');
-uimenu(m,'Label','&Load Protocol...','Callback', {fn_read_params, fig});
-uimenu(m,'Label','&Save Protocol...','Callback', {fn_write_params, fig});
+uimenu(m,'Label','&Load Protocol...','Callback', {fn_read_params, module});
+uimenu(m,'Label','&Save Protocol...','Callback', {fn_write_params, module, paramNames});
 uimenu(m,'Label','&Close','Callback',{fn_close, fig});
 
 % generate controls
 u = uicontrol(fig,'style','pushbutton','String','Close',...
     'position',[(w_fig - w_fn) / 2, x_pad, w_fn, h], 'Callback', {fn_close, fig});
 
+fn_ui = @paramChanged;
 for i = 1:paramCount
     y = y_pad + h * (i + 0.5);
     name = paramNames{i};
     s = getfield(params, name);
+    InitParam(module, name, s);
     u = uicontrol(fig,'style','edit','String',s.description,'enable','inactive',...
         'position',[x_pad, y, w_fn, h]);
     if isfield(s, 'units')
@@ -77,56 +80,99 @@ for i = 1:paramCount
     else
         p = [w_fn + x_pad, y, w_f + x_pad + w_units, h];
     end
-    if isfield(s,'value')
-        v = s.value;
-    else
-        v = GetParam(module, name);
+    if ~isfield(s,'value')
+        wc_param = GetParam(module, name);
+        s.value = wc_param.value;
     end
     switch lower(s.fieldtype)
     case {'string','value'}
-        if isnumeric(v)
-            v = num2str(v);
-        end
         st = {'style','edit','BackgroundColor','white',...
-                'HorizontalAlignment','right','String',v};
+                'HorizontalAlignment','right'};
     case 'list'
-        st = {'style','listbox','string',s.choices};
-        if ~isnumeric(v)
-            v = strmatch(v, s.choices);
-        end
-        if ~isempty(v)
-            st = {st{:}, 'value', v};
-        end
+        st = {'style','popupmenu','string',s.choices,'BackgroundColor','white'};
     case 'fixed'
-        if isnumeric(v)
-            v = num2str(v);
-        end
-        st = {'style','edit','enable','inactive','String',v};
+        st = {'style','edit','enable','inactive'};
     end
     t = [module '.' name];
-    u = uicontrol(fig,'position',p,st{:},'tag', t);
-        
+    u = uicontrol(fig,'position',p,st{:},'tag', t,...
+        'callback',{fn_ui, module, name, s});
+    setValue(u,s);
 end
 
-% u = uicontrol(fig,'style','text','string',s.description,'fontsize',12);
-% e = get(u,'extent');
-% set(u,'position',[(w_fig - e(3))/2, y + h + y_pad * 2, e(3), e(4)]);
-    
-% if nargin > 2
-%     properties = varargin{1};
-%     values = varargin{2};
-%     set(obj.fig, properties, values);
-% end
-% 
-% sf = sprintf('wc.%s = obj;',module);
-% eval(sf);
-% fig = obj.fig;
+function paramChanged(varargin)
+% when a parameter changes, we have to update the wc structure
+mod = varargin{3};
+param = varargin{4};
+s = varargin{5};
+% process the data
+h = varargin{1};
+v = getValue(h, lower(s.fieldtype));
+s = SetParam(mod, param, v);
 
+%%%%%%%%%%%%%%%%%%%%%%%
+function v = getValue(h, fieldtype)
+switch fieldtype
+case 'list'
+    v = GetSelected(h);
+case 'value'
+    v = str2num(get(h,'String'));
+otherwise
+    v = get(h,'String');
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function readParams(varargin)
-disp(varargin);
+mod = varargin{3};
+[fn pn] = uigetfile('*.mat');
+pnfn = fullfile(pn,fn);
+if exist(pnfn)
+    s = load(pnfn);
+    setParams(mod, s);
+end
 
+function setParams(module, struct)
+n = fieldnames(struct);
+for i = 1:length(n)
+    fn = n{i};
+    tag = [module '.' fn];
+    h = findobj('tag',tag);
+    if ishandle(h)
+        s = getfield(struct, fn);
+        v = setValue(h, s);
+        SetParam(module, fn, v);
+    end
+end
+        
+function v = setValue(handle, struct)
+% sets the param value in the GUI
+switch lower(struct.fieldtype)
+case 'list'
+    c = struct.choices;
+    set(handle,'String',c);
+    v = struct.value;
+    if ~isnumeric(v)
+        s = strmatch(v, struct.choices);
+    end
+    if ~isempty(s)
+        set(handle,'Value',s);
+    end
+otherwise
+    v = num2str(struct.value);
+    set(handle,'String',v);
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function writeParams(varargin)
-disp(varargin);
+mod = varargin{3};
+fns = varargin{4};
+[fn pn] = uiputfile('*.mat');
+pnfn = fullfile(pn,fn);
+for i=1:length(fns)
+    sf = sprintf('%s = GetParam(mod, fns{i});', fns{i});
+    eval(sf); % creates named variables
+end
+save(pnfn,fns{:});
 
 function closeFigure(varargin)
 close(gcbf);
