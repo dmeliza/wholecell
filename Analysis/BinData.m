@@ -17,6 +17,7 @@ function data = BinData(data, binfactor, dimension)
 % 1.4 - generalized to any number of dimensions, modulus is preserved
 %
 % $Id$
+MODULUS = 0;
 
 error(nargchk(2,3,nargin))
 
@@ -54,8 +55,9 @@ else
 end
 
 % bin the data by reshaping and averaging the matrix
-nd              = reshape(nd,[row binfactor dims(2:end)]);
-[nd,nshift]     = shiftdim(mean(nd,2));
+nd              = reshape(nd,[binfactor row dims(2:end)]);
+nd              = mean(nd,1);
+[nd,nshift]     = shiftdim(nd);
 if nshift > 1
     nd          = shiftdim(nd,-1);  % recover leading singleton dimension if necc.
 else
@@ -63,7 +65,7 @@ else
 end
 
 % compute binned modulus here
-if ~isempty(mod)
+if ~isempty(mod) & MODULUS
     mod    = mean(mod,1);
     nd     = cat(1,nd,mod);
 end
