@@ -92,7 +92,6 @@ case 'record'
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
     
 case 'stop'
-    ClearAO(wc.ao);
     if (isvalid(wc.ai))
         stop(wc.ai);
         set(wc.ai,'SamplesAcquiredAction',{});
@@ -264,15 +263,23 @@ if ~strcmp('memory',lower(get(obj,'LoggingMode')))
     [pn fn ext] = fileparts(lfn);
     save(fullfile(pn,fn),'timing','param');
 end
+plotResults(obj,timing);
+startSweep;
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+function plotResults(obj, timing)
+% Plots the results of the reverse correlation
+param = GetParam(me);
 % get data
 [data, time, abstime] = getdata(obj);
-% align the data
+% align the data to the stim times
 stim_start = timing(2) - timing(1);
 i = max(find(time < stim_start)) + 1;
 resp = data(i:end,param.input.value);
 time = time(i:end) - time(i);
 stim_times = timing(2:end) - timing(2);
-disp(sprintf('%f / %f',mean(diff(stim_times)), std(diff(stim_times))));
 % bin the data (rough, ignores variance in timing)
 t_resp = 1000 / get(obj,'SampleRate');
 t_stim = param.t_res.value;
@@ -286,11 +293,6 @@ s = reshape(stim(1:pix),param.x_res.value*param.y_res.value, s_frames);
 s = permute(s,[2 1]);
 % reverse correlation:
 options.correct = 'no';
-hl_est = danlab_revcor(s,r,5,fix(1000/t_stim),options);
-% combine first 5 lags into a spatial plot
-k = mean(hl_est,1);
-k = reshape(k,param.x_res.value,param.y_res.value)';
-mx = max(max(abs(k)));
-figure,imagesc(k,[-mx mx]);
-colormap(gray);
-set(gca,'XTick',[],'YTick',[])
+Fs = fix(1000/t_stim);
+hl_est = danlab_revcor(s,r,5,Fs,options);
+Plot2DKernel(hl_est,r,s,stim_times,[param.x_res.value,param.y_res.value],Fs);
