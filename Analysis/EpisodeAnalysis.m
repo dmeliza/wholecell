@@ -763,14 +763,14 @@ for i = 1:length(ds)
                 ats = sprintf('%3.1f', ds(i).abstime(1));
             end
             str{ct} = sprintf('%s:%s(%s) %s ', ds(i).fn, ds(i).channels{ds(i).chan(j)},...
-                      ds.units, ats);
+                      ds(i).units, ats);
         end
     end
 end
 if ~isempty(ds)
     plotParameter
     if lbl
-        h = legend(p,str{:});
+        h = legend(p,str{:},0);
     end
 end
 
