@@ -230,6 +230,7 @@ putdata(wc.ao,p);
 stim_off    = @imageOff;
 [x y pw ph] = CGDisplay_Position;
 cgdrawsprite(1, x, y, pw, ph)
+cgrect(-320,-240,100,100,1)
 dur         = GetParam(me,'vis_len','value') / 1000; % s
 set(wc.ai,'TimerPeriod', dur);
 set(wc.ai,'TimerAction', {me,stim_off}); 
