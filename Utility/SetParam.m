@@ -16,10 +16,11 @@ module = lower(module);
 out = [];
 
 % find out if the object exists
-sfp = sprintf('isfield(wc.%s,''%s'')',module,param);
+sfp = sprintf('isfield(wc.%s.param,''%s'')',module,param);
 if (eval(sfp))
-    sf = sprintf('wc.%s.%s', module, param);
+    sf = sprintf('wc.%s.param.%s.value', module, param);
     eval(FormatAssignment(sf, value));
+    out = GetParam(module, param);
 else
     disp(['no such field ' param ' in module ' module]);
 end

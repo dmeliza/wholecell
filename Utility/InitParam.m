@@ -1,8 +1,9 @@
-function out = InitParam(module, param, value)
-% Creates a field for a parameter
+function out = InitParam(module, param, struct)
+% Creates fields in wc so that subsequent get and set commands
+% work for this parameter
 % 
-% OUT = InitParam(MODULE,PARAM,VALUE)
-% 		Sets the param to VALUE
+% OUT = InitParam(MODULE,PARAM,struct)
+% 		Sets the param to struct (described in OpenParamFigure.m)
 %       returns the actual value
 % 	
 %
@@ -15,6 +16,6 @@ param = lower(param);
 module = lower(module);
 out = [];
 
-sf = sprintf('wc.%s.%s', module, param);
-eval(FormatAssignment(sf, value));
-%assignin('caller',sf,value);
+sf = sprintf('wc.%s.param.%s = struct;', module, param);
+eval(sf);
+out = GetParam(module, param);
