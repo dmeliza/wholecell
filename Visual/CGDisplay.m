@@ -47,7 +47,7 @@ out = mfilename;
 function param = initDisplay(param)
 cgloadlib;       % error checking needed here for missing toolkit
 cgshut;
-cgopen(1,8,0,2); % opens a 640x480x8 display on the second monitor by default
+cgopen(1,16,0,2); % opens a 640x480x16 display on second monitor
 gpd                 = cggetdata('gpd');
 param.v_res.value   = gpd.RefRate100 / 100;
 param.d_res.value   = sprintf('%d x %d x %d', gpd.PixWidth, gpd.PixHeight, gpd.BitDepth);
