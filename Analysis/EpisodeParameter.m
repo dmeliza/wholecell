@@ -94,6 +94,8 @@ case 'mean'
     % only the first two marks are used
     out = mean(data(ind(1):ind(2),:),1);
 end
+% columnize the data
+out = out(:);
 
 function res = bin(res, bs)
 % Rebins a dataset into bins of bs width (units of abstime)
@@ -107,7 +109,7 @@ start   = datenum(cat(1,res.start));
 offset  = datevec(start - min(start));
 offmins = offset(:,4) * 60 + offset(:,5) + offset(:,6) / 60;
 for i = 1:length(res)
-    res(i).abstime = res(i).abstime + offmins(i);
+    res(i).abstime = res(i).abstime(:) + offmins(i);
 end
 
 function ind = getIndices(times, time)
