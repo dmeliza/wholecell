@@ -176,26 +176,26 @@ else
     % scale the colormap
     con     = GetParam(me,'contrast','value');    % equals the range of the colormap
     cmap    = s.colmap .* con;
-    cmap    = cmap - mean(mean(cmap)) + 0.5;       % reset mean to gray
-    [x y z] = size(s.stimulus);
+    s.colmap = cmap - mean(mean(cmap)) + 0.5;       % reset mean to gray
+    z       = size(s.stimulus,3);
     % pick a random frame
     fnum    = unidrnd(z-1,1,1) + 1;             % random frame > 1 (1 is the background)
     % rescale and load the frame
-    loadFrame(s.stimulus,1,1);
-    loadFrame(s.stimulus,fnum,2);
+    loadFrame(s,1,1);
+    loadFrame(s,fnum,2);
     % generate the sequence
-    len     = GetParam(me,'fr_length','value');
+    len     = ceil(abs(GetParam(me,'fr_length','value')));
     seq     = ones(30);
-    seq(13:13+len) = 2;                         % offset of 12 frames (200 ms at 60Hz)
+    seq(13:13+len-1) = 2;                         % offset of 12 frames (200 ms at 60Hz)
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [] = loadFrame(stimulus, fnum, snum)
-stim  = stimulus(:,:,fnum);
+function [] = loadFrame(s, fnum, snum)
+stim  = s.stimulus(:,:,fnum);
 dim   = size(stim);
 dim2  = dim .* ceil(100./dim);            
 stim = reshape(stim',1,prod(dim));
-cgloadarray(snum,x,y,stim,cmap,dim2(1),dim2(2))
+cgloadarray(snum,s.x_res,s.y_res,stim,s.colmap,dim2(1),dim2(2))
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function queueStimulus(fnum)
@@ -204,19 +204,13 @@ function queueStimulus(fnum)
 % checks the frame number against the user's preferences for injection, if this
 % is not zero or not equal to one of the selected frames, no injection is made
 global wc
+len         = GetParam(me,'ep_length','value');                 %ms
+dt          = 1000 / get(wc.ao,'SampleRate');                   %ms/sample
 p           = zeros(len / dt, length(wc.ao.Channel));
 
 frames      = GetParam(me,'inj_frames','value');
-ind         = find(frames==fnum)
+ind         = find(frames==fnum);
 if isempty(frames) | ~isempty(ind)
-    len         = GetParam(me,'ep_length','value');                 %ms
-    dt          = 1000 / get(wc.ao,'SampleRate');                   %ms/sample
-    
-    % stimulator
-    ch          = GetParam(me,'stim_channel','value');
-    del         = GetParam(me,'stim_delay','value') / dt; %samples
-    i           = del+1:(del+ GetParam(me,'stim_len','value'));
-    p(i,ch)     = GetParam(me,'stim_gain','value');
     % injection
     ch          = GetParam(me,'inj_channel','value'); 
     del         = GetParam(me,'inj_delay','value') / dt; %samples
@@ -240,7 +234,7 @@ gprimd  = cggetdata('gpd');
 
 syncmap  = [1 1 1; 0 0 0];
 sync     = 1;
-for i = 1:len
+for i = 1:length(seq)
     fr   = seq(i);
     cgdrawsprite(fr,x,y,pw,ph)
     % switch sign of sync rectangle
