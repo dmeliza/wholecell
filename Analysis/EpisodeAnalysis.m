@@ -219,11 +219,7 @@ case 'export_stats_callback'
     end
     
 case 'export_figure_callback'
-    % generates a new figure window, which will contain controls so the user can save it
-    trace = GetUIParam(me,'trace_axes','UserData');
-    tracehandles = [trace.handle];
-    abstime = [trace.abstime]';
-    ydata = get(tracehandles,'YData');
+    exportFigure;
     
 case 'save_analysis_callback'
     % stores a complete analysis in one file
@@ -804,6 +800,24 @@ save(filename,'data','time','abstime','info','pspdata',...
     'srdata','irdata','times');
 wait(['Data saved in ' filename]);
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function exportFigure()
+% generates a new figure window, which will contain controls so the user can save it
+trace = GetUIParam(me,'trace_axes','UserData');
+xl = GetUIParam(me,'trace_axes','Xlabel');
+yl = GetUIParam(me,'trace_axes','YLabel');
+t = GetUIParam(me,'filename','String');
+tracehandles = [trace.handle];
+data = get(tracehandles,'YData');
+time = get(tracehandles(1),'XData');
+if iscell(data)
+    data = cat(1,data{:});
+end
+f = figure;
+plot(time, data);shg;
+xlabel(get(xl,'String'));
+ylabel(get(yl,'String'));
+title(t);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function highlightTrace(trace)
@@ -893,7 +907,8 @@ t = sprintf('Mean: %2.4f +/- %2.2f %%', pspmean, (std(pspspline) / pspmean * 100
 y = get(a, 'YLim');
 x = get(a, 'XLim');
 x = diff(x) * 0.80 + x(1);
-legend(a, t);
+l = legend(a, t);
+set(l,'tag','psp_legend');
 
 a = GetUIHandle(me,'resist_axes');
 [srspline t] = TimeWeight(srdata, abstime, SP, 100);
@@ -905,7 +920,8 @@ irmean = mean(irdata);
 t1 = sprintf('SR: %2.4f +/- %2.2f %%', srmean, (std(srspline) / srmean * 100));
 y = get(a, 'YLim');
 t2 = sprintf('IR: %2.4f +/- %2.2f %%', irmean, (std(irspline) / irmean * 100));
-legend(a, t1, t2) 
+l = legend(a, t1, t2);
+set(l,'tag','resist_legend');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function handle = getSelectedRadioButton()
