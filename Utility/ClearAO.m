@@ -4,10 +4,10 @@ function ClearAO(obj, event)
 % $Id$
 if isvalid(obj)
     set(obj,'StopAction',{});
-    set(obj,'RepeatOutput',0);
     stop(obj);
+    set(obj,'RepeatOutput',0);
     c = get(obj,'Channel');
-    putsample(obj,zeros(1,length(c)));
+%    putsample(obj,zeros(1,length(c)));
 %     putdata(obj,zeros(length(c)));
 %     start(obj);
 %     trigger(obj);
