@@ -12,6 +12,7 @@ function out = FrameShift(y, timing, window, option)
 % window    - J number of points per row
 % option    - can be 'correct', in which case the baseline will be subtracted for each row
 %           - or 'correctstart', where the first value is subtracted for each row
+%           - or 'correctprev', where the correction value is the bin before the frame
 %
 % out       - MxN array
 %
@@ -38,16 +39,9 @@ if M == 1
     out = zeros(FRAMES, cols);
     for i = 1:FRAMES
         ind = (i - 1) * timing;
-        Y = y(ind+1:ind+cols)';
-        switch lower(option)
-        case 'correct'
-            out(i,:) = Y - mean(Y);
-        case 'correctstart'
-            out(i,:) = Y - Y(1);
-        otherwise
-            out(i,:) = Y;
-        end
+        out(i,:) = y(ind+1:ind+cols)';
     end
+    framelen = timing;
 else
     % index mode
     mx_ind = len - window - 1; % the maximum index supported by the input matrix
@@ -64,14 +58,20 @@ else
     out = zeros(rows, cols);
     for i = 1:rows
         ind = timing(i)-1;
-        Y = y(ind+1:ind+cols)';
-        switch lower(option)
-        case 'correct'
-            out(i,:) = Y - mean(Y);
-        case 'correctstart'
-            out(i,:) = Y - Y(1);
-        otherwise
-            out(i,:) = Y;
-        end
+        out(i,:) = y(ind+1:ind+cols)';
     end
+    framelen = mean(diff(timing));
 end
+% do correction
+switch lower(option)
+case 'correct'
+    c   = mean(out,2);  % rowwise mean
+case 'correctstart'
+    c   = out(:,1);     % first column
+case 'correctprev'
+    c   = mean(out(:,1:framelen),2);    % mean of first frame
+    c   = [c(1);c(1:end-1)];        % shift frames
+otherwise
+    c   = zeros(rows,1);            % no correction
+end    
+out = out - repmat(c,1,cols);
