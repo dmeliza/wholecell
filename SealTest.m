@@ -80,7 +80,8 @@ case 'scaling_callback'
     setScaling(me);
     
 case 'close_callback'
-    StopAcquisition(me, [wc.ai wc.ao]);
+    ClearAI(wc.ai);
+    ClearAO(wc.ao);
     DeleteFigure(me);
     
 case 'run_callback'
@@ -108,7 +109,7 @@ global wc
         StartAcquisition(me,[wc.ai wc.ao]);
     else
         SetUIParam(me,'runbutton','String','Stopped');
-        StopAcquisition(me,[wc.ai wc.ao]);
+        stop([wc.ai wc.ao]);
     end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    

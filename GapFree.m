@@ -26,7 +26,7 @@ case 'start'
     scope = getScope;
     setupScope(scope, wc.control.amplifier);
     setupHardware(wc.control.amplifier);
-    SetUIParam('protocolcontrol','status','String','Not recording');
+    SetUIParam('protocolcontrol','status','String','Playback');
     StartAcquisition(me,wc.ai);
     
 case 'record'
@@ -44,16 +44,15 @@ case 'record'
     StartAcquisition(me,wc.ai);
     
 case 'stop'
-    StopAcquisition(me,wc.ai);
-    if (isvalid(wc.ai))
-        set(wc.ai,'LoggingMode','Memory');
-    end
+    ClearAI(wc.ai);
+    SetUIParam('protocolcontrol','status','String','Stopped');
+    
     
 case 'sweep'
     in = get(wc.ai,'SamplesAvailable');
     out = get(wc.ao,'SamplesAvailable');
-    status = sprintf('in: %d / out: %d',in, out); 
-    SetUIParam('protocolcontrol','status','String',status);    
+%     status = sprintf('in: %d / out: %d',in, out); 
+%     SetUIParam('protocolcontrol','status','String',status);    
     plotData(varargin{2}, varargin{3}, wc.control.amplifier.Index);
     
 otherwise

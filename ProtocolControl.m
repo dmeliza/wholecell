@@ -52,7 +52,8 @@ case 'stop_protocol'
     if exist(funcpath,'file') > 0
         feval(func,'stop');
     else
-        StopAcquisition(me,[wc.ai wc.ao]);
+        ClearAI(wc.ai);
+        ClearAO(wc.ao);
     end    
     
 case 'close_callback'
