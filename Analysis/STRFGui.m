@@ -16,10 +16,13 @@ initValues;
 function initValues()
 % sets initial values
 methods = {'Xcorr','Sparse','PCA'};
+filters = {'None','Highpass','Lowpass'};
 SetUIParam(me,'directory','String',pwd);
 updateLists;
 SetUIParam(me,'stimulusstatus','String','No stimulus loaded.');
 SetUIParam(me,'responsestatus','String','No responses loaded.');
+SetUIParam(me,'filter','String',filters);
+SetUIParam(me,'filter_param','String','0.5');
 SetUIParam(me,'method','String',methods);
 SetUIParam(me,'binfactor','String','1');
 SetUIParam(me,'analysisframes','String','5');
@@ -92,7 +95,13 @@ h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[480 305 60 20]
 h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[480 285 60 20],...
     'String','Frames:','horizontalalignment','left');
 h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[480 245 60 20],...
+    'String','Prefilter:','horizontalalignment','left');
+h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[480 225 60 20],...
+    'String','Cutoff:','horizontalalignment','left');    
+
+h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[480 185 60 20],...
     'String','Method:','horizontalalignment','left');    
+
 % 'editables'
 h = InitUIControl(me,'analysiswindow','style','edit','backgroundcolor',BG,...
     'horizontalalignment','right','position',[580 328 100 20],'enable','inactive');
@@ -100,8 +109,13 @@ h = InitUIControl(me,'binfactor','style','edit','backgroundcolor',BG,...
     'horizontalalignment','right','position',[580 308 100 20]);
 h = InitUIControl(me,'analysisframes','style','edit','backgroundcolor',BG,...
     'horizontalalignment','right','position',[580 288 100 20]);
-h = InitUIControl(me,'method','style','popup','backgroundcolor',BG,...
+h = InitUIControl(me,'filter','style','popup','backgroundcolor',BG,...
     'horizontalalignment','right','position',[580 248 100 20],'String',' ');
+h = InitUIControl(me,'filter_param','style','edit','backgroundcolor',BG,...
+    'horizontalalignment','right','position',[580 228 100 20],'String',' ');
+
+h = InitUIControl(me,'method','style','popup','backgroundcolor',BG,...
+    'horizontalalignment','right','position',[580 188 100 20],'String',' ');
 % buttons
 h = InitUIControl(me,'analyze','style','pushbutton','String','Analyze',...
     'Position',[530 100 100 20],...
@@ -299,11 +313,27 @@ end
 
 function resp = loadResponse()
 % Loads responses from daq or .r1 files
+% Now includes prefiltering
 path        = GetUIParam(me,'directory','String');    % working directory
 files       = GetUIParam(me,'response','selected');   % selected responses
 path        = [path filesep];
 fqp         = cat(2,repmat(path,size(files,1),1),files);
 [resp, str] = CombineFiles('r1',deblank(cellstr(fqp)),[1 4]); % this is a fudge, need to get channel indices somewhere
+filter      = GetUIParam(me,'filter','selected');   % selected filter
+switch lower(filter)
+case 'highpass'
+    param     = GetUIParam(me,'filter_param','stringval');
+    for i = 1:length(resp)
+        param         = GetUIParam(me,'filter_param','stringval');
+        resp(i).data  = HighPass(double(resp(i).data), param, resp(i).t_rate);
+    end
+case 'lowpass'
+    param     = GetUIParam(me,'filter_param','stringval');
+    for i = 1:length(resp)
+        param         = GetUIParam(me,'filter_param','stringval');
+        resp(i).data  = LowPass(double(resp(i).data), param, resp(i).t_rate);
+    end    
+end
 setstatus(str);
 
 
