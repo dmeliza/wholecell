@@ -25,6 +25,7 @@ function fig = ParamFigure(module, params, close_callback)
 global wc
 
 error(nargchk(1,3,nargin));
+module  = lower(module);
 
 % load params from wc if needed
 if nargin == 1
