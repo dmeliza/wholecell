@@ -5,16 +5,20 @@ function [] = VisualEpisode(varargin)
 % VisualSequence or Episode if there is a short sequence of frames that should
 % be shown in sequence many times.  The user can specify the sequence of frames,
 % the frame length and interframe interval, and also inject current through
-% the analogoutput object.  For simplicity's sake, each frame is treated equally.
+% the analogoutput object.  
+%
+% The order and length of time each frame is shown is determined by a sequence vector,
+% which consists of indices into a 3-dimensional stimulus array.  Each element of
+% the vector specifies the frame of the stimulus to show; if an element is repeated
+% the frame is kept on screen.  Indices of 0 imply a blank screen.
 %
 %
 % Input: The data for the pixel sequence is read from a file.  This can be 
-%        an .s0 file, which has a structure defined in headers/s0_struct.m.  Or
-%        it can be a .m file which returns an s0 structure.
+%        an .s2 file, which has a structure defined in headers/s2_struct.m.  Or
+%        it can be a .m file which returns an s2 structure.
 %
-% Output: The DAQ toolkit stores the response from the cell.  This is made available
-%         to the user, who can choose an analysis protocol, which is an mfile that takes
-%         an r1 and an s0 structure for parameters.
+% Output: The DAQ toolkit stores the response from the cell.  The protocol plots the
+%         most recently acquired sweep and the average of all previously acquired sweeps.
 % 
 % Details: Synchronization data is recorded from a photocell which is placed in front
 %          of a reserved area of the screen.  This area flashes between black to white
@@ -22,14 +26,21 @@ function [] = VisualEpisode(varargin)
 %          to be synchronized precisely with the analogoutput object, the only option
 %          here is to use a hardware trigger (the software trigger used in FlashEpisode
 %          is extremely imprecise.  The use of a hardware trigger means that preacquisition
-%          doesn't work, so we have to play a frame with the sync square in it before 
-%          any actual stimulus frame (delay hardcoded to 200 ms)
+%          doesn't work, so we have to specify blank frames before any actual stimulus
+%          frames.  The first frame has a white sync rectangle, which should generate
+%          a *downward* TTL pulse.  Successive frames alternate the sign of the sync
+%          pixel whenever the frame changes (not every real refresh of the screen)
+%
+%          Acquisition length is independent of the length of the stimulus; if there are
+%          only a few frames, these will be played and the DAQ toolkit left to finish out
+%          the acquisition.  All times are relative to the beginning of the episode.
 %          
-%          The location and scaling of the sprites are loaded from the ancillary
+%          The location and scaling for the sprites are loaded from the ancillary
 %          CGDisplay module.
 %
 % Changes: 
 % 1.1:     Adapted from VisualSequence and Episode
+% 1.3:     Designed to supercede FlashEpisode
 %
 % $Id$
 
@@ -80,9 +91,8 @@ case 'record'
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
     
 case 'stop'
-    if (isvalid(wc.ai))
-        ClearAI(wc.ai)
-    end
+    ClearAO(wc.ao)
+    ClearAI(wc.ai)
     
 otherwise
     disp(['Action ' action ' is unsupported by ' me]);
@@ -100,14 +110,23 @@ global wc;
     f_s = {'description','fieldtype','value'};
     f_l = {'description','fieldtype','value','choices'};
     f_cb = {'description','fieldtype','value','callback'};
-    loadStim = @loadStimulus;
+    loadStim = @pickStimulus;
     
     % we need to insert parameters here once there are current injections involved
-    p.frameinter    = cell2struct({'Frame interval', 'value', 32,'ms'},f,2);
-    p.framelength   = cell2struct({'Frame Length','value',16,'ms'},f,2);
+    p.inj_length  = cell2struct({'Inj Length','value',6,'ms'},f,2);
+    p.inj_delay   = cell2struct({'Inj Delay','value',200,'ms'},f,2);
+    p.inj_gain    = cell2struct({'Inj Gain','value',1},f_s,2);
+    p.inj_channel = cell2struct({'Command','list',1,GetChannelList(wc.ao)},f_l,2);
+    
+    p.stim_len      = cell2struct({'Stim Length','value', 300, 'ms'},f,2);
+    p.stim_delay    = cell2struct({'Stim Delay','value',200,'ms'},f,2);
+    p.stim_gain     = cell2struct({'Stim Gain','value',10,'(V)'},f,2);
+    p.stim_channel  = cell2struct({'Stimulator','list',1,GetChannelList(wc.ao)},f_l,2);
+    
     p.stim          = cell2struct({'Stim File','fixed','',loadStim},f_cb,2);
     p.display       = cell2struct({'Display', 'value', 2},f_s,2);
     p.frequency     = cell2struct({'Ep. Freq','value',0.2,'Hz'},f,2);
+    p.ep_length     = cell2struct({'Ep. Length','value',2000,'ms'},f,2);
     ic              = get(wc.control.amplifier,'Index');
     p.sync_c        = cell2struct({'Sync Channel','fixed','hardware'},f_s,2);
     p.input         = cell2struct({'Amplifier Channel','list',ic,GetChannelList(wc.ai)},...
@@ -121,26 +140,59 @@ function setupHardware()
 % same frame length and interval for all frames
 global wc
 analyze = @analyze;
-len     = checkMovie(wc.ai);            % number of sprites in the movie
-gprimd  = cggetdata('gpd');
-v_res   = gprimd.RefRate100 / 100;      % frames/second
-fl      = GetParam(me,'framelength','value');
-fint    = GetParam(me,'frameinter','value');
-dt      = 1000/v_res;                   % ms
-fl      = fl - mod(fl,dt) + dt;         % find next longest appropriate frame length
-fint    = fint - mod(fint,dt) + dt;
-a_int   = 400 + len * (fl + fint);      % length of episode, ms
-sr      = get(wc.ai, 'SampleRate');     % samples/second
-a_int   = a_int * sr/1000;              % length of episode, samples
+% reset display
+setupVisual;
 % acq params
-set(wc.ai,'SamplesPerTrigger', a_int);
-set(wc.ai,'SamplesAcquiredActionCount', a_int);
-set(wc.ai,'SamplesAcquiredAction',{me,analyze});
-% hardware triggering for ao and ai:
-set(wc.ai,'TriggerDelayUnits','seconds');
-set(wc.ai,'TriggerDelay',0);            % hardware triggers have to have a >= zero delay
-set(wc.ai,'TriggerType','HwDigital');
-set(wc.ao,'TriggerType','HwDigital');
+sr       = get(wc.ai, 'SampleRate');
+length   = GetParam(me,'ep_length','value');
+len      = length * sr / 1000;
+set(wc.ai,'SamplesPerTrigger',len)
+set(wc.ai,'SamplesAcquiredActionCount',len)
+set(wc.ai,'SamplesAcquiredAction',{me, display}) 
+set(wc.ai,'ManualTriggerHwOn','Start')
+set(wc.ao,'SampleRate', 1000)
+% hardware triggering via TTL to PFI0 and PFI6
+set(wc.ai,'TriggerDelay',0)
+set([wc.ai wc.ao], 'TriggerType','HwDigital')
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function seq = setupVisual()
+% visual output: loads a .s0 file into video memory
+% returns the sequence of frames to play
+seq = [];
+stimfile = GetParam(me,'stim','value');
+[s st]   = LoadStimulusFile(stimfile);
+if isempty(s)
+    error(st)
+else
+    for i = 1:size(s.stimulus,3)
+        cgloadarray(i,s.x_res,s_y_res,s.stimulus(:,:,i),s.colmap)
+    end
+    seq = s.sequence; 
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+function queueStimulus()
+% populates the wc.ao data channels.  It's necessary to upsample to
+% at least 1 kHz in order to avoid strange buffer overruns in the DAQ driver
+global wc
+
+len         = GetParam(me,'ep_length','value');                 %ms
+dt          = 1000 / get(wc.ao,'SampleRate');                   %ms/sample
+p           = zeros(len / dt, length(wc.ao.Channel));
+% stimulator
+ch          = GetParam(me,'stim_channel','value');
+del         = GetParam(me,'stim_delay','value') / dt; %samples
+i           = del+1:(del+ GetParam(me,'stim_len','value'));
+p(i,ch)     = GetParam(me,'stim_gain','value');
+% injection
+ch          = GetParam(me,'inj_channel','value'); 
+del         = GetParam(me,'inj_delay','value') / dt; %samples
+dur         = GetParam(me,'inj_length','value') / dt;               %samples
+gain        = GetParam(me,'inj_gain','value');
+i           = del+1:del+dur;
+p(i,ch)     = gain;
+putdata(wc.ao,p);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%55555
 function startSweep()
@@ -156,65 +208,9 @@ start([wc.ai wc.ao]);
 pause(0.2);
 playFrames
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [] = playFrames()
-% plays the sequence of frames, preceded by an initial sync rectangle
-% thus the sync rectangle is on whenever a frame is not; if the signal is
-% recorded this will allow reconstruction of stimulus onset and offset
-gprimd  = cggetdata('gpd');
-v_res   = gprimd.RefRate100 / 100;      % frames/second
-dt      = 1000/v_res;                   % ms
-dur     = GetParam(me,'framelength','value');
-del     = GetParam(me,'frameinter','value');
-ndur    = fix(fl/dt);               % number of frames to hold image
-ndel    = fix(fint/dt);             % number of frames to leave image off
-nini    = fix(200/dt);              % number of frames to wait after start of episode
-[x y pw ph] = CGDisplay_Position;
-
-movfile  = GetParam(me,'stim','value');
-stim     = LoadMovie(movfile);
-
-len      = size(stim.stimulus,3);       % # of frames
-seq      = CgQueueMovie(stim);
-
-cgrect(-320,-240,100,100,[1,1,1])       % sync rectangle, hard-coded
-% timing is now critical
-cgflip(0,0,0)
-for i=1:nini
-    cgflip('V');
-end
-for i=1:len
-    cgdrawsprite(i,x,y, pw, ph);
-    cgrect(-320,-240,100,100,[0,0,0]);
-    cgflip(0,0,0);
-    for i = 1:ndur
-        cgflip('V');
-    end
-    cgrect(-320,-240,100,100,[1,1,1]);
-    cgflip(0,0,0);
-    for i = 1:ndel
-        cgflip('V');
-    end
-end
-        
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function len = checkMovie(obj)
-% checks to make sure there's a movie loaded
-% returns the number of frames
-len      = 0;
-movfile  = GetParam(me,'stim','value');
-stim     = LoadMovie(movfile);
-if ~isempty(stim)
-    len  = size(stim.stimulus,3);
-    if ~strcmp(lower(get(obj,'LoggingMode')),'memory')
-        [pn fn ext] = fileparts(get(obj,'logfilename'));
-        WriteStructure([pn filesep name],stim);
-    end
-end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function loadStimulus(varargin)
+function pickStimulus(varargin)
 mod         = varargin{3};
 param       = varargin{4};
 s           = varargin{5};
@@ -222,37 +218,43 @@ t           = [mod '.' param];
 h           = findobj(gcbf,'tag',t);
 v           = get(h,'tooltipstring');
 [pn fn ext] = fileparts(v);
-[fn2 pn2]   = uigetfile([pn filesep '*.s0']);
+[fn2 pn2]   = uigetfile([pn filesep '*.s2']);
 if ~isnumeric(fn2)
     v       = fullfile(pn2,fn2);
     set(h,'string',fn2,'tooltipstring',v)
     s       = SetParam(mod, param, v);
 end
 
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-% function pickStimulus(varargin)
-% % callback for the stimulus field, allows user to select
-% % a file that describes the stimulus
-% mod         = varargin{3};
-% param       = varargin{4};
-% s           = varargin{5};
-% t           = [mod '.' param];
-% h           = findobj(gcbf,'tag',t);
-% v           = get(h,'tooltipstring');           % this is the file to load
-% [pn fn ext] = fileparts(v);
-% od          = pwd;
-% if ~isempty(pn)
-%     cd(pn)
-% end
-% [fn2 pn2]   = uigetfile({'*.m;*.s0','Stimulus Files (*.m,*.s0)';...
-%                          '*.*','All Files (*.*)'});
-% cd(od)                 
-% if ~isnumeric(fn2)
-%     v       = fullfile(pn2,fn2);
-%     set(h,'string',fn2,'tooltipstring',v)
-%     s       = SetParam(mod, param, v);
-% end
-% queueStimulus;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [] = playFrames()
+% plays the sequence of frames, preceded by an initial sync rectangle
+% thus the sync rectangle is on whenever a frame is not; if the signal is
+% recorded this will allow reconstruction of stimulus onset and offset
+% frames are loaded by setupVisual() each time Play is pressed
+% while queueStimulus has to be called for each sweep
+gprimd  = cggetdata('gpd');
+
+[x y pw ph] = CGDisplay_Position;
+
+seq      = setupVisual;
+len      = length(seq);       % # of frames
+
+syncmap  = [1 1 1; 0 0 0];
+sync     = 1;
+for i = 1:len
+    fr   = seq(i);
+    % draw frame if index is nonzero
+    if fr > 0
+        cgdrawsprite(fr,x,y,pw,ph)
+    end
+    % switch sign of sync rectangle
+    if i == 1 | fr ~= seq(i-1)
+        sync    = ~sync;
+    end
+    cgrect(-320,-240,100,100,syncmap(sync+1,:))       % sync rectangle, hard-coded
+    cgflip(0,0,0)
+end
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function clearDAQ()
