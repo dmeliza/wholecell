@@ -477,7 +477,7 @@ if ~isCC
         IR(i)           = mean(resp(ind_baseline,i),1) - mean(resp(ind_ir,i),1);
     end
     
-    t_sr         = r_time(median(ind_trans)) + t_offset;
+    t_sr         = r_time(fix(median(ind_trans))) + t_offset;
     if ~isempty(IR) & ~all(isnan(IR))
         ir           = IR(:);
         t_ir         = r_time([ind_baseline(1) ind_baseline(end),...
