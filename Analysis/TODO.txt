@@ -13,3 +13,5 @@ unify select and zoom mode - doesn't work; zoom has to be off to avoid zooming
                              (maybe try control-clicking?)
 hide and show marks
 smoothed statistics and average
+
+a dialog to rescale the data
