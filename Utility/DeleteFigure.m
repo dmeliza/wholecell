@@ -8,8 +8,9 @@ function varargout = DeleteFigure(figname);
 global wc
 
 disp(['Closing figure ' figname]);
-if (~isfield(wc, figname))
+if isfield(wc, figname)
     wc = rmfield(wc, figname);
 end
 obj = findobj('tag', figname);
+%delete(obj(find(ishandle(obj))));
 delete(gcbf);
