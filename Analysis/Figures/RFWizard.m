@@ -12,6 +12,8 @@ function [] = RFWizard(matfile, mode)
 WINDOW  = [-1000 5000];   % in samples, analysis window (relative to onset)
 FIRST   = 'pre';
 EVENT_MIN   = 10.5;         % minimum size of the induced event (to avoid massive noise problems
+NBOOT   = 1;
+NORM    = 1;
 
 error(nargchk(1,2,nargin))
 if nargin < 2
@@ -49,63 +51,95 @@ ind_ltd  = t_spike < t_peak & ind_clean;
 ind_center = x_center == x_spike & ind_clean;
 ind_surround = abs(x_center - x_spike) == 1 & ind_clean;
 
-[rf_pre,rf_pst,rf_pre_e,rf_pst_e,t]  = combine(Z, t_onset, x_center, WINDOW);
+[rf_pre,rf_pst,t,INDEX]  = combine(Z(ind_clean), t_onset(ind_clean),...
+                                   x_center(ind_clean), WINDOW, NORM);
+rf_pre       = collapse(rf_pre,2);
+rf_pst       = collapse(rf_pst,2);
 
+% figure
+% ResizeFigure(gcf,[2.66, 1.41]);
+% plot(t,rf_pre);
+% legend({'peak','1','2','3'});
+% legend boxoff
+% addscalebar(gca,{'ms',''},[50 0]);
+
+figure
 subplot(3,3,1)
 ind     = ind_surround;
-compare(Z,t_onset, x_center, WINDOW, ind);
+compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
 title('LTP/LTD');
 ylabel('Condition Surround');
 
 subplot(3,3,2)
 ind     = ind_surround & ind_ltp;
-compare(Z,t_onset, x_center, WINDOW, ind);
+compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
 title('LTP');
 
 subplot(3,3,3)
 ind     = ind_surround & ind_ltd;
-compare(Z,t_onset, x_center, WINDOW, ind);
+compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
 title('LTD');
 
 subplot(3,3,4)
 ind     = ind_center;
-compare(Z,t_onset, x_center, WINDOW, ind);
+compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
 ylabel('Condition Center');
 
 subplot(3,3,5)
 ind     = ind_center & ind_ltp;
-compare(Z,t_onset, x_center, WINDOW, ind);
+compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
 
 subplot(3,3,6)
 ind     = ind_center & ind_ltd;
-compare(Z,t_onset, x_center, WINDOW, ind);
+compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
 
 subplot(3,3,7)
-compare(Z,t_onset, x_center, WINDOW, 1:length(x_center));
+compare(Z,t_onset, x_center, WINDOW, 1:length(x_center), NBOOT);
 ylabel('All locations');
 
 subplot(3,3,8)
 ind     = ind_ltp;
-compare(Z,t_onset, x_center, WINDOW, ind);
+compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
 xlabel('Time From Spike (ms)')
 
 subplot(3,3,9)
 ind     = ind_ltd;
-compare(Z,t_onset, x_center, WINDOW, ind);
+compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
+    
 
+function [mu] = compare(Z, t_onset, x_center, WINDOW, index, NBOOT)
+[pre, pst, t, INDEX] = combine(Z(index),t_onset(index), x_center(index), WINDOW, 1);
+if NBOOT == 1
+    pre       = collapse(pre,2);
+    pst       = collapse(pst,2);
+    %mu        = getdelta(pre, pst, t);
+    %plot(0:3,mu);
+    plot(t,(pre-pst));
+else
+    nexp    = length(find(index));
+    for i=1:NBOOT
+        sample  = unidrnd(nexp, 1, nexp);
+        pre_rf  = collapse(pre, 2, sample, INDEX);
+        pst_rf  = collapse(pst, 2, sample, INDEX);
+        mu(i,:) = getdelta(pre_rf, pst_rf, t);
+    end
+    sigma    = std(mu,[],1);
+    mu       = mean(mu,1);
+    errorbar(0:3,mu,sigma);
+end
+    axis tight
+    hline(0)
+        
 
-function [mu] = compare(Z, t_onset, x_center, WINDOW, index)
+function [mu] = getdelta(pre, pst, t)
 PLAST_WINDOW    = [0 100];
-[pre, pst, pre_e, pst_e, t] = combine(Z(index),t_onset(index), x_center(index), WINDOW);
 mx      = max(max(abs(pre)));
 delta   = (pre-pst)./mx;
 ind     = t >= PLAST_WINDOW(1) & t <= PLAST_WINDOW(2);
 mu      = mean(delta(ind,:),1);
-bar([0:3],mu);
-%plot(t, delta);
-axis tight
 
-function [rf_pre,rf_pst,rf_pre_sg,rf_pst_sg,t] = combine(Z, t_onset, x_center, WINDOW, NORM)
+function [PRE_RF,PST_RF,t,INDEX] = combine(Z, t_onset, x_center, WINDOW, NORM)
+% sorts the columns of each experiment into bins for distance from x_center
 if nargin < 5
     NORM     = 0;
 end
@@ -115,10 +149,13 @@ ROWS    = length(Z(1).pre);
 PRE_RF  = cell(ROWS,1);
 PST_RF  = cell(ROWS,1);
 cells   = length(Z);
+INDEX   = cell(ROWS,1);
 for i = 1:cells
+    % figure out the normalization factor for the cell, not each exp!
+    mx      = max(max(abs([Z(i).(fieldname).filttrace])));
     for j = 1:length(Z(i).(fieldname))
         J       = abs(j - x_center(i)) + 1;
-        t       = (Z(i).pre(j).time_trace - t_onset(i)) * 1000;
+        t       = (Z(i).(fieldname)(j).time_trace - t_onset(i)) * 1000;
         [m,I]   = min(abs(t));
         ind     = I+WINDOW(1):I+WINDOW(2);
         time    = t(ind);
@@ -126,21 +163,39 @@ for i = 1:cells
         pst     = Z(i).(post)(j).filttrace(ind);
         % comment out this code to disable normalization
         if NORM
-            mx      = max(max(abs(pre)));
+%            mx      = max(max(abs(pre)));
             pre     = pre ./ mx;
             pst     = pst ./ mx;
         end
         % we may also want to substract the two RFs from each other
         % immediately
+        INDEX{J}    = cat(2,INDEX{J},i);
         PRE_RF{J}   = cat(2,PRE_RF{J},pre);   % this may break
         PST_RF{J}   = cat(2,PST_RF{J},pst);
     end
 end
 % compute the grand mean RF
 t   = time;
-for i = 1:length(PRE_RF)
-    rf_pre(:,i)      = mean(PRE_RF{i},2);
-    rf_pre_sg(:,i)   = std(PRE_RF{i},[],2);% ./ sqrt(size(RF{i},2));
-    rf_pst(:,i)      = mean(PST_RF{i},2);
-    rf_pst_sg(:,i)   = std(PST_RF{i},[],2);% ./ sqrt(size(RF{i},2));
+
+function [mu] = collapse(RF, dim, collapser, INDEX)
+% collapses a cell array into a matrix along a given direction
+% if INDEX and collapser are specified, then we pick out the entries
+% corresponding to the indices in collapser.
+for i = 1:length(RF)
+    data         = RF{i};
+    if nargin > 2
+        weight   = MatchMatrix(collapser, INDEX{i});
+        weight   = shiftdim(weight(:),dim-1);
+        data     = data .* repmat(weight,size(data)./size(weight));
+        wsum     = sum(weight);
+        if wsum > 0
+            mu(:,i)  = sum(data,dim) ./ wsum;
+        else
+            mu(:,i)  = sum(data,dim);
+        end
+    else
+        mu(:,i)      = mean(data,dim);
+    end
+%    n(:,i)       = size(data,dim);
+%    sigma(:,i)   = std(data,[],dim);% ./ sqrt(size(RF{i},2));
 end
