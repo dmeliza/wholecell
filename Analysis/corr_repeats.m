@@ -56,7 +56,8 @@ for i = 1:REPEATS
    stats(1,i,i)   = t(2,1);
    
    % Calculate the stats for the shuffled spikes
-   t              = ShuffleSequence(data(:,i), 100);      % shuffle the response
+   %t              = ShuffleSequence(data(:,i), 100);      % shuffle the response
+   t              = [data(LAGS*2+1:end,i); data(1:LAGS*2,i)];   % shift response by LAGS*2+1
    t              = xcorr(x_mean, t, LAGS, 'coeff');      % xcorr
    stats(2,i,i)   = mean(t);
    stats(3,i,i)   = std(t);
@@ -70,7 +71,8 @@ for i = 1:REPEATS
       stats(1,j,i) = t(2,1);
    
    	  % Calculate the stats for the shuffeled spikes
-   	  t            = ShuffleSequence(data(:,j), 100);      % shuffle the response
+   	  %t            = ShuffleSequence(data(:,j), 100);      % shuffle the response
+      t            = [data(LAGS*2+1:end,j); data(1:LAGS*2,j)];  % shift the response
    	  t            = xcorr(data(:,i), t, LAGS, 'coeff');   % xcorr
       stats(2,j,i) = mean(t);
       stats(3,j,i) = std(t);
@@ -86,7 +88,8 @@ fprintf('Graphing Results...\n')
 clear data
 
 %%%%% PLOT RESULTS %%%%%%%
-findfig('xcorr_repeats');
+%findfig('xcorr_repeats');
+figure
 set(gcf,'Position',[300 300 800 600],'Color',[1 1 1],'Name','xcorr repeats',...
     'NumberTitle','off');
 clf
