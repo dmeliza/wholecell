@@ -168,13 +168,13 @@ if isempty(s)
 else
     con     = GetParam(me,'contrast','value');    % equals the range of the colormap
     cmap    = s.colmap .* con;
-    cmap    = cmap - mean(mean(cmap) + 0.5;       % reset mean to gray
+    cmap    = cmap - mean(mean(cmap)) + 0.5;       % reset mean to gray
     for i = 1:size(s.stimulus,3)
         stim  = s.stimulus(:,:,i);
         dim   = size(stim);
         dim2  = dim .* ceil(100./dim);            % nice integer scaleup
         stim = reshape(stim',1,prod(dim));
-        cgloadarray(i,s.x_res,s.y_res,stim,s.colmap,dim2(1),dim2(2))
+        cgloadarray(i,s.x_res,s.y_res,stim,cmap,dim2(1),dim2(2))
     end
     seq = s.sequence; 
     bg  = s.colmap(1,:);
