@@ -104,7 +104,7 @@ set(lbl,'String',[get(amp, 'ChannelName') ' (' get(amp,'Units') ')']);
 function varargout = plotData(data, time, index)
 global wc
 data = data(:,index);
-Scope('scroll', time * 1000, data);
+Scope('scope', time * 1000, data);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function clearPlot(axes)

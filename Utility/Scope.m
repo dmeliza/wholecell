@@ -43,7 +43,7 @@ case 'plot'
 case 'scroll'
     scrollplot(varargin{2:nargin});
     
-case 'scopeplot'
+case 'scope'
     scopeplot(varargin{2:nargin}); 
     
 case 'clear'
@@ -51,6 +51,7 @@ case 'clear'
     kids = get(scope, 'Children');
     delete(kids);
     set(scope,'UserData',[]);
+    set(scope,'XTickMode','Auto','XGrid','On','YGrid','On')
     
 case 'xshrink_callback'
     xlim = GetUIParam(me,'scope','XLim');
@@ -96,23 +97,39 @@ function scopeplot(time, data, varargin)
 % goes past the x limit of the graph to the beginning
 handler = @axesclick;
 handles = [];
-if nargin > 1
-    scope = getScopeHandle(me);
-    last = time(length(time));
-    if nargin > 2
-        xlim = [last - varargin{3}, last];
+scope = getScopeHandle(me); % this might be a slowdown
+offset = GetUIParam(me,'scope','UserData');
+if isempty(offset) 
+    offset = 0;
+end
+time = (time - time(1)) + offset;
+% Condition 1: bounds overstep - move data to beginning of plot
+xlim = get(scope, 'XLim');
+i = find(time >= xlim(2));
+if (~isempty(i))
+    time = time - time(1);
+end
+% Now we have to find overlapping plots
+kids = get(scope,'Children');
+if (~isempty(kids))
+    xdata = get(kids,'XData');
+    if (iscell(xdata))
+        used = cat(1,xdata{:});
     else
-        xlim = diff(get(scope,'XLim'));
-        xlim = [last - xlim, last];
+        used = xdata;
     end
-    handles = plot(time, data, 'Parent', scope); % data is plotted
-    set(scope,'ButtonDownFcn',handler,'XLim',xlim);
+    % create a column vector of booleans
+    minmax = [used(:,1), used(:,size(used,2))];
+    s = (time(2) > minmax(:,1)) & (time(2) < minmax(:,2));
+    e = (time(length(time)) > minmax(:,1)) & (time(length(time)) < minmax(:,2));
+    delete(kids(find(s)));
+    delete(kids(find((e - s)>0))); % the minus avoids deleting handles already deleted
 end
-if ~isempty(handles)
-    h = handles(find(ishandle(handles))); % selects valid handles
-    handler = @axesclick;
-    set(h,'ButtonDownFcn',handler);
-end
+    
+% plot data (finally) and set offset for next plot
+plot(time, data, 'Parent', scope);
+set(scope,'ButtonDownFcn',handler);
+SetUIParam(me,'scope','UserData', time(end));
 
 %%%%%%%%%%%%%%%%%%%%%%%
 function scrollplot(time, data, varargin)

@@ -115,7 +115,7 @@ global wc;
     p.t_res.units = 'ms';
     p.t_res.value = 100;
     
-    p.u_rate = cell2struct({'Update Rate','value',20,'Hz'},...
+    p.u_rate = cell2struct({'Update Rate','value',10,'Hz'},...
         {'description','fieldtype','value','units'},2);
     p.input.description = 'Amplifier Channel';
     p.input.fieldtype = 'list';
@@ -214,7 +214,7 @@ lbl = get(scope,'YLabel');
 set(lbl,'String',['amplifier (' units ')']);
 % plot the data and average response
 data = AutoGain(data(:,index), gain, units);
-Scope('scroll',time * 1000, data);
+Scope('scope',time * 1000, data);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function clearPlot(axes)
