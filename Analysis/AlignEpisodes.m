@@ -3,17 +3,26 @@ function [data,time] = AlignEpisodes(data, time, window)
 % stimulus artifact.  This can be necessary if the nidaq drivers
 % get a little bit behind on their timing and some episodes
 % start sooner or later than the average.  At present each episode's
-% mark is located by taking the derivative of the trace (to find the
-% fastest event)
+% mark is defined as the fastest positive-going event (calculated by
+% looking for the maximum of the first derivative of the trace).
+%
+% Multiple signal data matrices are supported, in which case the second
+% signal is used to align the first.
 %
 % $Id$
 
 num_traces = size(data,2);
 len_traces = size(data,1);
+num_signals = size(data,3);
 
-orig_data = data;
-data = data(window,:); % restrict analysis to a small window
-data_p = diff(data,1,1); % derivatives along each column
+% find mark; if multiple signals are present the derivative of the 2nd one is used
+if num_signals > 1
+    data_p = diff(data(window,:,2),1,1);
+else
+    data_p = diff(data(window,:),1,1);
+end
+
+%data_p = diff(data,1,1); % derivatives along each column
 %[m_p i_p] = max(abs(data_p),[],1); % find indices of maximum
 [m_p i_p] = max(data_p,[],1);
 
@@ -21,7 +30,7 @@ data_p = diff(data,1,1); % derivatives along each column
 % a more robust (but slower) algorhythm would go through each line
 % 1 at a time or throw out traces that don't comply
 
-% matrix method
+% matrix method - memory intensive and pretty darn slow
 
 % i = i_p - min(i_p);  % turn i_p into offset values
 % m = max(i_p); % use this to avoid going over
@@ -40,8 +49,9 @@ data_p = diff(data,1,1); % derivatives along each column
 % 
 % data = orig_data(i);
 
-% loop method
+% loop method (rewrite in c?)
 
+orig_data = data;
 i = i_p - min(i_p) + 1;
 m = max(i);
 len_data = len_traces - m;
