@@ -217,6 +217,15 @@ case 'save_analysis_callback'
             'srdata','irdata','times');
     end
     
+case 'align_episodes_callback'
+    % calls AlignEpisodes on the complete data set
+    d = GetUIParam(me,'filename','UserData');
+    SetUIParam(me,'status','String','Aligning episodes...');
+    [d.data d.time] = AlignEpisodes(d.data, d.time, 1000:5000);
+    SetUIParam(me,'filename','UserData',d);
+    updateDisplay;
+    SetUIParam(me,'status','String','Episodes realigned');
+    
 case 'close_callback'
     delete(gcbf);
 
