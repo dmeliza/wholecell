@@ -1,4 +1,4 @@
-function handle = InitUIControl(module, tag, properties)
+function handle = InitUIControl(module, tag, varargin)
 % Creates an uicontrol in the wc.module.handle scheme, and passes
 % back the handle of the object.
 % handle = InitUIControl(module, tag, [properties])
@@ -11,16 +11,22 @@ function handle = InitUIControl(module, tag, properties)
 %   $Id$
 global wc
 
-error(nargchk(2,3,nargin));
+if nargin < 2
+    error('Usage: InitUIControl(module, tag, properties,...)');
+end
 
 module = lower(module);
 fig = findobj('tag',module);
 if ~ishandle(fig)
     error('No such module figure exists');
+elseif length(fig) > 1
+    error('Too many figures open with that tag');
 end
 
-if nargin > 2
-    h = uicontrol(fig,properties{:});
+if nargin == 3
+    h = uicontrol(fig,varargin{1}{:});
+elseif nargin >= 4
+    h = uicontrol(fig,varargin{:});
 else
     h = uicontrol(fig);
 end
