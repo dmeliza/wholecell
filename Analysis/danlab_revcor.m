@@ -69,12 +69,13 @@ fprintf('Conditioning Input... \n')
 u = u - mean(mean(u));
 
 % Reshape 2D Stimulus %
-Stim = zeros(FRAMES,DIMS);
-lag_index = 0:(lags-1);
-for t = lags:FRAMES
-    time_step = u(t-lag_index,:);
-    Stim(t,:) = reshape(time_step,1,lags*X);
-end
+% Stim = zeros(FRAMES,DIMS);
+% lag_index = 0:(lags-1);
+% for t = lags:FRAMES
+%     time_step = u(t-lag_index,:);
+%     Stim(t,:) = reshape(time_step,1,lags*X);
+% end
+Stim = StimulusMatrix(u,lags);
 
 
 
