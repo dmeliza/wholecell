@@ -33,4 +33,21 @@ Acquired data is accessed through callbacks, which run through the
 central application and then are passed on to whatever protocol
 currently has control.
 
+Implemented:
 
+main interface window, including:
+    channel creation and editing
+    telegraphs
+    scope with variable zoom control
+
+loading and storing preferences
+seal test window
+gap-free, view and record
+
+ToDo:
+
+a simple PSP protocol, using hardware triggers
+on-line analysis and control for the PSP protocol - 
+    baseline, potentiation, and post-potentiation,
+    dynamically measure PSP slope and average results
+    averaging
