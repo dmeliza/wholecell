@@ -81,30 +81,35 @@ h = InitUIControl(me, 'channels', 'style', 'list',...
     'Callback',cb.pickchannels,'position', [20 165 180 70],'backgroundcolor',BG,'Max',2);
 % Frame 2: Parameter selection
 h = uicontrol(gcf, 'style', 'frame','backgroundcolor',BG,'position',[10 10 200 140]);
-h = uicontrol(gcf, 'style','text','backgroundcolor',BG,'position',[25 120 160 20],...
+h = uicontrol(gcf, 'style','text','backgroundcolor',BG,'position',[25 125 160 20],...
     'Fontsize',10,'fontweight','bold','String','Parameters');
 m = uicontextmenu;
 h = uimenu(m,'Label','Delete','Callback',cb.pickparams);
 h = InitUIControl(me, 'parameters', 'style','list',...
     'Callback',cb.pickparams,'UIContextMenu',m,...
-    'position', [20 80 180 40],'backgroundcolor',BG);
-h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[20 50 40 20],...
+    'position', [20 92 180 35],'backgroundcolor',BG);
+h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[20 68 40 20],...
+    'horizontalalignment','left','String','Times:');
+h = InitUIControl(me,'parametertime','style','edit','Callback',cb.editparameter,...
+    'position', [100 72 100 20],'backgroundcolor',BG,'horizontalalignment','right',...
+    'enable','off');
+h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[20 48 40 20],...
     'horizontalalignment','left','String','Name:');
 h = InitUIControl(me,'parametername','style','edit','Callback',cb.editparameter,...
-    'position', [100 55 100 20],'backgroundcolor',BG,'horizontalalignment','right',...
+    'position', [100 52 100 20],'backgroundcolor',BG,'horizontalalignment','right',...
     'enable','off');
-h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[20 30 40 20],...
+h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[20 28 40 20],...
     'horizontalalignment','left','String','Action:');
 % These are the available parameter types:
 t = {'none','amplitude','difference','-difference','slope','-slope','mean'};
 h = InitUIControl(me,'parameteraction','style','popup','Callback',cb.editparameter,...
-    'position', [100 35 100 20],'backgroundcolor',BG,'String',t,'enable','off');
-h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[20 15 40 15],...
+    'position', [100 32 100 20],'backgroundcolor',BG,'String',t,'enable','off');
+h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[20 12 40 15],...
     'horizontalalignment','left','String','Binsize:');
 h = InitUIControl(me,'binsize','style','edit','Callback',cb.editparameter,...
-    'position', [100 15 70 20],'backgroundcolor',BG,'horizontalalignment','right',...
+    'position', [100 12 70 20],'backgroundcolor',BG,'horizontalalignment','right',...
     'enable','on','String','0');
-h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[175 15 25  15],...
+h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[175 12 25  15],...
     'horizontalalignment','left','String','(min.)');
 % Trace Axes:
 h = InitUIObject(me, 'response', 'axes', 'units','pixels','position',[255 190 480 310],...
@@ -238,6 +243,11 @@ v       = GetUIParam(me,'parameteraction','Value');
 action  = c{v};
 names   = GetUIParam(me,'parameters','String');
 ind     = GetUIParam(me,'parameters','Value');
+marks   = sscanf(GetUIParam(me,'parametertime','String'),'[%f %f]');
+if length(marks) == 2
+    params(ind).marks   = marks';
+    plotMarks(marks');
+end
 params(ind).name = name;
 params(ind).action = action;
 names{ind} = name;
@@ -336,6 +346,7 @@ if ~isempty(ind)
     x       = get(h,'XData');
     p(v).marks(ind) = x(1);
     setappdata(gcf,'parameters',p);
+    updateParameters
     plotParameter(p(v));
 end
 
@@ -902,6 +913,9 @@ if ~isempty(p)
     end
     SetUIParam(me,'parameteraction','Value',i);
     SetUIParam(me,'parameteraction','Enable','On');
+    SetUIParam(me,'parametertime','String',sprintf('[%3.3f %3.3f]',...
+        p(v).marks(1),p(v).marks(2)));
+    SetUIParam(me,'parametertime','Enable','On');
     plotMarks(p(v).marks);
 
     % calculate things
@@ -909,6 +923,8 @@ if ~isempty(p)
 else
     mh  = getappdata(gcf,'param_handles');
     delete(mh(ishandle(mh)));
+    SetUIParam(me,'parametertime','String','');
+    SetUIParam(me,'parametertime','Enable','Off');
     SetUIParam(me,'parametername','Enable','Off');
     SetUIParam(me,'parameteraction','Enable','Off');
 end
