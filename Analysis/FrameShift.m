@@ -33,7 +33,8 @@ if M == 1
     out = zeros(FRAMES, cols);
     for i = 1:FRAMES
         ind = (i - 1) * timing;
-        out(i,:) = y(ind+1:ind+cols)';
+        Y = y(ind+1:ind+cols)';
+        out(i,:) = Y - mean(Y);
     end
 else
     % index mode
@@ -51,6 +52,7 @@ else
     out = zeros(rows, cols);
     for i = 1:rows
         ind = timing(i)-1;
-        out(i,:) = y(ind+1:ind+cols)';
+        Y = y(ind+1:ind+cols)';
+        out(i,:) = Y - mean(Y);
     end
 end
