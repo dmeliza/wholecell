@@ -1,17 +1,17 @@
 function [out] = daq2mat(runmode, channels)
 % [d.data,d.time,d.abstime,d.info] =  daq2mat(mode,args)
-
+%
 % reads in all the daq files in a directory, sorts them by creation time, and
 % outputs a file with the result.
-
+%
 % mode: 'stack': arranges traces vertically. short episodes are discarded
 %                an r0 file is generated
 %                args are the channels to keep
-
+%
 % mode: 'cat':   concatenates traces horizontally and generates an r0 file
 %                data are sorted by relative abstime
 %                args are respchannel
-
+%
 % mode: 'indiv': applies gain and mode settings to individual traces, generating a
 %                structure array as an output (r1 file)
 %                args are respchannel,synchannel
