@@ -348,7 +348,7 @@ stop([wc.ai wc.ao]);
 flushdata(wc.ai);
 fn = get(wc.ai,'LogFileName');
 set(wc.ai,'LogFileName',NextDataFile(fn));    
-SetUIParam('scope','status','String',get(wc.ai,'logfilename'));
+SetUIParam('protocolcontrol','status','String',get(wc.ai,'logfilename'));
 queueStimulus;
 start([wc.ai wc.ao]);
 imageOn;

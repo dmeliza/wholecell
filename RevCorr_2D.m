@@ -197,7 +197,7 @@ stop([wc.ai wc.ao]);
 flushdata(wc.ai);
 fn = get(wc.ai,'LogFileName');
 set(wc.ai,'LogFileName',NextDataFile(fn));    
-SetUIParam('scope','status','String',get(wc.ai,'logfilename'));
+SetUIParam('protocolcontrol','status','String',get(wc.ai,'logfilename'));
 start([wc.ai]);
 cogstd('spriority','high');
 playStimulus;
@@ -227,7 +227,7 @@ p = GetParam(me,'load_me','value');
 if p
     queueStimulus;
 end
-stim = GetUIParam('scope','status','UserData');
+stim = GetUIParam('protocolcontrol','status','UserData');
 if ~strcmp(lower(get(obj,'LoggingMode')),'memory')
     [pn fn ext] = fileparts(get(obj,'logfilename'));
     WriteStructure([pn filesep fn '-stim.mat'],stim);
@@ -251,7 +251,7 @@ p1 = GetParam(me,'p1','value');
 
 movfile = GetParam(me,'stim','value');
 stim = LoadMovie(movfile, x_res, y_res, a_frames, p1);
-SetUIParam('scope','status','UserData',stim);
+SetUIParam('protocolcontrol','status','UserData',stim);
 CgQueueMovie(stim);
 SetParam(me,'load_me',0);
 
@@ -333,7 +333,7 @@ r = r - mean(r);
 stim_times = timing(:,1) - timing(1);
 % recover and condition the stimulus
 r_frames = length(r);
-stim_struct = GetUIParam('scope','status','UserData');
+stim_struct = GetUIParam('protocolcontrol','status','UserData');
 s = stim_struct.stimulus;
 x_res = stim_struct.x_res;
 y_res = stim_struct.y_res;

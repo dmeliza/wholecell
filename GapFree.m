@@ -26,7 +26,7 @@ case 'start'
     scope = getScope;
     setupScope(scope, wc.control.amplifier);
     setupHardware(wc.control.amplifier);
-    SetUIParam('scope','status','String','Not recording');
+    SetUIParam('protocolcontrol','status','String','Not recording');
     StartAcquisition(me,wc.ai);
     
 case 'record'
@@ -40,7 +40,7 @@ case 'record'
     set(wc.ai,{'LoggingMode','LogToDiskMode'}, {'Disk&Memory','Overwrite'});
     lf = NextDataFile;
     set(wc.ai,'LogFileName',lf);
-    SetUIParam('scope','status','String',lf);
+    SetUIParam('protocolcontrol','status','String',lf);
     StartAcquisition(me,wc.ai);
     
 case 'stop'
@@ -53,7 +53,7 @@ case 'sweep'
     in = get(wc.ai,'SamplesAvailable');
     out = get(wc.ao,'SamplesAvailable');
     status = sprintf('in: %d / out: %d',in, out); 
-    SetUIParam('scope','status','String',status);    
+    SetUIParam('protocolcontrol','status','String',status);    
     plotData(varargin{2}, varargin{3}, wc.control.amplifier.Index);
     
 otherwise
