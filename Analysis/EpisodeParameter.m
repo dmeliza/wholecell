@@ -127,11 +127,15 @@ end
 
 function [p,i] = getParam(f)
 % Loads the parameter structure defining the figure
+p       = [];
+i       = [];
 parent  = getappdata(f,'parent');
-parms   = getappdata(parent,'parameters');
-h       = [parms.handle];
-i       = find(h==f);     % if this is empty, figure is not linked
-p       = parms(i);
+if ishandle(parent)
+    parms   = getappdata(parent,'parameters');
+    h       = [parms.handle];
+    i       = find(h==f);     % if this is empty, figure is not linked
+    p       = parms(i);
+end
 
 function [] = setParam(f,p)
 % Sets the parameter in the parent figure (including updating name)
@@ -227,7 +231,7 @@ end
 h   = uicontrol(f,'style','text','String','Channel:','backgroundcolor',BG,...
     'position',[15 105 40 20],'horizontalalignment','left');
 h   = uicontrol(f,'style','edit','backgroundcolor',BG,'tag','channel','callback',cb,...
-    'position',[60 110 95 18],'horizontalalignment','right','String',num2str(p.channel));
+    'position',[60 110 95 18],'horizontalalignment','right','String',1);
 
 % Axes 1: Mean trace
 a1   = axes;
