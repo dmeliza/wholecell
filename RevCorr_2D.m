@@ -11,9 +11,11 @@ function varargout = RevCorr_2D(varargin)
 % Q: how to ensure synchronization?  The LCD panel has a vsync line which
 % can be run into a channel on the DAQ.  However, this is the internal refresh
 % of the display, and not the time at which the frame changes.  cgflip returns
-% a timestamp which may be of use.  In addition, because the DAQ timer is used
-% to switch sprites and flip the frames, we may be good enough using the DAQ
-% engine's timestamps for these timer events.
+% a timestamp which is what we're using now, which seems to work pretty well.
+% For some reason, either due to timing issues in the hardware or precision issues
+% in the driver, frame rates (the rate at which the DAQ timer goes off) need to be
+% multiples of ten.  Bad values cause visually noticible variance in the timing
+% between frames.
 %
 % Alternatively, a loop could be used to play each frame, using pause() to
 % separate them from one another temporally.  However, pause appears to be
@@ -112,16 +114,20 @@ out = mfilename;
 function p = defaultParams()
 global wc;
 
+    cb = @queueStimulus;
+    loadStim = @loadStimulus;
+
     f = {'description','fieldtype','value','units'};
+    f_sb = {'description','fieldtype','value','callback'};
     f_s = {'description','fieldtype','value'};
 
     p.t_res = cell2struct({'Frame rate', 'value', 50, 'ms'},f,2);
-    p.y_res = cell2struct({'Y Pixels','value',4},f_s,2);
-    p.x_res = cell2struct({'X Pixels','value',4},f_s,2);
+    p.y_res = cell2struct({'Y Pixels','value',4,cb},f_sb,2);
+    p.x_res = cell2struct({'X Pixels','value',4,cb},f_sb,2);
     
-    p.a_frames = cell2struct({'Stimulus Frames','value',1000},f_s,2);
-    p.stim = cell2struct({'Stim File','file_in',''},f_s,2);
-    p.display = cell2struct({'Display', 'value', 2},f_s,2);
+    p.a_frames = cell2struct({'Stimulus Frames','value',1000,cb},f_sb,2);
+    p.stim = cell2struct({'Stim File','fixed','',loadStim},f_sb,2);
+    p.display = cell2struct({'Display', 'value', 2,cb},f_sb,2);
     p.input.description = 'Amplifier Channel';
     p.input.fieldtype = 'list';
     p.input.choices = GetChannelList(wc.ai);
@@ -129,7 +135,7 @@ global wc;
     p.input.value = ic;
     csd = cggetdata('csd');
     p.toolkit = cell2struct({'Toolkit:','fixed',csd.CogStdString},...
-        {'description','fieldtype','value'},2);
+        f_s,2);
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function setupHardware()
@@ -144,18 +150,10 @@ a_int = sr/1000 * t_res * GetParam(me,'a_frames','value');
 set(wc.ai,'SamplesPerTrigger', a_int);
 set(wc.ai,'SamplesAcquiredActionCount', a_int);
 set(wc.ai,'SamplesAcquiredAction',{me,analyze});
-set(wc.ai,'DataMissedAction',{me,'showerr'});
 set(wc.ai,'TriggerType','Manual');
 set(wc.ai,'ManualTriggerHwOn','Trigger');
 set(wc.ai,'TimerPeriod', t_res / 1000);
 set(wc.ai,'TimerAction',{me,flip})
-
-% this would be better served by a custom field in the param
-% window that sets up the display window whenever the user changes
-% the value.  This would allow the sprites to remain in video memory
-% and speed up loading prior to protocol initiation.
-disp = GetParam(me,'display','value');
-cgopen(1,8,0,disp);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%55555
 function startSweep()
@@ -166,27 +164,33 @@ flushdata(wc.ai);
 fn = get(wc.ai,'LogFileName');
 set(wc.ai,'LogFileName',NextDataFile(fn));    
 SetUIParam('scope','status','String',get(wc.ai,'logfilename'));
-queueStimulus;  % move this elsewhere to save time
+% need a check to see if a movie is loaded...
 % reset timing data and clear screen
 a_frames = GetParam(me,'a_frames','value');
-timing = zeros(a_frames,2);
+timing = zeros(a_frames+1,1);
 frame = 1;
 cgflip(0);
 gprimd = cggetdata('gpd');
 % bombs away
 start([wc.ai]);
 trigger([wc.ai]);
+timing(1) = cgflip(0);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
-function queueStimulus()
+function queueStimulus(varargin)
 % Loads a "movie" in the form of sprites.  Once the sprites are loaded into
 % video memory they can be rapidly accessed.
 % load parameters:
+disp = GetParam(me,'display','value');
 x_res = GetParam(me,'x_res','value');
 y_res = GetParam(me,'y_res','value');
 a_frames = GetParam(me,'a_frames','value');
 mseqfile = GetParam(me,'stim','value');
 stim = getStimulus(mseqfile);
+% reset display toolkit
+cgshut;
+cgopen(1,8,60,disp);
+
 % setup colormap:
 colmap = gray(2);
 cgcoltab(0,colmap);
@@ -201,14 +205,33 @@ for i = 1:a_frames
 end
 close(h);
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+function loadStimulus(varargin)
+mod = varargin{3};
+param = varargin{4};
+s = varargin{5};
+t = [mod '.' param];
+h = findobj(gcbf,'tag',t);
+v = get(h,'tooltipstring');
+[pn fn ext] = fileparts(v);
+[fn2 pn2] = uigetfile([pn filesep '*.mat']);
+if ~isnumeric(fn2)
+    v = fullfile(pn2,fn2);
+    set(h,'string',fn2,'tooltipstring',v)
+    s = SetParam(mod, param, v);
+end
+queueStimulus;
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function nextFrame(obj, event)
 % for speed, global variables contain critical parameters
 global timing frame gprimd;
+
 if frame < gprimd.NextRASKey
-    cgdrawsprite(frame,0,0, gprimd.PixWidth, gprimd.PixHeight);
-    timing(frame,:) = [now,cgflip];
-    frame = frame + 1;
+%     timing(frame) = now;
+     cgdrawsprite(frame,0,0, gprimd.PixWidth, gprimd.PixHeight);
+     frame = frame + 1;
+     timing(frame) = cgflip;
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%55
@@ -236,7 +259,7 @@ function analyze(obj, event)
 global timing
 stop(obj);
 param = GetParam(me);
-if strcmp('memory',lower(get(obj,'LoggingMode')))
+if ~strcmp('memory',lower(get(obj,'LoggingMode')))
     lfn = get(obj,'LogFileName');
     [pn fn ext] = fileparts(lfn);
     save(fullfile(pn,fn),'timing','param');
@@ -244,12 +267,12 @@ end
 % get data
 [data, time, abstime] = getdata(obj);
 % align the data
-stim_start = datevec(timing(1) - datenum(abstime));
-stim_start = stim_start(6); % this breaks if there's more than one minute of delay
+stim_start = timing(2) - timing(1);
 i = max(find(time < stim_start)) + 1;
 resp = data(i:end,param.input.value);
 time = time(i:end) - time(i);
-stim_times = timing(:,2) - timing(1,2);
+stim_times = timing(2:end) - timing(2);
+disp(sprintf('%f / %f',mean(diff(stim_times)), std(diff(stim_times))));
 % bin the data (rough, ignores variance in timing)
 t_resp = 1000 / get(obj,'SampleRate');
 t_stim = param.t_res.value;
@@ -266,43 +289,8 @@ options.correct = 'no';
 hl_est = danlab_revcor(s,r,5,fix(1000/t_stim),options);
 % combine first 5 lags into a spatial plot
 k = mean(hl_est,1);
-k = reshape(k,6,6)';
+k = reshape(k,param.x_res.value,param.y_res.value)';
 mx = max(max(abs(k)));
 figure,imagesc(k,[-mx mx]);
 colormap(gray);
 set(gca,'XTick',[],'YTick',[])
-
-%figure,plot(time,resp);
-% xlabel('Time (s)');
-% ylabel('Response (V)');
-
-% window = [-1000 200];
-% [data, time, abstime] = getdata(obj);
-% index = wc.control.amplifier.Index;
-% stim = Spool('stim','retrieve');
-% samplerate = get(obj,'SampleRate');
-% t_res = GetParam(me,'t_res','value');
-% stimstart = get(wc.ao,'InitialTriggerTime');
-% c = revcorr(data(:,index)', stim, samplerate,...
-%     1000 / t_res, stimstart, abstime, window);
-% s = [me '.analysis'];
-% f = findobj('tag', s);
-% if isempty(f) | ~ishandle(f)
-%     f = figure('tag', s, 'numbertitle', 'off', 'name', s);
-% end
-% t = window(1):t_res:window(2);
-% figure(f);
-% d = get(f,'UserData');
-% d = cat(1,d,c);
-% a = mean(d,1);
-% p = plot(t, [c; a]);
-% xlabel('Time (ms)');
-% set(f,'name',[s ' - ' num2str(size(d,1)) ' scans']);
-% set(f,'UserData',d);
-% Spool('stim','delete');
-% 
-% startSweep;
-
-%%%%%%%%%%%%%%%%%%%%%%%%5
-function showerr(obj, event)
-keyboard;
