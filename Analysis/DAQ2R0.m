@@ -58,6 +58,7 @@ out.y_unit      = units;  %  this breaks the r0 spec if multiple channels are se
 out.t_rate      = info(1).t_rate;
 out.data        = out.data(:,ind,:);
 out.info        = info(1);
+out.start_time  = out.info.start_time;
 out.channels    = channels;
 
 function [abstime, ind] = reltimes(abstime)
