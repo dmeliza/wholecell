@@ -39,7 +39,7 @@ d   = dir('*.r0');
 for i = 1:length(d)
     [r0 str] = LoadResponseFile(fullfile(pwd,d(i).name));
     if isstruct(r0)
-        storeData(r0, d(i).name);
+        storeData(r0, d(i).name, pwd);
     end    
 end
 if ~isempty(d)
@@ -125,6 +125,7 @@ m    = uimenu(file, 'Label', 'Save &Response...','Callback',cb.menu,'tag','m_sav
 m    = uimenu(file, 'Label', 'Save &Traces...','Callback',cb.menu,'tag','m_savetrace');
 m    = uimenu(file, 'Label', '&Save Parameters...', 'Callback', cb.menu,'tag','m_save');
 m    = uimenu(file, 'Label', '&Export Results...', 'Callback', cb.menu,'tag','m_export');
+m    = uimenu(file, 'Label', 'Export T&imes...', 'Callback', cb.menu, 'tag', 'm_times');
 m    = uimenu(file, 'Label', 'E&xit', 'Callback', cb.menu, 'Separator', 'On','tag','m_exit');
 
 op   = uimenu(gcf,'Label','&Operations');
@@ -356,7 +357,7 @@ case 'm_open'
         case '.r0'
             [r0 str] = LoadResponseFile(fullfile(pn,fn));
             if isstruct(r0)
-                storeData(r0, fn);
+                storeData(r0, fn, pn);
                 updateFields;
                 plotTraces;
             end
@@ -482,6 +483,18 @@ case 'm_export'
         SetUIParam(me,'status','String',sprintf('Wrote results to %s',fn));
         setappdata(gcf,'dir',pn);
     end
+    
+case 'm_times'
+    % exports a text file for each .r0 file selected containing the times
+    % currently selected
+    ds  = getSelected;
+    for i = 1:length(ds)
+        [pn fn ext] = fileparts(ds(i).pnfn);
+        txtfile     = fullfile(pn,[fn '.txt']);
+        times       = ds(i).sweeps(:);
+        save(txtfile,'times','-ascii');
+    end
+    SetUIParam(me,'status','String','Wrote selection data.');
         
 case 'm_baseline'
     % adjust baseline (modifies stored r0), subtracting out DC of each trace
@@ -557,7 +570,7 @@ case 'm_combine'
         a   = inputdlg({'New Dataset Name'},'Combine dataset...',1,{'Combined.r0'});
         if ~isempty(a)
             r0  = combineDataSets(ds);
-            storeData(r0, a{1});
+            storeData(r0, a{1}, pwd);
             SetUIParam(me,'status','String','Traces combined.');
         end
     end
@@ -734,9 +747,11 @@ SetUIParam(me,'parameters','Value',length(names));
 setappdata(gcbf,'parameters',params);
 updateParameters
 
-function [] = storeData(r0, fn)
+function [] = storeData(r0, fn, pn)
 % Adds the r0 file to the data stored in the figure,
 % adds filename to list and initializes default values of dataselector
+r0.pnfn     = fullfile(pn,fn);
+
 v   = GetUIParam(me,'files','String');
 if iscell(v)
     v   = {v{:},fn};
@@ -828,6 +843,7 @@ ds  = ds(fls);
 for i = 1:length(fls)
     f               = fls(i);
     ds(i).fn        = fn{f};
+    ds(i).pnfn      = r0(f).pnfn;
     ds(i).data      = r0(f).data(:,ds(i).sweeps,ds(i).chan);
     ds(i).abstime   = r0(f).abstime(ds(i).sweeps);
     ds(i).time      = r0(f).time;
