@@ -26,9 +26,17 @@ function varargout = RevCorr_2D(varargin)
 % twice the stated frame rate and intermediate frames will be a montage of the two
 % proper frames.
 %
+% 1.12:
+% Generalized the function of this protocol.  Instead of generating the msequence
+% movie, it now accepts both .mat and .m files for the stim parameter.  In the case of
+% a .mat file it will attempt to load the stimulus using LoadStimulus, which looks for
+% the x_res, y_res, colmap, and stimulus fields.  In the case of a .m file, it will
+% attempt to feval() the function, which it expects to return a structure with the
+% correct fields.
+%
 % TODO:
 % This protocol is still pretty hard-wired.  It needs the CogGph toolkit, and it
-% attempts to open the stimulus window at 1280x1024 without doing any error checking.
+% attempts to open the stimulus window at 640x480 without doing any error checking.
 % Also it would be nice to divide the movie-making function (e.g. turning the msequence
 % into an NxN movie) from the protocol, which could then be generalized to play
 % sparse noise or natural scenes.
@@ -105,6 +113,7 @@ case 'record'
 case 'stop'
     if (isvalid(wc.ai))
         stop(wc.ai);
+        analyze(wc.ai,[]);
         clearDAQ;
     end
     
@@ -190,63 +199,35 @@ playStimulus;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function playStimulus()
 % plays the movie at the appropriate frame rate.
-% need a check to see if a movie of the appropriate length is loaded...
 global timing;
-% reset timing data and clear screen
+% check that stimulus is the proper length
 a_pix = GetParam(me,'a_frames','value');
 frate = GetParam(me,'t_res','value');
-a_frames = a_pix * frate;
-timing = zeros(a_frames,1);
-frame = 1;
-sync = 1;
-cgflip(0);
-gprimd = cggetdata('gpd'); %max frame is given by gprimd.NextRASKey
-cgmakesprite(1,1,1,0); % the white sync pixel
-cgmakesprite(2,1,1,1); % the black sync pixel
-% bombs away
-for i = 1:a_frames;
-    cgdrawsprite(frame+2,0,0, gprimd.PixWidth, gprimd.PixHeight);
-    cgdrawsprite(sync+1,-gprimd.PixWidth/2,-gprimd.PixHeight/2,200,200);
-    if mod(i,frate) == 0
-        frame = frame + 1;
-        sync = ~sync;
-    end
-    timing(i) = cgflip;
+gprimd = cggetdata('gpd'); %max frame is given by gprimd.NextRASKey - 1
+if gprimd.NextRASKey <= a_pix
+    queueStimulus;
 end
+CgPlayMovie(frate);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
-function queueStimulus(varargin)
+function queueStimulus()
 % Loads a "movie" in the form of sprites.  Once the sprites are loaded into
 % video memory they can be rapidly accessed.
-% load parameters:
-disp = GetParam(me,'display','value');
-x_res = GetParam(me,'x_res','value');
-y_res = GetParam(me,'y_res','value');
-a_frames = GetParam(me,'a_frames','value');
-mseqfile = GetParam(me,'stim','value');
-stim = getStimulus(mseqfile);
+
 % reset display toolkit
+disp = GetParam(me,'display','value');
 cgshut;
 cgopen(5,8,0,disp);
 
-% setup colormap:
-colmap = gray(2);
-cgcoltab(0,colmap);
-cgnewpal;
-% load sync sprite
-cgloadarray(1,1,1,1,colmap,0);
-% load sprites:
-pix = x_res * y_res;
-h = waitbar(0,['Loading movie (' num2str(a_frames) ' frames)']);
-for i = 1:a_frames
-    o = (i - 1) * pix + 1;
-    cgloadarray(i+2,x_res,y_res,stim(o:o+pix-1),colmap,0);
-    waitbar(i/a_frames,h);
-end
-close(h);
+a_frames = GetParam(me,'a_frames','value');
+mseqfile = GetParam(me,'stim','value');
+stim = LoadMovie(mseqfile);
+CgQueueMovie(stim,a_frames);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function loadStimulus(varargin)
+% callback for the stimulus field, allows user to select
+% a .mat or .m file that describes the stimulus
 mod = varargin{3};
 param = varargin{4};
 s = varargin{5};
@@ -254,24 +235,13 @@ t = [mod '.' param];
 h = findobj(gcbf,'tag',t);
 v = get(h,'tooltipstring');
 [pn fn ext] = fileparts(v);
-[fn2 pn2] = uigetfile([pn filesep '*.mat']);
+[fn2 pn2] = uigetfile([pn filesep '*.m']);
 if ~isnumeric(fn2)
     v = fullfile(pn2,fn2);
     set(h,'string',fn2,'tooltipstring',v)
     s = SetParam(mod, param, v);
 end
 queueStimulus;
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
-function stim = getStimulus(filename)
-% loads a mat file and returns the first (numeric) variable in the file
-d = load(filename);
-n = fieldnames(d);
-if length(n) < 1
-    error('No data in stimulus file');
-end
-stim = getfield(d,n{1});
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function clearDAQ()
@@ -282,6 +252,7 @@ set(wc.ai,'TimerAction',{});
 SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
 set(wc.ai,'LoggingMode','Memory');
 set(wc.ai,'LogFileName',NextDataFile);
+set(wc.ai,'TriggerType','Manual')
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
