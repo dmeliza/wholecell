@@ -44,7 +44,7 @@ DAQ2MAT_CHAN    = 1;
 LOCAL_CONTROL   = 'auto.mat';
 MIN_TRIALS      = 70;       % minimum number of trials for pre/post dirs
 MIN_INDUCE      = 10;       % minimum nu8mber of trials for induction
-PLOT_FIELD      = 'slope';   %  which field to plot (ampl or slope)
+PLOT_FIELD      = 'ampl';   %  which field to plot (ampl or slope)
 DEBUG           = 0;
 
 results         = [];
@@ -221,6 +221,15 @@ if nargout > 0
     % cat will kill the empties, and the rest SHOULD be the same
     stim_electrical = cat(1,pre.stim_electrical,pst.stim_electrical);
     mode_currentclamp = cat(1,pre.mode_currentclamp,pst.mode_currentclamp);
+    if ~isfield(control,'skip_ir')
+        control.skip_ir = 0;
+    end
+    if ~isfield(control,'skip_sr')
+        control.skip_sr = 0;
+    end
+    if ~isfield(control,'skip_slope')
+        control.skip_slope = 0;
+    end
     results = struct('pre',rmfield(pre,{'stim_electrical','mode_currentclamp'}),...
                      'pst',rmfield(pst,{'stim_electrical','mode_currentclamp'}),...
                      't_spike',t_spike,...
@@ -230,7 +239,10 @@ if nargout > 0
                      'spikes_dir',dd{2},...
                      'induced',induced,...
                      'mode_currentclamp',mode_currentclamp(1),...
-                     'stim_electrical',stim_electrical(1));
+                     'stim_electrical',stim_electrical(1),...
+                     'skip_ir',control.skip_ir,...
+                     'skip_sr',control.skip_sr,...
+                     'skip_slope',control.skip_slope);
 end
 
 function figh   = plotdata(pre, pst, t_spike, PLOT_FIELD)
