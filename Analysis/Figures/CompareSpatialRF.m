@@ -1,4 +1,4 @@
-function [pre_rf, pst_rf, pre_cm, pst_cm] = CompareSpatialRF(pre, post, induction, peak)
+function [pre_rf, pst_rf, pre_cm, pst_cm] = CompareSpatialRF(pre, post, induction)
 %
 % Generates a figure comparing two spatial RFs (either two cells or
 % before/after).
@@ -14,8 +14,8 @@ function [pre_rf, pst_rf, pre_cm, pst_cm] = CompareSpatialRF(pre, post, inductio
 SZ      = [3.0 3.0];
 X       = [-47.25 -33.75 -20.25 -6.75];
 
-[pre_rf, pre_cm, pre_rf_err, pre_cm_err]    = SpatialRF(pre, peak);
-[pst_rf, pst_cm, pst_rf_err, pst_cm_err]    = SpatialRF(post, peak);
+[pre_rf, pre_cm, pre_rf_err, pre_cm_err, sigma]    = SpatialRF(pre);
+[pst_rf, pst_cm, pst_rf_err, pst_cm_err]           = SpatialRF(post, sigma);
 
 if pre_cm_err(1)==pre_cm
     fprintf('%s: %3.2f to %3.2f\n', pre, pre_cm, pst_cm);
