@@ -82,8 +82,7 @@ end
 switch action
 
 case {'init','reinit'}
-    cgloadlib; % error checking needed here for missing toolkit
-    cgopen(1,8,0,2);
+    CGDisplay('init')
     p = defaultParams;
     fig = ParamFigure(me, p);
     Scope('init');
@@ -153,12 +152,6 @@ global wc;
     p.sync_c = cell2struct({'Sync Channel','list',ic,GetChannelList(wc.ai)},f_l,2);
     p.input = cell2struct({'Amplifier Channel','list',ic,GetChannelList(wc.ai)},...
         f_l,2);
-    gprimd = cggetdata('gpd');
-    p.v_res = cell2struct({'Refresh:','fixed',gprimd.RefRate100 / 100},...
-        f_s,2);
-    csd = cggetdata('csd');
-    p.toolkit = cell2struct({'Toolkit:','fixed',csd.CogStdString},...
-        f_s,2);
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function setupHardware()
