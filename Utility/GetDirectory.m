@@ -59,5 +59,5 @@ i   = find([d.isdir]);
 out = {d(i).name};
 for i = 1:length(out)
     st = out{i};
-    out{i} = [st filesep];
+    out{i} = [st '/'];
 end
