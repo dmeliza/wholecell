@@ -15,14 +15,14 @@ function stim = LoadMovie(filename, varargin)
 %
 % $Id$
 % load the stimulus
-[pn fn ext] = fileparts(filename);
+[pn func ext] = fileparts(filename);
 switch lower(ext)
 case '.m'
-    if exist(filename, 'file') > 0
+    if exist(func, 'file') > 0
         if nargin == 1
-            stim = feval(filename);
+            stim = feval(func);
         else
-            stim = feval(filename,varargin{:});
+            stim = feval(func,varargin{:});
         end
     else
         error('Invalid .m file!');
