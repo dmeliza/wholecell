@@ -26,7 +26,10 @@ switch action
 case 'init'
     p   = defaultParams;
     p   = initDisplay(p);
-    fig = ParamFigure(me, p);
+    fig = findobj('tag',[lower(me) '.param']);
+    if isempty(fig)
+        fig = ParamFigure(me, p);
+    end
     
 case 'reinit'
     p   = GetParam(me);

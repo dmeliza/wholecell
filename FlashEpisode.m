@@ -75,7 +75,10 @@ switch action
 case {'init','reinit'}
     CGDisplay(action)
     p = defaultParams;
-    fig = ParamFigure(me, p);
+    fig = findobj('tag',[lower(me) '.param']);        % checks if the param window is already
+    if isempty(fig)                              % open
+        fig = ParamFigure(me, p);
+    end
     getScope;
     EpisodeStats('init','min','','PSR_IR');
     
