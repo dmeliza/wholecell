@@ -24,8 +24,10 @@ function [rf, cm, rf_err, cm_err] = SpatialRF(files, peak)
 % the maximum response.
 %
 % $Id$
-global SPATIALRF_WIN RFWIN
-SPATIALRF_WIN     = [1000 6000];      % analysis window
+global SPATIALRF_WIN RFWIN BASELINE_THRESH
+SPATIALRF_WIN     = [1 7000];      % analysis window
+BASELINE_THRESH   = 3;             % # of standard deviations a response must exceeed
+                                   % the mean in order to count
 SZ      = [3.0 3.0];
 RFWIN   = 20;
 NBOOT   = 1000;
@@ -40,7 +42,8 @@ if type==2
     t   = double(A.time(win,:)) * 1000 - 200;
     a   = double(A.data(win,:));
     u   = A.units;
-    rf  = computeAmplitude(t,u,peak,a);
+    rf  = computeResponse(t,u,a);
+    %rf  = computeAmplitude(t,u,peak,a);
     rfcm  = Centroid(rf);
     cm  = rfcm(1);
     rf_err  = [rf;rf];
@@ -60,9 +63,32 @@ else
     rf_err  = e(:,2:end);
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
+function rf = computeResponse(t, u, a)
+% Computes the size of the response by integrating over the points that
+% exceed some threshhold above the baseline.  We compute the properties of
+% the baseline over the points before the stimulus appears, then uses the
+% mean and standard deviation to determine when the response occurs.
+global BASELINE_THRESH
+% compute baseline properties (t < 0)
+% not sure what to do here for multiple trials, so this is probably broken
+i       = find(t<=0);
+mu      = mean(a(i,:,:),1);
+sigma   = std(a(i,:,:),0,1);
+% compute values of each point relative to threshhold (zero if below)
+val     = a(i(end)+1:end,:,:);
+thresh  = repmat(mu - sigma * BASELINE_THRESH, [size(val,1), 1, 1]);
+val     = (thresh - val) .* (val < thresh);
+rf      = mean(val,1);
+% rf      = sum(val,1);
+% % scale to meaningful units (pA * s)
+% dt      = mean(diff(t)) / 1000;
+% rf      = rf * dt;
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function rf = computeAmplitude(t,u,peak,a)
-global RFWIN
+% Computes the amplitude of the response (requires a peak specification)
+global RFWIN BASELINE
 Fs  = mean(diff(t));
 i       = find(peak <= t);
 i       = i(1); 
