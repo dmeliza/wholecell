@@ -41,6 +41,8 @@ function a1 = S1Analysis(stim, resp, window, bin)
 %
 % $Id$
 
+MODE = 'correctprev';      % determines the correction mode used to combine responses
+
 error(nargchk(2,4,nargin))
 
 if nargin < 3
@@ -68,7 +70,7 @@ for i = 1:repeats
     fprintf('Frameshifting response... \n');
     r     = FrameShift(double(resp(i).data),...
                       resp(i).timing,...
-                      window);               % frame shift data
+                      window,MODE);               % frame shift data
     len   = size(r,1);                                      % number of parameters we can look at
     
     if bin > 1
@@ -116,15 +118,17 @@ end
 fprintf('Computing STRF...\n');
 fp  = stim.static;                                      % function parameters
 sz  = length(param);                                    % size of basis set
-uv  = zeros(stim.x_res,stim.y_res,sz);                  % pre-allocate
+Z   = feval(func, fp{:}, stimulus(1,:));                % generate the first frame
+[x y] = size(Z);
+uv  = zeros([x y sz]);                  % pre-allocate
 for i = 1:sz
     uv(:,:,i) = feval(func, fp{:}, stimulus(i,:));      % generate unit vector
 end
-uv    = reshape(uv, prod([stim.x_res,stim.y_res]),sz);   % reshape to pixel X param
+uv    = reshape(uv, prod([x,y]),sz);   % reshape to pixel X param
 strf  = uv * a1.kern;                                    % matrix multiply to eliminate param
 vstrf = uv * a1.vkern;                                   % variance strf
-a1.strf  = reshape(strf,stim.x_res,stim.y_res,size(a1.kern,2));
-a1.vstrf = reshape(vstrf,stim.x_res,stim.y_res,size(a1.kern,2));
+a1.strf  = reshape(strf,x,y,size(a1.kern,2));
+a1.vstrf = reshape(vstrf,x,y,size(a1.kern,2));
 
 % display only if output values are unassigned
 if nargout == 0                                         
