@@ -30,6 +30,7 @@ cells   = length(Z);
 t_spike = [Z.t_spike];
 x_spike = [Z.induced];
 
+warning off MATLAB:divideByZero
 for i = 1:cells
     for j = 1:length(Z(i).(FIRST))
         mn(j)   = mean(Z(i).(FIRST)(j).ampl);
@@ -39,6 +40,7 @@ for i = 1:cells
     t_peak(i)       = Z(i).(FIRST)(x_spike(i)).t_peak;
     mn_pre(i)       = mn(x_spike(i));
 end
+warning on MATLAB:divideByZero
 
 % selectors
 ind_clean = mn_pre > EVENT_MIN;
@@ -95,14 +97,18 @@ compare(Z,t_onset, x_center, WINDOW, ind);
 function [mu] = compare(Z, t_onset, x_center, WINDOW, index)
 PLAST_WINDOW    = [0 100];
 [pre, pst, pre_e, pst_e, t] = combine(Z(index),t_onset(index), x_center(index), WINDOW);
-delta   = pre-pst;
+mx      = max(max(abs(pre)));
+delta   = (pre-pst)./mx;
 ind     = t >= PLAST_WINDOW(1) & t <= PLAST_WINDOW(2);
 mu      = mean(delta(ind,:),1);
-%bar([0:3],mu);
-plot(t, pre-pst);
+bar([0:3],mu);
+%plot(t, delta);
 axis tight
 
-function [rf_pre, rf_pst, rf_pre_sg, rf_pst_sg, t] = combine(Z, t_onset, x_center, WINDOW)
+function [rf_pre,rf_pst,rf_pre_sg,rf_pst_sg,t] = combine(Z, t_onset, x_center, WINDOW, NORM)
+if nargin < 5
+    NORM     = 0;
+end
 fieldname   = 'pre';
 post    = 'pst';
 ROWS    = length(Z(1).pre);
@@ -119,9 +125,11 @@ for i = 1:cells
         pre     = Z(i).(fieldname)(j).filttrace(ind);
         pst     = Z(i).(post)(j).filttrace(ind);
         % comment out this code to disable normalization
-%         mx      = max(max(abs(pre)));
-%         pre     = pre ./ mx;
-%         pst     = pst ./ mx;
+        if NORM
+            mx      = max(max(abs(pre)));
+            pre     = pre ./ mx;
+            pst     = pst ./ mx;
+        end
         % we may also want to substract the two RFs from each other
         % immediately
         PRE_RF{J}   = cat(2,PRE_RF{J},pre);   % this may break
