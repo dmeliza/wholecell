@@ -166,6 +166,8 @@ sr = get(wc.ai,'SampleRate');
 set(wc.ao,'SampleRate',sr);
 set(wc.ai,'UserData',length(wc.control.pulse));
 set([wc.ai wc.ao],'StopAction','daqaction')
+set([wc.ai wc.ao],'TriggerType','Manual')
+set(wc.ai,'ManualTriggerHwOn','Trigger')
 putdata(wc.ao, wc.control.pulse);
 set(wc.ao,'RepeatOutput',inf);
 
