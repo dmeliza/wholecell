@@ -36,7 +36,7 @@ otherwise
 end
 
 % check structure of stimulus
-fields = {'x_res','y_res'};
+fields = {'x_res','y_res','colmap'};
 for i = 1:length(fields)
     j = isfield(stim,fields{i});
     if ~j
@@ -46,13 +46,11 @@ end
 if ~isfield(stim,'stimulus') & ~isfield(stim,'param')
     error('A .stimulus or .param field is required');
 end
-if isfield(stim,'colmap')
+if isfield(stim,'stimulus')
     colmap = getfield(stim,'colmap');
     N = max(max(max(stim.stimulus)));
     S = size(colmap);
     if ~all(S == [N 3])
         error('Wrong dimensions for colormap');
     end
-else
-    error('colmap is a required field.');
 end
