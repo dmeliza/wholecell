@@ -139,27 +139,37 @@ dR  = -(mean(R_post',2) - mean(R_pre',2));
 t   = (time - t_spike)';
 
 if nargout > 0
-    %return
+    return
 end
 
-figure
+f   = figure;
+set(gcf,'Color',[1 1 1])
+ResizeFigure(f,[3.12 4])
 colormap(flipud(gray));
-subplot(3,1,1)
+a1 = subplot(3,1,1);
 imagesc(time,1:n,Z_pre);
 vline(t_spike,'k:')
-subplot(3,1,2)
+ylabel('Trial')
+a2 = subplot(3,1,2);
 % imagesc(time,1:n,Z_post);
 plot(time,mean(Z_pre,1),'k');
 hold on
 plot(time,mean(Z_post,1),'r');
 vline(t_spike,'k:')
+ylabel('Weighted PSTH')
 % subplot(4,1,3)
 % mtrialplot(time,R_pre');
-subplot(3,1,3)
+a3 = subplot(3,1,3);
 plot(time,mean(R_pre,1),'k');
 hold on
 plot(time,mean(R_post,1),'r');
 vline(t_spike,'k:')
+ylabel('Predicted EPSC')
+xlabel('Time (ms)')
+
+set([a1 a2 a3],'XLim',[time(1) time(end)],'Box','On')
+set([a1 a2],'XTickLabel',[]);
+set([a1 a2 a3],'YTick',[]);
 
 % rs  = Rasterify(R',2);
 % rs  = -rs';
