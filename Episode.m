@@ -79,10 +79,6 @@ case 'stop'
         stop(wc.ai);
         set(wc.ai,'LoggingMode','Memory');
         SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
-        % set the next file name up correctly
-%         if (isfield(wc.episode, 'lastlogfilename'))
-%             set(wc.ai,'LogFileName',NextDataFile(wc.episode.lastlogfilename));
-%         end
         wc.episode.lastlogfilename = [];
         set(wc.ai,'LogFileName',NextDataFile);
     end
@@ -95,15 +91,12 @@ case 'sweep'
         set(wc.ai,'LogFileName',NextDataFile(fn));
     end
     plotData(data, time, getScope, wc.control.amplifier.Index);
-    %sw = sscanf(GetUIParam('scope','status','String'),'Sweeps Acquired: %i');
-    %SetUIParam('scope','progress','String',sprintf('Sweeps Acquired: %i', sw+1));
     
 case 'newsweep'
     if ~isempty(wc.episode.lastlogfilename)
         startSweep;
     end
 
-% callbacks
 case 'value_changed_callback' % called whenever a field is edited
     wc.control.episode = getValues;
     
@@ -263,7 +256,8 @@ else
     gain = 1;
 end
 data = AutoGain(data(:,index), gain, units);
-plot(time * 1000, data, 'Parent', scope);
+%plot(time * 1000, data, 'Parent', scope);
+Scope('plot','plot',time * 1000, data);
 lbl = get(scope,'YLabel');
 set(lbl,'String',['amplifier (' units ')']);
 
