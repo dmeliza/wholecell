@@ -192,8 +192,6 @@ stimfile = GetParam(me,'vis_image','value');
 if isempty(s)
     error(st)
 end
-% cgcoltab(0,s.colmap);
-% cgnewpal;
 cgloadarray(1,s.xres,s.yres,s.stim,s.colmap);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
@@ -205,9 +203,7 @@ function queueStimulus()
 global wc
 
 len         = GetParam(me,'ep_length','value');                 %ms
-%trig_delay  = GetParam(me,'vis_delay','value');                 %ms
 dt          = 1000 / get(wc.ao,'SampleRate');                   %ms/sample
-%len         = len - trig_delay;
 p           = zeros(len / dt, length(wc.ao.Channel));
 % stimulator
 ch          = GetParam(me,'stim_channel','value');
