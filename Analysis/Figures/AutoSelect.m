@@ -82,7 +82,7 @@ for i = 1:length(sel)
     if ~isempty(BASELINE_SLOPE)
         if abs(slope(1)) > (value .* BASELINE_SLOPE)
             fprintf('%s/%s - rejected; baseline unstable (%3.2f mean, %3.2f slope)\n',...
-                Z(i).rat,Z(i).cell, value, slope);
+                Z(i).rat,Z(i).cell, value, slope(1));
             sel(i)  = 0;
             continue
         end
@@ -100,9 +100,9 @@ for i = 1:length(sel)
     end
     % IR:
     field   = 'ir';
-    pre_r   = mean(cat(1,Z(i).pre.(field)));
+    pre_r   = nanmean(cat(1,Z(i).pre.(field)));
     % only select IR values in post measurement interval
-    pst_r   = mean(getFromInterval(Z(i).pst,field,POST_INTERVAL));
+    pst_r   = nanmean(getFromInterval(Z(i).pst,field,POST_INTERVAL));
     shift_ir = pst_r / pre_r;        
     if ~isempty(POST_IR)
         thresh   = [1/(1 - POST_IR), 1/(1 + POST_IR)];
@@ -116,9 +116,9 @@ for i = 1:length(sel)
     end
     % SR:
     field   = 'sr';
-    pre_r   = mean(cat(1,Z(i).pre.(field)));
+    pre_r   = nanmean(cat(1,Z(i).pre.(field)));
     % only select IR values in post measurement interval
-    pst_r   = mean(getFromInterval(Z(i).pst,field,POST_INTERVAL));
+    pst_r   = nanmean(getFromInterval(Z(i).pst,field,POST_INTERVAL));
     shift_sr = pst_r / pre_r;
     if ~isempty(POST_SR)
         thresh   = [1/(1 - POST_SR), 1/(1 + POST_SR)];
@@ -133,6 +133,7 @@ for i = 1:length(sel)
     
     % if we've reached this point, the experiment is good, and we can
     % calculate and store some computed results
+    fprintf('%s/%s - cell passed!\n',Z(i).rat,Z(i).cell);
     pre_val = pre.(RESPONSE_TYPE);
     pst_val = getFromInterval(pst,RESPONSE_TYPE,POST_INTERVAL);
     if ~isempty(pre_val) | ~isempty(pst_val)
@@ -146,7 +147,7 @@ for i = 1:length(sel)
     Z(i).shift_sr   = shift_sr;
 end
 % now eliminate the failed experiments again
-Z   = Z(sel);
+Z   = Z(find(sel));
 
 
 function value = getFromInterval(structure, field, interval)
@@ -154,5 +155,5 @@ value = [];
 for j = 1:length(structure)
     t       = structure(j).time;
     ind     = find(t>=interval(1) & t<=interval(2));
-    value   = cat(1,value,structure(j).(field))
+    value   = cat(1,value,structure(j).(field));
 end
