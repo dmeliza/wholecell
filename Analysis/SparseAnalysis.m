@@ -64,7 +64,7 @@ for i = 1:repeats
     fprintf('Conditioning response... \n');
     r     = FrameShift(double(resp(i).data),...
                       resp(i).timing,...
-                      window,'correct');                   % frame shift data
+                      window,'correctstart');                   % frame shift data
     len   = size(r,1);                                      % number of parameters we can look at
     
     if bin > 1
