@@ -1,11 +1,21 @@
-    function out = GetPValue(paramstruct, varargin)
-% retrieves the value from a parameter structure
-% this is particularly useful if the fieldtype is list (or something else),
-% as this will make the value something useful/displayable
-% out = GetPValue(paramstruct, [value_format])
-% for lists, value_format can be 'String' or {'Value'}
+function out = GetPValue(paramstruct, varargin)
+% This function retrieves the value from a parameter structure.
+% This is particularly useful if the fieldtype is 'list' (or something else),
+% as this will make the value something useful/displayable.
+%
+% USAGE: out = GetPValue(paramstruct, [value_format])
+%
+% paramstruct   - the parameter structure
+% value_format  - for lists, value_format can be 'String' or {'Value'}, otherwise
+%                 it's meaningless
+%
+% out           - the output value, which can be numeric or a character string
+%
+% See Also:
+%   headers/param_struct.m  - defines the fields in a parameter struct
 %
 % $Id$
+
 out = paramstruct.value;
 switch lower(paramstruct.fieldtype)
 case 'list'
