@@ -33,4 +33,4 @@ function s = cgremap(s)
 % remaps an array into a vector, which is necessary in order
 % to pass that array to cgloadarray.
 p = prod(size(s));
-s = reshape(s',1,p);
+s = reshape(s',1,p) - 1;
