@@ -12,6 +12,6 @@ data.ao = wc.ao;
 if (nargin == 2)
     save(varargin{1}, 'data');
 else
-    [fn,pn] = uiputfile('wholecel.mat','Save preferences...');
+    [fn,pn] = uiputfile('wholecell.mat','Save preferences...');
     save([pn fn], 'data');
 end
