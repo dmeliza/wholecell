@@ -257,19 +257,29 @@ function imageOn()
 % handles display of triggering rectangle and stimulus
 % gets called for each episode. waits delay and flips
 % display for duration (which is what triggers acquisition)
-del = GetParam(me,'vis_delay','value'); % ms
-dur = GetParam(me,'vis_len','value') / 1000;
+gpd     = cggetdata('gpd');
+dt      = 100 / gpd.RefRate100;                     % s
+del     = GetParam(me,'vis_delay','value') / 1000;  % s
+ndel    = round(del / dt);
+dur     = GetParam(me,'vis_len','value') / 1000;
+ndur    = round(dur / dt);
 [x y pw ph] = CGDisplay_Position;
 % displays sync rectangle & pause
 cgrect(-320,-240,100,100,[1,1,1])
-cgflip(0,0,0)       
-pause(del/1000)
+cgflip(0,0,0)
+%pause(del/1000)
+for i = 1:ndel
+    cgflip('V');
+end
 % display frame
 cgdrawsprite(1, x, y, pw, ph)
 cgrect(-320,-240,100,100,[0,0,0])
 cgflip(0,0,0)
 % remove stimulus
-pause(dur)
+%pause(dur)
+for i = 1:ndur
+    cgflip('V');
+end
 cgrect(-320,-240,100,100,[1,1,1])
 cgflip(0,0,0)
 
