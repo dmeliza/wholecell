@@ -9,6 +9,8 @@ function PlayMovie(movie)
 %
 % $Id$
 
+error(nargchk(1,1,nargin));
+
 % figure and colormap
 run = @play;
 figure;
