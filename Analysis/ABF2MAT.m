@@ -5,7 +5,9 @@ function [] = abf2mat(filename, episodeInterval, channels)
 % abf2mat(filename, episodeInterval, [channels])
 %
 % See also headers/r0_struct.m
-%          Analysis/ABF2MAT.m
+% Requires:
+%          Analysis/ABF2R0.m
+%          Analysis/GetPc8Header.m
 %
 % Copyright C. Daniel Meliza 2002-2005
 % Free for use under a Creative Commons Attribution Licence

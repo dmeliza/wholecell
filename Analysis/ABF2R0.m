@@ -8,6 +8,8 @@ function r0 = abf2r0(filename, episodeInterval, channels)
 % array returned has the dimensions SAMPLESxEPISODESxCHANNELS.  The data is
 % returned in an r0 structure (see headers/r0_struct.m)
 %
+% Requires:
+%          Analysis/GetPc8Header.m
 %
 % Copyright C. Daniel Meliza 2002-2005
 % Free for use under a Creative Commons Attribution Licence
