@@ -1,10 +1,10 @@
 function varargout = ChannelSetup(varargin)
 % CHANNELSETUP Application M-file for TelegraphSetup.fig
-%    FIG = CHANNELSETUP launch TelegraphSetup GUI.
-%    CHANNELSETUP(action,type,[index])
+%    channel = CHANNELSETUP(action,type,([name]|index))
 %    action is either 'add' or 'edit'
 %    type is 'ai' or 'ao'
-%    index is required for 'edit' action
+%    name is optional for 'add' action
+%    index is required for 'edit' action, and name is not accepted
 
 %   This function sets up a channel.
 %
@@ -23,9 +23,13 @@ case 'add'
     OpenGuideFigure(me,'WindowStyle','modal');
     
     type = lower(varargin{2});
+    if (nargin > 2)
+        SetUIParam(me, 'name', {'String','Enable'}, {varargin{3},'Off'});
+    end
     daq = sprintf('wc.%s',type);
     wc.channelsetup.daq = eval(daq);
-    wc.channelsetup.control = eval(sprintf('wc.control.%s',type)); 
+    wc.channelsetup.control = eval(sprintf('wc.control.%s',type));
+    wc.channelsetup.channel = [];
     
     SetUIParam(me, 'type', 'String', type);
     
@@ -40,6 +44,7 @@ case 'add'
     
 	% Wait for callbacks to run and window to be dismissed:
 	uiwait(wc.channelsetup.fig);
+    varargout = {wc.channelsetup.channel};
     
 case 'edit'
     OpenGuideFigure(me,'WindowStyle','modal');
@@ -66,6 +71,7 @@ case 'edit'
 
     % Wait for callbacks to run and window to be dismissed:
 	uiwait(wc.channelsetup.fig);
+    varargout = {wc.channelsetup.channel};
     
     
 case 'ok_callback'
@@ -78,7 +84,7 @@ case 'ok_callback'
     if (isempty(choice))
         % do nothing
     else
-        makeChannel(type, choice);
+        wc.channelsetup.channel = makeChannel(type, choice);
     end
     uiresume(wc.channelsetup.fig);
     DeleteFigure(me);
@@ -102,7 +108,7 @@ global wc
 channels = wc.channelsetup.control.usedChannels;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function makeChannel(type, channelName)
+function c = makeChannel(type, channelName)
 % creates a channel
 % type - ai or ao
 % channelName - a string identifying the channel hardware number
