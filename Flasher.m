@@ -212,11 +212,14 @@ function r = unidrnd(n, i, j)
 % of times.  This is going to be managed using a stored list.  Which needs
 % to be reset every time the number of possible states changes
 rn = [];
-if ispref('wholecell','flasher-rands')
-    rn = getpref('wholecell','flasher-rands');
+if ispref('wholecell')
+    d = getpref('wholecell');
+    if isfield(d,'flasher-rands')
+        rn = getfield(d,'flasher-rands');
+    end
 end
-if isempty(r)
-    ints = repmat(1:n,20,1);        % take the integers from 1 to n, replicate 20 times
+if isempty(rn)
+    ints = repmat(1:n,1,4);        % take the integers from 1 to n, replicate 4 times
     ind  = randperm(length(ints));  % randomly permute the indices
     rn    = ints(ind);               % pull out the permuted index
 end
