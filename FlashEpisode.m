@@ -178,9 +178,9 @@ curr = curr(sync); % current value of sync detector
 ao_sync = @aoTrigger;
 set(wc.ai,'TriggerDelayUnits','seconds');
 set(wc.ai,'TriggerDelay',-sync_off);
-set(wc.ai,'TriggerType','HwAnalogChannel');
-set(wc.ai,'TriggerCondition','InsideRegion');
-set(wc.ai,'TriggerConditionValue',[curr+sync_v, curr+sync_v+10]);
+set(wc.ai,'TriggerType','Software');
+set(wc.ai,'TriggerCondition','Rising');
+set(wc.ai,'TriggerConditionValue',curr+sync_v);
 set(wc.ai,'TriggerChannel',wc.ai.Channel(sync));
 set(wc.ai,'TriggerAction',{me,ao_sync});
 
