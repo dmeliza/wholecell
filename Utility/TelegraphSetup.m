@@ -37,7 +37,8 @@ end
 switch action
 
 case 'init'
-    OpenGuideFigure(me,'WindowStyle','modal');
+    fig = OpenGuideFigure(me);
+    set(fig,'WindowStyle','modal');
     
     if nargin > 1
         linename = varargin{2};

@@ -1,24 +1,31 @@
-function fig = OpenGuideFigure(module,varargin)
+function fig = OpenGuideFigure(module, varargin)
 % Opens a figure window using a GUIDE-generated .fig file
-% void OpenGuideFigure(module,[{properties},{values}])
+% void OpenGuideFigure(module,[tag])
 % opens a figure with the filename module.fig
-% sets {properties} to {values} if supplied
+% if tag is supplied the figure will be tagged as such (and stored in wc
+% under that tag)
+%
+% $Id$
 global wc
 
 
-obj.fig = openfig(module, 'reuse');
+if nargin > 1
+    tag = varargin{2};
+else
+    tag = module;
+end
+
+obj.fig = findobj('tag', tag);
+if isempty(obj.fig) | ~ishandle(obj.fig)
+    obj.fig = openfig(module, 'reuse');
+end
 set(obj.fig,'Color',get(0,'defaultUicontrolBackgroundColor'));
 obj.handles = guihandles(obj.fig);
 guidata(obj.fig, obj.handles);
-clfcn = sprintf('%s(''close_Callback'');',module);
-set(obj.fig,'numbertitle','off','name',module,'tag',module,...
+clfcn = sprintf('%s(''close_Callback'', %s);', module, tag);
+set(obj.fig, 'numbertitle', 'off', 'name', tag, 'tag', tag,...
              'DoubleBuffer','on','menubar','none','closerequestfcn',clfcn);
-if nargin > 2
-    properties = varargin{1};
-    values = varargin{2};
-    set(obj.fig, properties, values);
-end
 
-sf = sprintf('wc.%s = obj;',module);
+sf = sprintf('wc.%s = obj;', tag);
 eval(sf);
 fig = obj.fig;

@@ -20,7 +20,8 @@ end
 switch action
 
 case 'add'
-    OpenGuideFigure(me,'WindowStyle','modal');
+    fig = OpenGuideFigure(me);
+    set(fig,'WindowStyle','modal');
     
     type = lower(varargin{2});
     if (nargin > 2)
@@ -47,7 +48,8 @@ case 'add'
     varargout = {wc.channelsetup.channel};
     
 case 'edit'
-    OpenGuideFigure(me,'WindowStyle','modal');
+    fig = OpenGuideFigure(me);
+    set(fig,'WindowStyle','modal');
     
     type = lower(varargin{2});
     index = varargin{3};
