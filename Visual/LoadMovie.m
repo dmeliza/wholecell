@@ -25,23 +25,26 @@ case '.m'
     else
         error('Invalid .m file!');
     end
-case {'.mat' '.s0'}
+case {'.mat', '.s0', '.s1'}
     if exist(filename, 'file') > 0
         stim = LoadStimulusFile(filename);
     else
-        error('Invalid .mat file!');        
+        error('Invalid .mat file!');
     end
 otherwise
     error('Invalid stimulus file.');
 end
 
 % check structure of stimulus
-fields = {'x_res','y_res','stimulus'};
+fields = {'x_res','y_res'};
 for i = 1:length(fields)
     j = isfield(stim,fields{i});
     if ~j
         error([fields{i} ' is a required field.']);
     end
+end
+if ~isfield(stim,'stimulus') & ~isfield(stim,'param')
+    error('A .stimulus or .param field is required');
 end
 if isfield(stim,'colmap')
     colmap = getfield(stim,'colmap');
