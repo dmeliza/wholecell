@@ -15,16 +15,12 @@ SZ      = [3.5 2.9];
 mode    = 'add';
 LTD_WIN = [-60 -1];
 LTP_WIN = [1 40];
+LEGEND  = 1;            % label each cell
 
-z   = csvread(csvfile,0,1);
-s   = size(z,2);
-% if s > 2
-%     z(:,2) = sum(z(:,2:end),2);
-% end
-pre     = z(:,1);
-post    = z(:,2);
-delay_o   = z(:,3);
-delay_p   = z(:,4);
+% use textread so we can get the names of the experiments
+%textread(file,'%s%*[^\n]','delimiter',',')
+[names, pre, post, delay_o, delay_p] = textread(csvfile,'%s%n%n%n%n%*[^\n]','delimiter',',')
+
 delay     = delay_p;
 switch mode
     case 'add'
@@ -36,19 +32,26 @@ end
 % compute significance over windows
 ltp_ind = find(delay >= LTP_WIN(1) & delay <= LTP_WIN(2));
 ltd_ind = find(delay >= LTD_WIN(1) & delay <= LTD_WIN(2));
-ltp_p   = signrank(pre(ltp_ind),post(ltp_ind))
-ltd_p   = signrank(pre(ltd_ind),post(ltd_ind))
+%ltp_p   = signrank(pre(ltp_ind),post(ltp_ind))
+%ltd_p   = signrank(pre(ltd_ind),post(ltd_ind))
+ltp_p   = ttest2(pre(ltp_ind),post(ltp_ind))
+ltd_p   = ttest2(pre(ltd_ind),post(ltd_ind))
 
 f   = figure;
 set(f,'color',[1 1 1]);
 ResizeFigure(f,SZ);
 
-
-
-a   = axes;
-h   = plot(delay,STDP .* 100,'ko');
+%    div = repmat(' - ',length(STDP),1);
+%    leg = [char(names) div num2str(STDP,'%3.2f')];
+%    h   = gscatter(delay,STDP .* 100,1:length(delay),[],[],[],'off');
+%    legend(h,leg);
+STDP    = STDP .* 100;
+h   = plot(delay,STDP,'ko');
+if LEGEND
+    h   = text(delay, STDP, names);
+end
 %YLIM = [0,max(z(:,2))];
-set(a,'XLim',[-WIDTH WIDTH],'YLim',YLIM)
+set(gca,'XLim',[-WIDTH WIDTH],'YLim',YLIM)
 hline(100,'r:')
 vline(0,'r:')
 xlabel('Pre/Postsynaptic Time Interval (ms)')
