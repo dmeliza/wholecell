@@ -221,7 +221,7 @@ end
 CgPlayFrames(frate);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function setLoadFlag()
+function setLoadFlag(varargin)
 % sets the 'load_me' param to 1 so that the stimulus will be requeued
 SetParam(me,'load_me',1);
 
