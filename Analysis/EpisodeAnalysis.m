@@ -221,6 +221,9 @@ case 'export_stats_callback'
 case 'export_figure_callback'
     exportFigure;
     
+case 'analysis_module_callback'
+    % runs an analysis m-file using the current dataset
+    
 case 'save_analysis_callback'
     % stores a complete analysis in one file
     pnfn = GetUIParam(me,'filename','String');
@@ -541,13 +544,13 @@ function [pspdata, srdata, irdata, abstime, color] = cdm_getStats(varargin)
 d = GetUIParam(me,'filename','UserData');
 times = getTimes;
 if nargin == 1
-    [data, abstime, color] = getData(varargin{1});
+    [data, abstime, color] = getTraceData(varargin{1});
 elseif nargin == 2
     data = varargin{1};
     abstime = varargin{2};
     color = [];
 else
-    [data, abstime, color] = getData;
+    [data, abstime, color] = getTraceData;
 end
 dt = 1 / d.info.t_rate;
 w = warning('off');
@@ -694,11 +697,11 @@ updateDisplay;
 wait('Baseline adjusted.');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [data, abstime, color] = getData(varargin)
+function [data, abstime, color] = getTraceData(varargin)
 % this function extracts (binned) Y data from the trace axes
 % and the associated binned relative start times
-% getData() - data from all traces
-% getData(tracenums) - data from specific trace numbers
+% getTraceData() - data from all traces
+% getTraceData(tracenums) - data from specific trace numbers
 trace = GetUIParam(me,'trace_axes','UserData');
 tracehandles = [trace.handle];
 abstime = [trace.abstime]';
@@ -772,15 +775,14 @@ SetUIParam(me,'trace_list','String', num2str(n'));
 SetUIParam(me,'trace_list','Value', n);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function saveData(filename, varargin)
-% saves the analysis, either all traces [saveData(filename)]
-% or specific traces [saveData(filename,tracenums)]
-wait('Saving data...');
-if nargin == 1
-    data = getData;
+function [data, time, abstime, info, pspdata, srdata, irdata, times] = getData(varargin)
+% retrieves all the useful data from the figure in preparation for saving
+% or passing it to another module
+if nargin == 0
+    data = getTraceData;
     [pspdata, srdata, irdata, abstime] = getStats;
 else
-    data = getData(varargin{1});
+    data = getTraceData(varargin{1});
     [pspdata, srdata, irdata, abstime] = getStats(varargin{1});
 end
 d = GetUIParam(me,'filename','UserData');
@@ -796,6 +798,14 @@ data = shiftdim(data,1);
 pspdata = shiftdim(pspdata,1);
 irdata = shiftdim(irdata,1);
 abstime = shiftdim(abstime,1);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+function saveData(filename, varargin)
+% saves the analysis, either all traces [saveData(filename)]
+% or specific traces [saveData(filename,tracenums)]
+wait('Saving data...');
+[data, time, abstime, info, pspdata, srdata, irdata, times]...
+    = getData(varargin{:});
 save(filename,'data','time','abstime','info','pspdata',...
     'srdata','irdata','times');
 wait(['Data saved in ' filename]);
