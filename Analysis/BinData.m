@@ -44,8 +44,9 @@ data     = permute(data, neworder);
 dims     = dims(neworder);
 
 % compute the shape of the final matrix & extract the modulus
-row  = floor(dims(1) / binfactor);         % number of hyperrows in the binned dimension
-last = dims(1) - mod(dims(1),binfactor);   % the index of the last evenly divisible hyperrow
+binfactor = binfactor(1);                       % catch accidental vectors
+row       = floor(dims(1) / binfactor);         % number of hyperrows in the binned dimension
+last      = dims(1) - mod(dims(1),binfactor);   % the index of the last evenly divisible hyperrow
 if last < dims(1)
     nd   = SliceRef(data,1,1:last);               % the reshapable portion of the matrix
     mod  = SliceRef(data,1,last+1:dims(1));       % the modulus
