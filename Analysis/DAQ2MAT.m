@@ -23,6 +23,9 @@ if (nargin > 0)
 end
 
 d = dir('*.daq');
+if length(d) == 0
+    return
+end
 names = {d.name};
 
 % load info from the first file and figure out what to do with subsequent files
