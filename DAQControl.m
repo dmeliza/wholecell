@@ -1,5 +1,10 @@
 function DAQControl(varargin)
-% DAQControl specifies a GUI that allows interaction with the data acquisition hardware.
+% DAQControl provides callbacks for a GUI (specified by DAQControl.fig) that
+% allows interaction with the data acquisition hardware.  The user can create, edit,
+% and delete channels, as well as specify the channels associated with the mode and gain
+% telegraphs and the scaled output of an amplifier.
+%
+% Should be called by wholecell.m
 %
 % $Id$
 
@@ -63,11 +68,11 @@ case 'ao_edit_callback'
     end
     
 case 'ao_delete_callback'
-%     channel = getUIParam(me, 'ao_channels', 'Value');
-%     if (channel > 0)
-%         delete(wc.ao.Channel(channel));
-%         updateChannels;
-%     end
+    channel = getUIParam(me, 'ao_channels', 'Value');
+    if (channel > 0)
+        delete(wc.ao.Channel(channel));
+        updateChannels;
+    end
     
 case 'amplifier_callback'
     channel = GetUIParam(me, 'amplifier', 'Value');
@@ -94,7 +99,6 @@ otherwise
 end
 
 % local functions
-
 function out = me()
 out = mfilename;
 
@@ -120,6 +124,7 @@ SetUIParam(me,'samplingrate','String',num2str(wc.control.SampleRate));
 % input:
 cs = GetChannelList(wc.ai);
 SetUIParam(me,'ai_channels','String',cs);
+SetUIParam(me,'ai_channels','Value',1);
 
 % amplifier selection
 if (~isempty(wc.control.amplifier))
@@ -136,4 +141,6 @@ else
 end
 
 % output
-SetUIParam(me,'ao_channels','String',GetChannelList(wc.ao));
+cs = GetChannelList(wc.ao);
+SetUIParam(me,'ao_channels','String',cs);
+SetUIParam(me,'ao_channels','Value',1);
