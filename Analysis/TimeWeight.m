@@ -14,8 +14,12 @@ if (length(time) ~= length(data))
 elseif (length(time) < 2)
     return;
 end
-   
-l = max(time) - min(time);
-t = time(1):l/resolution:time(1)+l;
+
+if resolution==1
+    t = time;
+else
+    len = max(time) - min(time);
+    t = time(1):len/resolution:time(1)+len;
+end
 spline = csaps(time, data, parameter, []);
 f = fnval(spline,t);

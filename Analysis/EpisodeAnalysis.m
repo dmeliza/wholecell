@@ -192,6 +192,10 @@ case 'adjust_baseline_callback'
         adjustBaseline(GetUIParam(me,'adjust_baseline','UserData'));
     end
     
+case 'kill_outliers_callback'
+    % deletes outliers from the backing data store
+    deleteOutliers;
+    
 case 'set_baseline_limits_callback'
     lim = GetUIParam(me,'adjust_baseline','UserData');
     % fix this later
@@ -237,7 +241,7 @@ case 'export_stats_callback'
     if (fn ~= 0)
         wait('Writing statistics...');
         [pspdata, srdata, irdata, abstime] = getStats;
-        csvwrite(fullfile(pn,fn), cat(2,abstime',pspdata',srdata',irdata'));
+        csvwrite(fullfile(pn,fn), cat(2,abstime,pspdata,srdata,irdata));
         wait(['Statistics exported to ' fullfile(pn,fn)]);
     end
     
@@ -305,18 +309,21 @@ case 'clear_legend_callback'
     l = findobj('tag','legend');
     if ~isempty(l)
         ld = get(l,'UserData');
-        c = get(ld.handles,'UserData');
-        if iscell(c)
-            c = cat(1,c{:});
-        end
-        for i = 1:length(c)
-            set(ld.handles(i),'color',c(i,:));
+        h = c(find(ishandle(ld)));
+        if length(h) > 0
+            c = get(h,'UserData');
+            if iscell(c)
+                c = cat(1,c{:});
+            end
+            for i = 1:length(c)
+                set(h(i),'color',c(i,:));
+            end
         end
         delete(l);
     end
     
-case 'ignore_outliers_callback'
-    keyboard;
+case {'ignore_outliers_callback','outlier_tolerance_callback'}
+    updateStats;
     
 case 'close_callback'
     delete(gcbf);
@@ -378,6 +385,7 @@ SetUIParam(me,'show_selected','Value',0);
 SetUIParam(me,'show_unselected','Value',0);
 SetUIParam(me,'show_none','Value',1);
 SetUIParam(me,'invert_stats','Value',0);
+SetUIParam(me,'outlier_tolerance','String','1.5');
 SetUIParam(me,'show_marks','Value',1);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
@@ -498,15 +506,42 @@ for i = 1:length(tags)
     SetUIParam(me,[tags{i} '_txt'],'ForegroundColor',colors{i});
 end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function [pspdata, srdata, irdata, abstime, color] = getStats(varargin)
-% Computes statistics based on data in the trace_axes
+% Computes statistics based on data in the trace_axes. Does outlier
+% calculation if selected.
 % getStats() - returns stats for all traces
 % getStats(tracenums) - returns stats for selected traces
+[pspdata, srdata, irdata, abstime, color] = cdm_getStats(varargin{:});
+b = GetUIParam(me,'ignore_outliers','Value');
+if boolean(b)
+    tolerance = GetUIParam(me,'outlier_tolerance','StringVal');
+    if isnumeric(tolerance)
+        index = CutOutliers(pspdata, abstime, tolerance);
+        pspdata = pspdata(index);
+        srdata = srdata(index);
+        irdata = irdata(index);
+        abstime = abstime(index);
+        color = color(index,:);
+%         color(index,:) = repmat([1 0 0],length(index),1);
+    end
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+function [pspdata, srdata, irdata, abstime, color] = cdm_getStats(varargin)
+% Computes statistics based on data in the trace_axes. Private method
+% getStats() - returns stats for all traces
+% getStats(tracenums) - returns stats for selected traces
+% getStats(data, abstime) - returns stats for supplied data
 d = GetUIParam(me,'filename','UserData');
 times = getTimes;
 if nargin == 1
     [data, abstime, color] = getData(varargin{1});
+elseif nargin == 2
+    data = varargin{1};
+    abstime = varargin{2};
+    color = [];
 else
     [data, abstime, color] = getData;
 end
@@ -793,6 +828,21 @@ end
     
 updateStats;
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+function deleteOutliers
+wait('Calculating statistics...');
+tolerance = GetUIParam(me,'outlier_tolerance','StringVal');
+d = GetUIParam(me,'filename','UserData');
+data = shiftdim(d.data,1);
+abstime = shiftdim(d.abstime,1);
+[pspdata, srdata, irdata, abstime, color] = cdm_getStats(data, abstime);
+index = CutOutliers(pspdata, abstime, tolerance);
+d.data = d.data(:,index);
+d.abstime = d.abstime(index);
+SetUIParam(me,'filename','UserData',d);
+updateDisplay;
+wait([num2str(length(abstime) - length(index)) ' outliers deleted.']);
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function wait(varargin)
@@ -846,16 +896,3 @@ v = get(rb,'Value');
 v = [v{:}];
 s = find(v==1);
 handle = rb(s(1));
-
-
-
-% --------------------------------------------------------------------
-function varargout = ignore_outliers_Callback(h, eventdata, handles, varargin)
-% Stub for Callback of the uicontrol handles.ignore_outliers.
-disp('ignore_outliers Callback not implemented yet.')
-
-
-% --------------------------------------------------------------------
-function varargout = outlier_tolerance_Callback(h, eventdata, handles, varargin)
-% Stub for Callback of the uicontrol handles.outlier_tolerance.
-disp('outlier_tolerance Callback not implemented yet.')
