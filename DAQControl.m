@@ -45,11 +45,11 @@ case 'ai_edit_callback'
     end
     
 case 'ai_delete_callback'
-%     channel = getUIParam(me, 'ai_channels', 'Value');
-%     if (channel > 0)
-%         delete(wc.ai.Channel(channel));
-%         updateChannels;
-%     end
+    channel = getUIParam(me, 'ai_channels', 'Value');
+    if (channel > 0)
+        delete(wc.ai.Channel(channel));
+        updateChannels;
+    end
     
 case 'ao_add_callback'
     ChannelSetup('add','ao');

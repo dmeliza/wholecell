@@ -19,16 +19,26 @@ case 'init'
     OpenGuideFigure(me);
     
 case 'data_dir_callback'
-    if (~isempty(wc.control.data_dir))
+    if exist(wc.control.data_dir,'dir') == 7
         cd(wc.control.data_dir);
     end
-    [fn pn] = uiputfile({'*.*', 'Filename Ignored'},'Choose a data directory');
+    pn = uigetdir;
     if (pn ~= 0)
         wc.control.data_dir = pn;
-        wc.control.data_prefix = fn;
         set(wc.ai,'LogFileName',NextDataFile);
     end
     cd(wc.control.base_dir);
+
+case 'data_prefix_callback'
+    def = wc.control.data_prefix;
+    if isempty(def) | ~ischar(def)
+        def = '';
+    end
+    a = inputdlg('Enter a prefix for subsequent data files','Data Prefix',...
+        1,{def});
+    if ~isempty(a)
+        wc.control.data_prefix = a{1};
+    end
     
 case 'seal_test_callback'
     SealTest('init');
