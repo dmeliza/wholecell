@@ -28,7 +28,7 @@ case 'init'
 %     InitParam(me,'pulse_length', .040);  % s
 %     InitParam(me,'n_sweeps',3);
     wc.sealtest.pulse = 5;
-    wc.sealtest.pulse_length = 0.40;
+    wc.sealtest.pulse_length = 0.04;
     wc.sealtest.n_sweeps = 3;
     wc.sealtest.scaling = [1 0 0 0];  % auto
 
