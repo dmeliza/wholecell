@@ -84,14 +84,10 @@ fprintf(fid,'----\n');
 if nargin > 2
     pst_ir  = cat(1,pst.ir);
     pst_sr  = cat(1,pst.sr);
-    if ~isempty(pst_ir)
-        printdifference(fid, 'IR:', pre_ir, pst_ir, pre(1).units);
-        fprintf('\n');
-    end
-    if ~isempty(pst_sr)
-        printdifference(fid, 'SR:', pre_sr, pst_sr, pre(1).units);    
-        fprintf('\n');
-    end
+    printdifference(fid, 'IR:', pre_ir, pst_ir, pre(1).units);
+    fprintf('\n');
+    printdifference(fid, 'SR:', pre_sr, pst_sr, pre(1).units);    
+    fprintf('\n');
 else
     fprintf(fid,'IR: %3.2f +/- %3.2f %s\n',...
         nanmean(pre_ir), nanstd(pre_ir)/n, pre(1).units);
@@ -100,13 +96,16 @@ else
 end
 
 function [] = printdifference(fid, name, pre, post, units)
-[h,p]       = ttest2(pre,post);
-pre_m       = nanmean(pre);
-pst_m       = nanmean(post);
-fprintf(fid, ['%s %3.2f +/- %3.2f -> %3.2f +/- %3.2f %s (%3.1f%%; P = %3.4f)'],...
-    name, pre_m, nanstd(pre)/sqrt(length(pre)), pst_m,...
-    nanstd(post)/sqrt(length(post)), units, pst_m/pre_m * 100 - 100, p);
-
+if isempty(pre) | isempty(post)
+    fprintf(fid,'%s Unable to compare, error in measurement', name);
+else
+    [h,p]       = ttest2(pre,post);
+    pre_m       = nanmean(pre);
+    pst_m       = nanmean(post);
+    fprintf(fid, ['%s %3.2f +/- %3.2f -> %3.2f +/- %3.2f %s (%3.1f%%; P = %3.4f)'],...
+        name, pre_m, nanstd(pre)/sqrt(length(pre)), pst_m,...
+        nanstd(post)/sqrt(length(post)), units, pst_m/pre_m * 100 - 100, p);
+end
 
 function [results] = analyzedirectory(fid, times);
 % this function does all the work of analyzing the directory
@@ -319,19 +318,22 @@ for ifile = 1:length(dd)
             ind_ir          = IND_R;
             IR(i)           = mean(resp(ind_baseline,i),1) - mean(resp(ind_ir,i),1);
         end
-        
-        ir{ifile}           = IR(:);
-        % extract approximate times for resistance measures
+
         t_sr{ifile}         = r_time(median(ind_trans)) + time(1);
-        t_ir{ifile}         = r_time([ind_baseline(1) ind_baseline(end) ind_ir(1) ind_ir(end)]) + time(1);
-        vline(t_ir{ifile});
-      
+        if ~isempty(IR) & ~all(isnan(IR))
+            ir{ifile}           = IR(:);
+            t_ir{ifile}         = r_time([ind_baseline(1) ind_baseline(end) ind_ir(1) ind_ir(end)]) + time(1);
+            vline(t_ir{ifile});
+        else
+            ir{ifile}       = [];
+            t_ir{ifile}     = [];
+        end
     else
         % to do: write analysis for current clamp
         ir{ifile}  = [];
         sr{ifile}  = [];
-        t_sr       = [];
-        t_ir       = [];
+        t_sr{ifile}       = [];
+        t_ir{ifile}       = [];
     end
     if WRITE_FIGURES
         [pn,fn,ext]     = fileparts(dd{ifile});
