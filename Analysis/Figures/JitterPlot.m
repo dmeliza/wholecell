@@ -8,6 +8,7 @@ SZ  = [2.7    6.5];
 BR  = 50;
 THRESH = 1.5;
 NORM    = [];
+WIN     = 1000:8000;
 
 z   = load('-mat',daqfile);
 
