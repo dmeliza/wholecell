@@ -144,6 +144,8 @@ global wc
 InitWC;
 InitDAQ(5000);
 
+sr = get(wc.ai,'SampleRate');
+set(wc.ao,'SampleRate',sr);ret
 wc.control.amplifier = CreateChannel(wc.ai, 0, {'ChannelName','Units'}, {'Im','nA'});
 wc.control.telegraph.gain = 2;
 CreateChannel(wc.ai, wc.control.telegraph.gain);
