@@ -37,13 +37,13 @@ case {'init','reinit'}
     if isempty(fig)                                   % open
         fig = ParamFigure(me, p);
     end    
-    Scope('init');
+    getScope;
     
     EpisodeStats('init','min','','PSR_IR');
     
 case 'start'
     setupHardware;
-    setupScope;
+    clearScope;
     llf = get(wc.ai,'LogFileName');
     [dir newdir] = fileparts(llf);
     set(wc.ai,'LogFileName',fullfile(dir, '0000.daq'));
@@ -57,8 +57,7 @@ case 'record'
         Episode('stop');
     end
     setupHardware;
-    setupScope;
-
+    clearScope;
     llf = get(wc.ai,'LogFileName');
     [dir newdir] = fileparts(llf);
     s = mkdir(dir, newdir);
@@ -162,48 +161,23 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function plotData(data, time, abstime)
 % plots the data
-
-scope = getScope;
-mode = GetParam('control.telegraph', 'mode');
-gain = GetParam('control.telegraph', 'gain');
-index = GetParam(me,'input_channel','value');
-if ~isempty(mode)
-    units = TelegraphReader('units',mean(data(:,mode)));
-else
-    units = 'V';
-end
-if ~isempty(gain)
-    gain = TelegraphReader('gain',mean(data(:,gain)));
-else
-    gain = 1;
-end
-lbl = get(scope,'YLabel');
-set(lbl,'String',['amplifier (' units ')']);
+index       = GetParam(me,'input_channel','value');
+data        = data(:,index);            % only the amplifier channel is plotted
+axes(getScope)                          % get the scope
 % plot the data and average response
-data = AutoGain(data(:,index), gain, units);
-a = get(scope, 'UserData'); % avgdata is now a cell array
+a               = get(gca, 'UserData'); % avgdata is now a cell array
 if isempty(a)
-    numtraces = 1;
-    avgdata = data;
+    numtraces   = 1;
+    avgdata     = data;
 else
-    avgdata = a{2};
-    numtraces = a{1} + 1;
-    avgdata = avgdata + (data - avgdata) / (numtraces);
+    avgdata     = a{2};
+    numtraces   = a{1} + 1;
+    avgdata     = avgdata + (data - avgdata) / (numtraces);
 end
-Scope('plot','plot',time * 1000, [data avgdata]);
-a = {numtraces, avgdata};
-set(scope,'UserData', a);
+plot(time * 1000, [data avgdata])
+a               = {numtraces, avgdata};
+set(gca,'UserData', a);
 EpisodeStats('plot', abstime, data);
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function setupScope();
-% sets up the scope properties
-scope = getScope;
-clearPlot;
-set(scope, 'XLim', [0 1000]);
-set(scope, 'NextPlot', 'replacechildren');
-lbl = get(scope,'XLabel');
-set(lbl,'String','Time (ms)');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%55555
 function startSweep()
@@ -218,14 +192,22 @@ queueStimulus;
 start([wc.ai wc.ao]);
 trigger([wc.ai wc.ao]);
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function clearPlot()
-Scope('clear')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+function [] = clearScope()
+axes(getScope)
+set(gca,'UserData',[])
+cla
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function scope = getScope()
-scope = GetUIHandle('scope','scope');
-if (isempty(scope) | ~ishandle(scope))
-    Scope('init');
-    scope = GetUIHandle('scope','scope');
+function a = getScope()
+% retrieves the handle for the scope axes
+f       = findfig([me '.scope']);
+set(f,'position',[288 314 738 508],'name','scope','numbertitle','off');
+a       = get(f,'Children');
+if isempty(a)
+    a   = axes;
+    set(a,'NextPlot','ReplaceChildren')
+    set(a,'XTickMode','Auto','XGrid','On','YGrid','On','YLim',[-5 5])
+    xlabel('Time (ms)')
+    ylabel('amplifier (V)')
 end
