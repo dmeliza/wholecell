@@ -1,4 +1,4 @@
-function img = hartleygrating(kx, ky, dim)
+function img = hartleygrating(dim, k)
 %
 % Generates a 2D grating using the Hartley basis set.  See Ringach et al 1997.
 % H(kx,ky) = cas(2*pi*(kx*l + ky*m)/M), where M is the size of the image, and
@@ -6,26 +6,25 @@ function img = hartleygrating(kx, ky, dim)
 % of using the Hartley set is that the image can be described by two real parameters.
 %
 % USAGE:
-% Z = hartleygrating(kx, ky, dim)
+% Z = hartleygrating(dim, k)
 %
-% kx    - X spatial frequency (wave number)
-% ky    - Y spatial frequency (wave number)
+% k     - [X,Y] spatial frequency (wave number)
 % dim   - size of the resulting image (scalar)
 %
 % implemented as H(k) = cas(2*pi*<k,r>/M), where <k,r> is the inner product
-% of the vectors k = (kx,ky) and r = (l,m) (in Cartesian coordinates)
+% of the vectors k = (kx,ky) and r = (l,m) (in Cartesian coordinates).  There
+% are undoubtedly faster ways to implement this.
 %
 % $Id$
 
-error(nargchk(3,3,nargin))
+error(nargchk(2,2,nargin))
 
 sz    = dim.*dim;
 l     = 0:dim-1;
-m     = 0:dim-1;
-[L M] = meshgrid(l,m);                      % r(l) and r(m) vectors
+[L M] = meshgrid(l,l);                      % r(l) and r(m) vectors
 R     = [reshape(L,sz,1),reshape(M,sz,1)];  % R matrix
 
-Z     = R * [kx;ky] * 2 * pi / dim;         % inner product
+Z     = R * k' * 2 * pi / dim;         % inner product
 img   = sin(Z) + cos(Z);
 img   = reshape(img,dim,dim);
 
