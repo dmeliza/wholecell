@@ -48,10 +48,14 @@ if nargin < 3
     syncmap = [0 1];
 end
 % bombs away
+cgfont('Arial',10)
+cgpencol(255) % should be black
+t = [pw/2 - 100, ph/2 - 20];
 for frame = 1:a_frames;
     for i = 1:frate
         cgdrawsprite(frame,0,0, pw, ph);
         cgrect(sr(1),sr(2),sr(3),sr(4),syncmap(sync+1));
+        cgtext(num2str(frame),t);
         timing(frame,i) = cgflip;
     end
     sync = ~sync;

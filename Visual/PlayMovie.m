@@ -27,5 +27,6 @@ a_frames = size(movie.stimulus,3);
 CLIM = [1 size(movie.colmap,1)];
 for i = 1:a_frames
     imagesc(movie.stimulus(:,:,i),CLIM)
+    text(1,1,num2str(i))
     pause(0.1)
 end
