@@ -27,7 +27,7 @@ CURRENTCLAMP    = 0;        % use current clamp cells
 BASELINE_LENGTH = 5;        % minutes, minimum
 BASELINE_SLOPE  = 0.1;      % maximum slope, as a fraction of the size of the event
 % post-induction
-POST_LENGTH     = 15;       % minutes, minimum (rounded)
+POST_LENGTH     = 14.3;     % minutes, minimum (not rounded)
 POST_IR         = 0.3;      % fraction of baseline IR that post IR is allowed to deviate
 POST_SR         = [];       % like POST_IR
 
@@ -99,7 +99,7 @@ for i = 1:length(sel)
     % post-induction length:
     if ~isempty(POST_LENGTH)
         pst_length = pst.time(end) - pst.time(1);
-        if round(pst_length) < POST_LENGTH
+        if pst_length < POST_LENGTH
             fprintf('%s/%s - rejected; post-induction too short (%3.2f)\n',...
                 Z(i).rat,Z(i).cell,pst_length);
             sel(i)  = 0;
@@ -134,8 +134,8 @@ for i = 1:length(sel)
 
     % SR:
     field   = 'sr';
-    pre_r   = nanmean(cat(1,Z(i).pre.(field)));
-    pst_r   = nanmean(getFromInterval(Z(i).pst,field,POST_INTERVAL));
+    pre_r   = cat(1,Z(i).pre.(field));
+    pst_r   = getFromInterval(Z(i).pst,field,POST_INTERVAL);
     [res, pre_m, pst_m, P] = checkResistance(pre_r, pst_r, POST_SR);
     Z(i).shift_sr = pst_m / pre_m;
     if ~Z(i).skip_sr & res
