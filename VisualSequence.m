@@ -109,6 +109,7 @@ global wc;
     p.repeat = cell2struct({'Repeats (0=inf)','value',1},f_s,2);
     p.stim = cell2struct({'Stim File','fixed','',loadStim},f_sb,2);
     p.display = cell2struct({'Display', 'value', 2,cb},f_sb,2);
+    p.contrast = cell2struct({'Contrast [-1,1]', 'value', 2, cb},f_sb,2);
     ic = get(wc.control.amplifier,'Index');
     p.sync_c = cell2struct({'Sync Channel','list',ic,GetChannelList(wc.ai)},f_l,2);
     p.input = cell2struct({'Amplifier Channel','list',ic,GetChannelList(wc.ai)},...
