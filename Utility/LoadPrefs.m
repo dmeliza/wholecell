@@ -16,5 +16,9 @@ wc.control = d.data.control;
 wc.ai = d.data.ai;
 wc.ao = d.data.ao;
 if (isfield(wc.control,'data_dir'))
-    set(wc.ai,'LogFileName',NextDataFile);
+    SetUIParam('protocolcontrol','data_dir','String',wc.control.data_dir);
 end
+if isfield(wc.control,'data_prefix')
+    SetUIParam('protocolcontrol','data_dir','String',wc.control.data_prefix);
+end
+set(wc.ai,'LogFileName',NextDataFile);
