@@ -25,20 +25,18 @@ case 'add'
     type = lower(varargin{2});
     daq = sprintf('wc.%s',type);
     wc.channelsetup.daq = eval(daq);
-    wc.channelsetup.control = eval(sprintf('wc.control.%s',type));
+    wc.channelsetup.control = eval(sprintf('wc.control.%s',type)); 
     
-    set(wc.channelsetup.handles.type,'String',type);
+    SetUIParam(me, 'type', 'String', type);
     
     indices = wc.channelsetup.daq.Channel.Index;
     nextIndex = length(indices) + 1;
-    set(wc.channelsetup.handles.index,'String',nextIndex);
+    SetUIParam(me, 'index', 'String', nextIndex); 
     
     availables = setdiff(wc.channelsetup.control.channels, wc.channelsetup.control.usedChannels);
     availables = num2str(availables');
     channels = char(' ', availables);
-    set(wc.channelsetup.handles.channels,'String',channels);
-        
-    set(wc.channelsetup.handles.channels,'Value',1);
+    SetUIParam(me, 'channels', {'String', 'Value'}, {channels, 1}); 
     
 	% Wait for callbacks to run and window to be dismissed:
 	uiwait(wc.channelsetup.fig);
@@ -50,22 +48,21 @@ case 'edit'
     index = varargin{3};
     daq = sprintf('wc.%s',type);
     wc.channelsetup.daq = eval(daq);
-    wc.channelsetup.control = eval(sprintf('wc.control.%s',type));
+    wc.channelsetup.control = eval(sprintf('wc.control.%s',type)); 
     wc.channelsetup.channel = wc.channelsetup.daq.Channel(index);
 
-    set(wc.channelsetup.handles.type,'String',type);    
-    set(wc.channelsetup.handles.index,'String',index);
+    SetUIParam(me, 'type', 'String', type); 
+    SetUIParam(me, 'index', 'String', index); 
     % include the current channel first
     availableChannels = [wc.channelsetup.channel.HwChannel;...
             setdiff(wc.channelsetup.control.channels, wc.channelsetup.control.usedChannels)']; 
     channels = num2str(availableChannels);
-    set(wc.channelsetup.handles.channels,'String',channels);
+    SetUIParam(me, 'channels', {'String','Value'}, {channels, 1}); 
 
-    set(wc.channelsetup.handles.channels,'Value',1);
-    set(wc.channelsetup.handles.name,'String',wc.channelsetup.channel.ChannelName);
-    set(wc.channelsetup.handles.units,'String',wc.channelsetup.channel.Units);
+    SetUIParam(me, 'name', 'String', wc.channelsetup.channel.ChannelName);
+    SetUIParam(me, 'units', 'String', wc.channelsetup.channel.Units);
     gain = ChannelGain(wc.channelsetup.channel,'get');
-    set(wc.channelsetup.handles.gain,'String',num2Str(gain(1)));
+    SetUIParam(me, 'gain', 'String', num2str(gain(1)));
 
     % Wait for callbacks to run and window to be dismissed:
 	uiwait(wc.channelsetup.fig);

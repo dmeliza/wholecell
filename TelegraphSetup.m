@@ -40,7 +40,7 @@ case 'init'
     OpenGuideFigure(me,'WindowStyle','modal');
     
     if nargin > 1
-        wc.telegraphsetup.lineName = varargin{2};
+        InitParam(me,'linename',varargin{2});
     end
     if nargin > 2
         channel = varargin{3};
@@ -50,9 +50,11 @@ case 'init'
     
     availableChannels = setdiff(wc.control.ai.channels, wc.control.ai.usedChannels);
     channels = ['  '; num2str(availableChannels')];
-    set(wc.telegraphsetup.handles.channels,'String',channels);
-    set(wc.telegraphsetup.handles.channels,'Value',1);  % TODO: set to current value
-    set(wc.telegraphsetup.handles.line,'String',wc.telegraphsetup.lineName);
+    SetUIParam(me,'channels',{'String', 'Value'}, {channels, 1});
+    SetUIParam(me,'line','String', GetParam(me,'linename'));
+%     set(wc.telegraphsetup.handles.channels,'String',channels);
+%     set(wc.telegraphsetup.handles.channels,'Value',1);  % TODO: set to current value
+%     set(wc.telegraphsetup.handles.line,'String',wc.telegraphsetup.lineName);
     
 	% Wait for callbacks to run and window to be dismissed:
 	uiwait(wc.telegraphsetup.fig);
@@ -62,8 +64,8 @@ case 'init'
 case 'ok_callback'
     % when the user presses OK this module opens the channel
     % or if it already exists, reconfigures it
-    choice = get(wc.telegraphsetup.handles.channels,'Value');
-    channels = get(wc.telegraphsetup.handles.channels,'String');
+    choice = GetUIParam(me, 'channels','Value');
+    channels = GetUIParam(me, 'channels', 'String');
     choice = channels(choice,:);
     if (isempty(choice))
         % do nothing
@@ -104,8 +106,9 @@ global wc
         c = CreateChannel(wc.ai, channel);
     end
     % set up the channel
-    set(c, 'ChannelName', [wc.telegraphsetup.lineName ' telegraph']);
+    set(c, 'ChannelName', [GetParam(me, 'linename') ' telegraph']);
     range = [-10 10];
     set(c, {'InputRange','SensorRange','UnitsRange'}, {range, range, range});
-    sf = sprintf('wc.control.telegraph.%s=c.Index;',wc.telegraphsetup.lineName);
-    eval(sf,'disp(sf)');
+    InitParam('control.telegraph', GetParam(me, 'linename'), c.Index);
+%     sf = sprintf('wc.control.telegraph.%s=c.Index;',GetParam(me, 'linename'));
+%     eval(sf,'disp(sf)');
