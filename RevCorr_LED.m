@@ -43,8 +43,7 @@ case 'start'
     setupScope;
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
     SetUIParam('scope','status','String','Not recording');
-    queueStimulus;
-    pause(1);
+    queueStimulus(3);
     StartAcquisition(me,[wc.ai wc.ao]);
     
 case 'record'
@@ -61,21 +60,26 @@ case 'record'
     lf = NextDataFile;
     set(wc.ai,'LogFileName',lf);
     SetUIParam('scope','status','String',lf);
-    queueStimulus;
+    queueStimulus(3);
     StartAcquisition(me,[wc.ai wc.ao]);
     
 case 'stop'
-    stop([wc.ai wc.ao]);
+    stop([wc.ai wc.ao]); % we only stop wc.ai because the ao needs to flush
     if (isvalid(wc.ai))
         set(wc.ai,'SamplesAcquiredAction','');
         SetUIParam('wholecell','status','String',get(wc.ai,'Running'));        
         set(wc.ai,'LoggingMode','Memory');
     end
 
+
 case 'sweep'
     data = varargin{2};
     time = varargin{3};
     abstime = varargin{4};
+    in = get(wc.ai,'SamplesAvailable');
+    out = get(wc.ao,'SamplesAvailable');
+    status = sprintf('in: %d / out: %d',in, out); 
+    SetUIParam('scope','status','String',status);
     queueStimulus;
     plotData(data, time, abstime, getScope, wc.control.amplifier.Index);
     
@@ -111,6 +115,8 @@ global wc;
     p.t_res.units = 'ms';
     p.t_res.value = 100;
     
+    p.u_rate = cell2struct({'Update Rate','value',20,'Hz'},...
+        {'description','fieldtype','value','units'},2);
     p.input.description = 'Amplifier Channel';
     p.input.fieldtype = 'list';
     p.input.choices = GetChannelList(wc.ai);
@@ -123,16 +129,16 @@ function setupHardware()
 global wc
 
 sr = get(wc.ai, 'SampleRate');
-update = fix(sr / 2); % update at 20 Hz
+u_rate = GetParam(me,'u_rate','value');
+update = fix(sr / u_rate); 
 set(wc.ai,'SamplesPerTrigger',inf);
 set(wc.ai,'SamplesAcquiredActionCount',update);
 set(wc.ai,'SamplesAcquiredAction',{'SweepAcquired',me}) % calls SweepAcquired m-file, which deals with data
 set(wc.ai,'UserData',update);
 
 t_res = GetParam(me,'t_res','value');
-sr = 1000 / t_res ; % 10 samples per value (should help averaging)
-set(wc.ao, 'SampleRate', sr)
-%set(wc.ao,'SamplesPerTrigger',inf);
+sr = 1000 / t_res ;
+set(wc.ao, 'SampleRate', sr);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function wn = whitenoise(samples)
@@ -155,6 +161,12 @@ else
     m = 1;
 end
 update = get(wc.ai,'Samplesacquiredactioncount');
+t_res = GetParam(me,'t_res','value');
+update = ceil(update / t_res);
+queued = get(wc.ao,'SamplesAvailable');
+if (queued > 2 * update) & (m == 1)
+    return
+end
 control = GetParam(me,'output','value');
 c = zeros(update * m, length(wc.ao.Channel));
 c(:,control) = whitenoise(update * m);
@@ -186,31 +198,24 @@ function varargout = plotData(data, time, abstime, scope, index)
 % plots the data
 
 data = data(:,index);
-%time = time - time(1);
-Scope('scroll',time * 1000, data);
-% mode = GetParam('control.telegraph', 'mode');
-% gain = GetParam('control.telegraph', 'gain');
-% if ~isempty(mode)
-%     units = TelegraphReader('units',mean(data(:,mode)));
-% else
-%     units = 'V';
-% end
-% if ~isempty(gain)
-%     gain = TelegraphReader('gain',mean(data(:,gain)));
-% else
-%     gain = 1;
-% end
-% lbl = get(scope,'YLabel');
-% set(lbl,'String',['amplifier (' units ')']);
-% % plot the data and average response
-% data = AutoGain(data(:,index), gain, units);
-% avgdata = get(scope,'UserData');
-% avgdata = cat(2, avgdata, data); % TODO: catch irregular sized datas
-% Scope('plot','plot',time * 1000, [data mean(avgdata,2)]);
-% set(scope,'UserData', avgdata);
-% EpisodeStats('plot', abstime, data);
+mode = GetParam('control.telegraph', 'mode');
+gain = GetParam('control.telegraph', 'gain');
+if ~isempty(mode)
+    units = TelegraphReader('units',mean(data(:,mode)));
+else
+    units = 'V';
+end
+if ~isempty(gain)
+    gain = TelegraphReader('gain',mean(data(:,gain)));
+else
+    gain = 1;
+end
+lbl = get(scope,'YLabel');
+set(lbl,'String',['amplifier (' units ')']);
+% plot the data and average response
+data = AutoGain(data(:,index), gain, units);
+Scope('scopeplot',time * 1000, data);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function clearPlot(axes)
-kids = get(axes, 'Children'); 
-delete(kids);
+Scope('clear');
