@@ -107,12 +107,12 @@ elseif isempty(pre)
     prefix  = sprintf('%s (post; %3.0f/%3.0f ms)', prefix, pst.t_onset*1000,...
         pst.t_peak*1000);
     printresult(fid, prefix, pst.resp, pst.units);
-    fprintf(' (%3.1f %s)\n', pst.time(end) - pst.time(1), 'min');
+    fprintf(fid, ' (%3.1f %s)\n', pst.time(end) - pst.time(1), 'min');
 elseif isempty(pst)
     prefix  = sprintf('%s (pre; %3.0f/%3.0f ms)', prefix, pre.t_onset*1000,...
         pre.t_peak*1000);
     printresult(fid, prefix, pre.resp, pre.units);
-    fprintf(' (%3.1f %s)\n', pre.time(end) - pre.time(1), 'min');    
+    fprintf(fid, ' (%3.1f %s)\n', pre.time(end) - pre.time(1), 'min');    
 else
     prefix  = sprintf('%s (%3.0f/%3.0f -> %3.0f/%3.0f ms)', prefix,...
         pre.t_onset*1000, pre.t_peak*1000, pst.t_onset*1000,pst.t_peak*1000);
