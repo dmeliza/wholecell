@@ -33,9 +33,10 @@ if nargin < 2
 end
 LAGS = 25 * frate;
 
-% Size of response
-[FRAMES REPEATS] = size(data);
-% Initialize results vector
+
+[FRAMES REPEATS] = size(data);                  % Size of response
+
+% Initialize results vectors
 C       = zeros([LAGS*2+1, REPEATS, REPEATS]);
 stats   = zeros([3, REPEATS, REPEATS]);
 
@@ -49,14 +50,14 @@ for i = 1:REPEATS
    others   = setdiff(1:REPEATS, i);
    x_mean   = mean(data(:,others), 2);
 
-   % Calculate the mean xcorr and store results in C (this will be the diagonal) 
+   % Calculate the ex mean xcorr and store results in C (this will be the diagonal) 
    C(:,i,i)       = xcorr(x_mean, data(:,i), LAGS, 'coeff');
    t              = corrcoef(x_mean, data(:,i));
    stats(1,i,i)   = t(2,1);
    
    % Calculate the stats for the shuffled spikes
-   t              = ShuffleSequence(data(:,i), 50);      % shuffle the response
-   t              = xcorr(x_mean, t, LAGS, 'coeff');     % xcorr
+   t              = ShuffleSequence(data(:,i), 100);      % shuffle the response
+   t              = xcorr(x_mean, t, LAGS, 'coeff');      % xcorr
    stats(2,i,i)   = mean(t);
    stats(3,i,i)   = std(t);
 
@@ -69,12 +70,16 @@ for i = 1:REPEATS
       stats(1,j,i) = t(2,1);
    
    	  % Calculate the stats for the shuffeled spikes
-   	  t            = ShuffleSequence(data(:,j), 50);      % shuffle the response
-   	  t            = xcorr(data(:,i), t, LAGS, 'coeff');  % xcorr
+   	  t            = ShuffleSequence(data(:,j), 100);      % shuffle the response
+   	  t            = xcorr(data(:,i), t, LAGS, 'coeff');   % xcorr
       stats(2,j,i) = mean(t);
       stats(3,j,i) = std(t);
       
    end
+   
+   % Calculate the autocorrelation of the mean response
+   x_mean          = mean(data, 2);
+   C(:,REPEATS,1)  = xcorr(x_mean, x_mean, LAGS, 'coeff');
    
 end
 fprintf('Graphing Results...\n')
@@ -82,7 +87,8 @@ clear data
 
 %%%%% PLOT RESULTS %%%%%%%
 findfig('xcorr_repeats');
-set(gcf,'Position',[300 300 800 600],'Color',[1 1 1]);
+set(gcf,'Position',[300 300 800 600],'Color',[1 1 1],'Name','xcorr repeats',...
+    'NumberTitle','off');
 clf
 
 TOP = 0.5;
@@ -122,5 +128,13 @@ for i = 1:REPEATS
    end
         
 end
+
+% Graph the mean autocorrelation function in the bottom left corner
+subplot(REPEATS,REPEATS,REPEATS*(REPEATS-1)+1)
+bar(x_values,C(:,REPEATS,1),'b')
+axis('tight')
+set(gca,'FontSize',8)
+set(gca,'XTick',[0],'YTick',[])
+title('Autocorr');
 
 drawnow
