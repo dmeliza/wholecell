@@ -305,7 +305,9 @@ function registerModule(modules)
 % installs modules in the module list
 a1 = GetUIHandle(me,'analysis1');
 curr = get(a1,'String');
-if ~isa(curr,'cell')
+if isempty(curr)
+    curr = {};
+elseif ~isa(curr,'cell')
     curr = cellstr(curr);
 end
 if isa(modules,'cell')
@@ -549,6 +551,7 @@ function pspdata_export(varargin)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [kids, menu] = psth(action, varargin)
 % graphs the first presynaptic response against the first postsynaptic response
+[kids,menu] = deal([]);
 switch lower(action)
 case 'install'
     p_num = varargin{1};

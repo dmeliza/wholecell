@@ -1,4 +1,4 @@
-function out = compareRF(rf1, rf2, bar, window, pos, mode)
+function d = compareRF(rf1, rf2, bar, window, pos, mode)
 %
 % D = COMPARERF(rf1, rf2, bar, window, [pos, mode])
 %
@@ -10,10 +10,12 @@ function out = compareRF(rf1, rf2, bar, window, pos, mode)
 % bar will be shown
 %
 % $Id$
-BINRATE = 53;
-INTERP = 1;
-THRESH = 1;
-IMAGE = 1;
+BINRATE = 23;
+INTERP  = 1;
+THRESH  = 1;
+IMAGE   = 1;
+NORM    = 200;
+SZ      = [3.5 3.5];
 
 error(nargchk(4,6,nargin))
 
@@ -26,11 +28,11 @@ else
 end
 
 win  = [bar - window, bar + window];
-T    = double(A.time) - 0.2;
+T    = double(A.time) * 1000 - 200;
+Fs   = mean(diff(T));
 Z    = find(T >= win(1));
 t(1) = Z(1);
-Z    = find(T <= win(2));
-t(2) = Z(end);
+t(2) = Z(1) + window * 2 / Fs - 1;
 t    = t(1):t(2);
 T    = T(t);
 
@@ -43,6 +45,8 @@ if nargin > 5
 end
 ma  = mean(a(1:200,:),1);
 mb  = mean(b(1:200,:),1);
+% ma  = mean(A.data([(t(1)-NORM):t(1) t(end):(t(end)+NORM)],:),1);
+% mb  = mean(B.data([(t(1)-NORM):t(1) t(end):(t(end)+NORM)],:),1);
 a   = a - repmat(ma,length(t),1);
 b   = b - repmat(mb,length(t),1);
 d   = b - a;
@@ -60,8 +64,16 @@ val    = [a(i,j) b(i,j)];
 rat    = max(abs(val)) / min(abs(val));
 d      = d ./ m .* rat;
 
+if nargout > 0
+    return
+end
+
+f       = figure;
+set(f,'Color',[1 1 1],'Name',rf1)
+ResizeFigure(f,SZ)
+
 if size(a,2) == 1
-    figure
+
     subplot(2,1,1)
     h = plot(T,[a b]);
     set(gca,'XtickLabel',[]);
@@ -82,7 +94,7 @@ else
     [a,T] = smoothRF(a,T,BINRATE,INTERP);
     b     = smoothRF(b,T,BINRATE,INTERP);
     mx  = max(max(abs([a b])));
-    figure,colormap(redblue(0.45,200))
+    colormap(redblue(0.45,200))
     if IMAGE
         n   = 2;        
         if strcmpi(u,'pa')
@@ -145,7 +157,7 @@ else
     xlabel('Time (s)');
 
 
-    out = struct('difference',d,'time',T,'t_induce',bar,'x_induce',pos);    
+    out = struct('difference',d,'time',T,'t_induce',bar,'x_induce',pos);   
 end
 
 function [d,T] = smoothRF(d,T,binrate,interp)

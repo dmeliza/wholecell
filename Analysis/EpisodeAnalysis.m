@@ -562,6 +562,20 @@ case 'm_combine'
         end
     end
     
+case 'm_align'
+    % aligns episodes by stimulus artifact.
+    r0  = getappdata(gcf,'r0');
+    fls = GetUIParam(me,'files','Value');
+    for i = 1:length(fls)
+        f       = fls(i);
+        [d,t] = AlignEpisodes(double(r0(f).data), double(r0(f).time),...
+            100:fix(length(r0(f).time)/2));
+        r0(f).data = d;
+        r0(f).time = t;
+    end
+    setappdata(gcf,'r0',r0);
+    plotTraces
+    SetUIParam(me,'status','String','Traces aligned.');
     
 case 'resetaxes'
     % resets axes limits
