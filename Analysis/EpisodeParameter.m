@@ -62,18 +62,18 @@ out = [];
 switch lower(action)
 case 'none'
     return
-case {'amplitude','difference','slope'}
-    % absolute value of the amplitude difference between two marks
+case {'amplitude','difference','-difference','slope'}
+    % computes the difference between two marks
     % if three marks, baseline is mean of values between first two
     % if four marks, 2nd value is mean of values between 2nd two
     switch length(ind)
     case 4
-        bs  = mean(data(ind(1:2),:),1);
-        vl  = mean(data(ind(3:4),:),1);
+        bs  = mean(data(ind(1):ind(2),:),1);
+        vl  = mean(data(ind(3):ind(4),:),1);
         out = (vl - bs);
         dt  = dt * (ind(3) - ind(2));
     case 3
-        bs  = mean(data(ind(1:2),:),1);
+        bs  = mean(data(ind(1):ind(2),:),1);
         out = (data(ind(3),:) - bs);
         dt  = dt * (ind(3) - ind(2));
     case 2
@@ -81,12 +81,18 @@ case {'amplitude','difference','slope'}
         dt  = dt * (ind(2) - ind(1));
     end
     switch lower(action)
+    case '-difference'
+        out = -out;
     case 'amplitude'
         out = abs(out);
     case 'slope'
         out     = out / dt / 1000;
         units   = sprintf('%s/%s',units,'ms');
     end
+case 'mean'
+    % computes the mean value of the function between two marks
+    % only the first two marks are used
+    out = mean(data(ind(1):ind(2),:),1);
 end
 
 function res = bin(res, bs)
