@@ -1,15 +1,16 @@
-function [time,data] = TimeBin(time, data, bins, option)
+function [time,data,n,stdev] = TimeBin(time, data, bins, option)
 %
 % Rebins data into new timing vector.
 %
-% [TIME,DATA] = TIMEBIN(time, data, binwidth) uses a fixed binwidth
+% [TIME,DATA,N,STD] = TIMEBIN(time, data, binwidth) uses a fixed binwidth
 % (units are those of the time vector).  Bins with more than one
 % data point are represented by the mean, while bins with no data
 % points are dropped from the output vector.  Note that the bins generated
 % begin on the first integer multiple of the binsize (which comes in useful
-% when comparing multiple datasets as this synchronizes the data)
+% when comparing multiple datasets as this synchronizes the data).  The number
+% of points in each bin and the standard deviation are also returned.
 %
-% [TIME,DATA] = TIMEBIN(time, data, bins), where BINS is a vector of
+% [TIME,DATA,N,STD] = TIMEBIN(time, data, bins), where BINS is a vector of
 % length greater than 1, rebins the data into the vector.  Invalid and
 % empty time points are dropped.
 %
@@ -34,10 +35,15 @@ nbin    = length(XI);
 if nargin == 3
     XI  = [XI Inf];
     YI  = zeros(1,nbin);
+    n   = YI;
+    v   = YI;
     S   = warning('off');
     for i = 1:nbin
         ind     = time >= XI(i) & time < XI(i+1);
-        YI(i)   = mean(data(ind));      % gives NaN for empty ind
+        d       = data(ind);
+        YI(i)   = mean(d);      % gives NaN for empty ind
+        n(i)    = length(d);
+        v(i)    = std(d);
     end
     warning(S);
 elseif strcmpi(option,'interp')
@@ -47,4 +53,6 @@ end
 ind     = ~isnan(YI);
 time    = XI(ind)';
 data    = YI(ind)';
+n       = n(ind)';
+stdev   = v(ind)';
     

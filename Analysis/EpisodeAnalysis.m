@@ -921,8 +921,12 @@ if ~isempty(ds)
     for i = 1:length(res)
         p       = scatter(res(i).abstime, res(i).value, 10, res(i).color);
         X       = [res(i).abstime(1) res(i).abstime(end)];
-        m      = mean(res(i).value);
-        h(i)   = line([res(i).abstime(1) res(i).abstime(end)],[m m]);
+        if isfield(res(i),'n')
+            m   = wmean(res(i).value, res(i).n);
+        else
+            m      = mean(res(i).value);
+        end
+        h(i)   = line(X,[m m]);
         if length(res(i).abstime) > 1
             [z, s]  = polyfit(res(i).abstime, res(i).value,1);
             %h(i)    = line(X,polyval(z,X));

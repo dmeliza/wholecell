@@ -100,7 +100,7 @@ out = out(:);
 function res = bin(res, bs)
 % Rebins a dataset into bins of bs width (units of abstime)
 for i = 1:length(res)
-    [res(i).abstime, res(i).value] = TimeBin(res(i).abstime, res(i).value, bs);
+    [res(i).abstime, res(i).value, res(i).n, res(i).stdev] = TimeBin(res(i).abstime, res(i).value, bs);
 end
 
 function res = fixAbstime(res)
