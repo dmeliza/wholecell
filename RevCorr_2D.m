@@ -32,6 +32,8 @@ function varargout = RevCorr_2D(varargin)
 % Also it would be nice to divide the movie-making function (e.g. turning the msequence
 % into an NxN movie) from the protocol, which could then be generalized to play
 % sparse noise or natural scenes.
+%
+% Use cgscale to make drawing calls resolution-independent.
 
 % The raw voltage trace isn't displayed so that we avoid dropping frames as much as
 % possible.  Buy an oscillscope.
@@ -75,6 +77,7 @@ case {'init','reinit'}
     cgloadlib; % error checking needed here for missing toolkit
     p = defaultParams;
     fig = OpenParamFigure(me, p);
+    Scope('init');
     
 case 'start'
     setupHardware;
@@ -122,6 +125,7 @@ global wc;
     f = {'description','fieldtype','value','units'};
     f_sb = {'description','fieldtype','value','callback'};
     f_s = {'description','fieldtype','value'};
+    f_l = {'description','fieldtype','value','choices'};
 
     p.t_res = cell2struct({'Frame rate (1/x)', 'value', 2},f_s,2);
     p.y_res = cell2struct({'Y Pixels','value',4,cb},f_sb,2);
@@ -132,12 +136,10 @@ global wc;
     p.stim = cell2struct({'Stim File','fixed','',loadStim},f_sb,2);
     p.display = cell2struct({'Display', 'value', 2,cb},f_sb,2);
     p.sync_val = cell2struct({'Sync Voltage','value',2,'V'},f,2);
-    p.sync_c = cell2struct({'Sync Channel','list',1,GetChannelList(wc.ai)},f_l,2);    
-    p.input.description = 'Amplifier Channel';
-    p.input.fieldtype = 'list';
-    p.input.choices = GetChannelList(wc.ai);
     ic = get(wc.control.amplifier,'Index');
-    p.input.value = ic;
+    p.sync_c = cell2struct({'Sync Channel','list',ic,GetChannelList(wc.ai)},f_l,2);
+    p.input = cell2struct({'Amplifier Channel','list',ic,GetChannelList(wc.ai)},...
+        f_l,2);
     csd = cggetdata('csd');
     p.toolkit = cell2struct({'Toolkit:','fixed',csd.CogStdString},...
         f_s,2);
@@ -147,7 +149,6 @@ function setupHardware()
 % Sets up the hardware for this mode of acquisition
 global wc
 analyze = @analyze;
-flip = @nextFrame;
 sr = get(wc.ai, 'SampleRate');
 t_res = GetParam(me,'t_res','value');
 a_int = sr/1000 * t_res * GetParam(me,'a_frames','value');
@@ -157,8 +158,6 @@ set(wc.ai,'SamplesAcquiredActionCount', a_int);
 set(wc.ai,'SamplesAcquiredAction',{me,analyze});
 set(wc.ai,'TriggerType','Manual');
 set(wc.ai,'ManualTriggerHwOn','Trigger');
-set(wc.ai,'TimerPeriod', t_res / 1000);
-set(wc.ai,'TimerAction',{me,flip})
 % hardware triggering:
 sync = GetParam(me,'sync_c','value');
 sync_v = GetParam(me,'sync_val','value');
@@ -173,7 +172,7 @@ set(wc.ai,'TriggerChannel',wc.ai.Channel(sync));
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%55555
 function startSweep()
-% Begins a sweep.  Persistant data stored in two global variables
+% Starts the acquisition engine.
 global wc;
 stop([wc.ai wc.ao]);
 flushdata(wc.ai);
@@ -181,7 +180,6 @@ fn = get(wc.ai,'LogFileName');
 set(wc.ai,'LogFileName',NextDataFile(fn));    
 SetUIParam('scope','status','String',get(wc.ai,'logfilename'));
 start([wc.ai]);
-
 playStimulus;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -195,13 +193,18 @@ frate = GetParam(me,'t_res','value');
 a_frames = a_pix * frate;
 timing = zeros(a_frames+1,1);
 frame = 1;
+sync = 1;
 cgflip(0);
 gprimd = cggetdata('gpd'); %max frame is given by gprimd.NextRASKey
 % bombs away
 for i = 1:a_frames;
-    cgdrawsprite(frame,0,0, gprimd.PixWidth, gprimd.PixHeight);
+    cgdrawsprite(frame+1,0,0, gprimd.PixWidth, gprimd.PixHeight);
+    cgmakesprite(1,1,1,sync);
+    cgdrawsprite(1,-gprimd.PixWidth/2,-gprimd.PixHeight/2,100,100);
     if mod(i,frate) == 0
         frame = frame + 1;
+        sync = ~sync;
+        % some kind of progress indicator?
     end
     timing(i) = cgflip;
 end
@@ -225,12 +228,14 @@ cgopen(1,8,0,disp);
 colmap = gray(2);
 cgcoltab(0,colmap);
 cgnewpal;
+% load sync sprite
+cgloadarray(1,1,1,1,colmap,0);
 % load sprites:
 pix = x_res * y_res;
 h = waitbar(0,['Loading movie (' num2str(a_frames) ' frames)']);
 for i = 1:a_frames
     o = (i - 1) * pix + 1;
-    cgloadarray(i,x_res,y_res,stim(o:o+pix-1),colmap,0);
+    cgloadarray(i+1,x_res,y_res,stim(o:o+pix-1),colmap,0);
     waitbar(i/a_frames,h);
 end
 close(h);
@@ -281,6 +286,9 @@ function analyze(obj, event)
 % ASAP
 global timing
 stop(obj);
+% blank out display
+cgflip(0);
+cgflip(0);
 param = GetParam(me);
 
 lfn = get(obj,'LogFileName');
