@@ -186,7 +186,7 @@ if PLOT_RESULT
         axis square
         set(gca,'YTick',[])
         xlabel('Time (ms)')
-        ylabel('Lags')
+        %ylabel('Lags')
     end
     
     % Plot Response, Measured & Predicted %
@@ -203,8 +203,8 @@ if PLOT_RESULT
         mx = max(abs(y));
         axis([0 1e5/Fs -mx mx])
     end
-    set(gca,'XTick',[],'YTick',[])
-    xlabel('Time')
+    set(gca,'YTick',[])
+    xlabel('Time (ms)')
     ylabel('Response')
     title(['Corr Coef: ' num2str(r(1,2))])
     
