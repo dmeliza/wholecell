@@ -7,6 +7,7 @@ function slope = ComputeSlope(trace, baseline, mark, dt)
 %     baseline and mark are either scalars or 2x1 vectors (individually)
 %     and dt is a scalar.  baseline and mark are in the same time units as dt
 %
+%   traces are computed columnwise (ie t runs in dim 2)
 %   Copyright 2003 Dan Meliza
 %   $Id$
 
@@ -14,8 +15,8 @@ function slope = ComputeSlope(trace, baseline, mark, dt)
 bs = fix(baseline / dt) + 1;
 mk = fix(mark / dt) + 1;
 
-y1 = mean(trace(bs,:),1);
-y2 = mean(trace(mk,:),1);
+y1 = mean(trace(:,bs),2);
+y2 = mean(trace(:,mk),2);
 dx = (mk(length(mk)) - bs(length(bs))) * dt;
 
 slope = (y2 - y1) / dx;

@@ -8,6 +8,7 @@ function diff = ComputeDiff(trace, baseline, mark, dt)
 %     and dt is a scalar used to convert times to indices
 %     baseline and mark are in the same time units as dt
 %
+%   traces are computed columnwise (ie t runs in dim 2)
 %   Copyright 2003 Dan Meliza
 %   $Id$
 
@@ -15,7 +16,7 @@ function diff = ComputeDiff(trace, baseline, mark, dt)
 bs = fix(baseline / dt) + 1;
 mk = fix(mark / dt) + 1;
 
-y1 = mean(trace(bs,:),1);
-y2 = mean(trace(mk,:),1);
+y1 = mean(trace(:,bs),2);
+y2 = mean(trace(:,mk),2);
 
 diff = (y2 - y1);

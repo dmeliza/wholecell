@@ -372,7 +372,6 @@ trace = struct([]); % the empty trace struct
 for i = 1:length(traces)
     trace(i).handle = traces(i);
     trace(i).abstime = abstime(i);
-    %trace(i).number = i;
 end
 
 click_handler = sprintf('%s(''trace_click_callback'')', me);
@@ -402,7 +401,8 @@ for i = 1:length(tags)
     if (m > 1 & ishandle(m))
         delete(m);
     end
-    m = line([v v], ydim);
+    g = GetUIHandle(me,'trace_axes');
+    m = line([v v], ydim, 'Parent', g);
     set(m,'Color',colors{i});
     bdfn = sprintf('%s(''%s'')',me, 'mark_click_callback');
     set(m,'ButtonDownFcn', bdfn);
@@ -526,14 +526,13 @@ function [data, abstime, color] = getData()
 % and the associated binned relative start times
 trace = GetUIParam(me,'trace_axes','UserData');
 tracehandles = [trace.handle];
-abstime = [trace.abstime];
+abstime = [trace.abstime]';
 ydata = get(tracehandles,'YData');
 if iscell(ydata)
     data = cat(1,ydata{:});
 else
     data = ydata;
 end
-data = data';
 color = get(tracehandles,'Color');
 color = cat(1,color{:});
 
