@@ -1,17 +1,44 @@
 Project description:
 CVS: $Id$
 
-A message-driven framework for controlling a patch-clamp amplifier through
-a national instruments board.  A central controller object controls data 
-acquisition and output.
+WholeCell is a matlab-based data acquisition and analysis program. It is
+based to some extent on PClamp (Axon Instruments) and Exper (Zach Mainen,
+CSHL), but is more of a one-off design intended for controlling an
+AxoClamp amplifier and stimulus presentation equipment.
 
-I am using matlab's somewhat clutzy class structure to describe the controller
-object.
+Because the stimulus presentation parameters and the analysis is going to
+vary from experiment to experiment, the design of the project is based
+around a central application that controls the national instruments board
+and runs protocols, which are matlab files that make use of instruments
+accessed through the national instruments board via the main application.
 
-End-user modules should be written to make use of the controller object; the
-controller should be inherited for specific pieces of equipment.
+Like exper there is a central control structure which is made available
+globally to protocol files.  Unlike exper, protocols cannot operate
+independently of one another, and thus there is no precendence of
+operation.
 
-The initial implementation will only allow one module to access the controller
-at once; this will elminate the need to write subscription code.
+This control structure has the following structure:
 
-The use of callbacks is an attempt to make this code as object-oriented as possible
+wc.ai - analog input object
+wc.ao - analog output object
+wc.main - properties of the main window
+wc.(modulename) - data used within a protocol
+
+Acquired data is accessed through callbacks, which run through the
+central application and then are passed on to whatever protocol
+currently has control.
+
+Telegraphs:
+
+Gain:
+0.5 - 2 V
+1   - 2.5 V
+etc (0.5 V steps)
+500 - 6.5 V
+
+Mode:
+Track - 4 V
+VClamp - 6 V
+I=0    - 3 V
+IClamp - 2 V
+Fast Ic - 1 V
