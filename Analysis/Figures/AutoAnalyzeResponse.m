@@ -72,7 +72,7 @@ for i = 1:length(pre)
         n   = sqrt(length(pre(i).resp));
         len = pre(i).time(end) - pre(i).time(1);
         fprintf(fid,'R%d: (%3.0f ms) %3.2f +/- %3.2f %s (%3.1f %s)\n', i, ...
-            pre(i).t_peak * 1000, mean(pre(i).resp), std(pre(i).resp)/n, pre(i).units,...
+            pre(i).t_peak * 1000, nanmean(pre(i).resp), nanstd(pre(i).resp)/n, pre(i).units,...
             len, 'min');
     end
 end
@@ -94,18 +94,18 @@ if nargin > 2
     end
 else
     fprintf(fid,'IR: %3.2f +/- %3.2f %s\n',...
-        mean(pre_ir), std(pre_ir)/n, pre(1).units);
+        nanmean(pre_ir), nanstd(pre_ir)/n, pre(1).units);
     fprintf(fid,'SR: %3.2f +/- %3.2f %s\n',...
-        mean(pre_sr), std(pre_sr)/n, pre(1).units);     
+        nanmean(pre_sr), nanstd(pre_sr)/n, pre(1).units);     
 end
 
 function [] = printdifference(fid, name, pre, post, units)
 [h,p]       = ttest2(pre,post);
-pre_m       = mean(pre);
-pst_m       = mean(post);
+pre_m       = nanmean(pre);
+pst_m       = nanmean(post);
 fprintf(fid, ['%s %3.2f +/- %3.2f -> %3.2f +/- %3.2f %s (%3.1f%%; P = %3.4f)'],...
-    name, pre_m, std(pre)/sqrt(length(pre)), pst_m,...
-    std(post)/sqrt(length(post)), units, pst_m/pre_m * 100 - 100, p);
+    name, pre_m, nanstd(pre)/sqrt(length(pre)), pst_m,...
+    nanstd(post)/sqrt(length(post)), units, pst_m/pre_m * 100 - 100, p);
 
 
 function [results] = analyzedirectory(fid, times);
@@ -284,7 +284,7 @@ for ifile = 1:length(dd)
     % we need to use unfiltered, unaligned data to ensure the transients
     % line up
     resp            = double(R.data(ind_resist,:));
-    time            = double(R.time(ind_resist));
+    r_time          = double(R.time(ind_resist));
 %    time            = double(R.time(ind_resist));
     avg             = mean(resp,2);
     % with a relatively low cutoff the amplitude of the transient should be
@@ -309,8 +309,8 @@ for ifile = 1:length(dd)
         end
         ir{ifile}           = IR(:);
         % extract approximate times for resistance measures
-        t_sr{ifile}         = time(median(ind_trans));
-        t_ir{ifile}         = time([ind_baseline(1) ind_baseline(end) ind_ir(1) ind_ir(end)]);
+        t_sr{ifile}         = r_time(median(ind_trans)) + time(1);
+        t_ir{ifile}         = r_time([ind_baseline(1) ind_baseline(end) ind_ir(1) ind_ir(end)]) + time(1);
         vline(t_ir{ifile});
       
     else
