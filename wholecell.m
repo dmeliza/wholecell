@@ -17,8 +17,8 @@ case 'init'
     
     WholeCell('setpath');
     InitWC;
+    ProtocolControl('init'); % needs to exist before DAQControl tries to load prefs
     DAQControl('init');
-    ProtocolControl('init');
     
 case 'destroy'
     clear wc;
