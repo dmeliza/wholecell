@@ -150,6 +150,7 @@ case 'reset_axes_callback'
     % returns the axes to their default state
     a = GetUIHandle(me,'trace_axes');
     axis(a,'auto');
+    updateSlider;
     
 case 'zoom_axes_callback'
     v = GetUIParam(me,'zoom_axes','Value');
@@ -262,9 +263,14 @@ case 'display_stats_callback'
 case {'invert_stats_callback', 'show_selected_callback'}
     updateStats;
     
-case 'show_mark_callback'
-    keyboard;
-        
+case 'show_marks_callback'
+    v = GetUIParam(me,'show_marks','Value');
+    marks = findobj('ButtonDownFcn','episodeanalysis(''mark_click_callback'')'); 
+    if boolean(v)
+        set(marks,'Visible','On');
+    else
+        set(marks,'Visible','Off');
+    end
     
 case 'close_callback'
     delete(gcbf);
@@ -323,6 +329,7 @@ SetUIParam(me,'smooth_factor','String','1');
 SetUIParam(me,'lp_factor','String','1');
 SetUIParam(me,'display_stats','Value',0);
 SetUIParam(me,'invert_stats','Value',0);
+SetUIParam(me,'show_marks','Value',1);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function varargout = updateDisplay
@@ -426,7 +433,7 @@ for i = 1:length(tags)
         delete(m);
     end
     g = GetUIHandle(me,'trace_axes');
-    m = line([v v], ydim, 'Parent', g);
+    m = line([v v], ydim, 'Parent', g,'LineStyle',':');
     set(m,'Color',colors{i});
     bdfn = sprintf('%s(''%s'')',me, 'mark_click_callback');
     set(m,'ButtonDownFcn', bdfn);
@@ -488,10 +495,11 @@ ylabel('PSP Slope (mV/ms)');
 
 a = GetUIHandle(me,'resist_axes');
 clearAxes(a);
-sh = scatter(abstime, srdata, S, color);
-ih = scatter(abstime, irdata, S, color, '*');
+sh = scatter(abstime, irdata, S, color);
+ih = scatter(abstime, srdata, S, color, '*');
 set([ph ih sh], 'ButtonDownFcn',[me '(''stats_click_callback'')']);
 xlabel('Time (min)'),ylabel('R (M\Omega)');
+showSummary(pspdata, irdata, srdata, abstime);
 wait;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -690,16 +698,32 @@ otherwise
     setptr(gcf,'arrow');
 end
 
-% Shows summary information
-function showSummary(stats, handles)
-axes(handles.pspAxes);
-t = sprintf('Mean: %2.4f +/- %2.2f %%', stats.pspAvg, (stats.pspStd / stats.pspAvg * 100));
-y = get(handles.pspAxes, 'YLim');
-text(10, (y(2) -  y(1)) * 0.9 , t);
-axes(handles.resistAxes);
-t = sprintf('SR: %2.4f +/- %2.2f %%', stats.seriesAvg, (stats.seriesStd / stats.seriesAvg * 100));
-y = get(handles.resistAxes, 'YLim');
-text(10, (y(2) -  y(1)) * 0.8 + y(1), t);
-x = get(handles.resistAxes, 'XLim');
-t = sprintf('IR: %2.4f +/- %2.2f %%', stats.irAvg, (stats.irStd / stats.irAvg * 100));
-text((x(2) - x(1)) * 0.8, (y(2) -  y(1)) * 0.8 + y(1), t);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+function showSummary(pspdata,irdata,srdata,abstime)
+% Computes time-weighted average and mean/stddev and displays them in the
+% stats windows
+SP = 0.1;
+
+a = GetUIHandle(me,'psp_axes');
+pspmean = mean(pspdata);
+t = sprintf('Mean: %2.4f +/- %2.2f %%', pspmean, (std(pspdata) / pspmean * 100));
+y = get(a, 'YLim');
+x = get(a, 'XLim');
+x = diff(x) * 0.80 + x(1);
+text(x, diff(y) * 0.2 + y(1), t, 'Parent',a, 'Color', 'blue', 'FontWeight', 'bold');
+[pspspline t] = TimeWeight(pspdata, abstime, SP,100);
+plot(t, pspspline, 'b', 'Parent', a, 'Linewidth', 2)
+
+a = GetUIHandle(me,'resist_axes');
+srmean = mean(srdata);
+irmean = mean(irdata);
+t = sprintf('SR: %2.4f +/- %2.2f %%', srmean, (std(srdata) / srmean * 100));
+y = get(a, 'YLim');
+text(x, diff(y) * 0.2 + y(1), t, 'Parent', a, 'Color', 'blue', 'FontWeight', 'bold');
+t = sprintf('IR: %2.4f +/- %2.2f %%', irmean, (std(irdata) / irmean * 100));
+text(x, diff(y) * 0.8 + y(1), t, 'Parent', a, 'Color', 'red', 'FontWeight', 'bold');
+[srspline t] = TimeWeight(srdata, abstime, SP, 100);
+plot(t, srspline, 'b', 'Parent', a, 'Linewidth', 2);
+[irspline t]= TimeWeight(irdata, abstime, SP, 100);
+plot(t, irspline, 'r', 'Parent', a, 'Linewidth', 2);
+
