@@ -50,7 +50,7 @@ if nargin == 0,
                     'Tag', 'ChosenDirectoryText');
                  
    hbut1 = uicontrol('Style', 'Pushbutton', ...
-                    'String', 'Get it!', ...
+                    'String', 'Select', ...
                     'Callback', 'uigetdir(2)', ...
                     'Position', [245  125  45  45]);
                  
@@ -119,5 +119,3 @@ else
    end
 
 end
-
-return
