@@ -157,7 +157,6 @@ playStimulus;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function playStimulus()
 % plays the movie at the appropriate frame rate.
-global timing;
 % check that stimulus is the proper length
 frate  = GetParam(me,'t_res','value');
 gprimd = cggetdata('gpd');              % max frame is given by gprimd.NextRASKey - 1
@@ -253,7 +252,7 @@ param     = GetParam(me);
 lfn       = get(obj,'LogFileName');
 [pn fn e] = fileparts(lfn);
 if ~strcmp('memory',lower(get(obj,'LoggingMode')))
-    save(fullfile(pn,[fn '-timing']),'timing','param');
+    save(fullfile(pn,[fn '-param']),'param');
 end
 plotResults(obj);
 r         = GetParam(me,'repeat','value');

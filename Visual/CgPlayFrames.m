@@ -21,7 +21,6 @@ function CgPlayFrames(frate, syncrect)
 %           supplied, it will be overwritten by CgPlayFrames
 %
 % $Id$
-global timing;
 
 % check that display has been defined
 gprimd = cggetdata('gpd');
@@ -41,7 +40,6 @@ PH          = gprimd.PixHeight;
 [x y pw ph] = CGDisplay_Position;
 
 % reset timing data and clear screen
-timing = zeros(a_frames,frate);
 sync = 1;
 cgflip(0);
 cgflip(0);
@@ -65,7 +63,7 @@ for frame = 1:a_frames;
         cgdrawsprite(frame,x,y, pw, ph);
         cgrect(sr(1),sr(2),sr(3),sr(4),syncmap(sync+1));
         cgtext(num2str(frame),t(1),t(2));
-        timing(frame,i) = cgflip(0);
+        cgflip(0);
     end
     sync = ~sync;
 end
