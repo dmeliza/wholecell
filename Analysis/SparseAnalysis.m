@@ -23,7 +23,7 @@ function [h1_est, parameters] = SparseAnalysis(stim, resp, window, bin)
 %              parameter array
 % 
 % See Also:
-%           headers/stim_struct.m
+%           headers/s0_struct.m
 %           headers/r1_struct.m
 %           Analysis/Param2STRF (converts param array into STRF)
 %           Analysis/PlotSTRF.m (used to view/analyze STRF)
