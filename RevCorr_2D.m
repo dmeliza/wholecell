@@ -113,7 +113,9 @@ case 'record'
 case 'stop'
     if (isvalid(wc.ai))
         stop(wc.ai);
-        analyze(wc.ai,[]);
+        if get(wc.ai,'samplesavailable') > 0
+            analyze(wc.ai,[]);
+        end
         clearDAQ;
     end
     
@@ -164,7 +166,7 @@ function setupHardware()
 % Sets up the hardware for this mode of acquisition
 global wc
 analyze = @analyze;
-len = checkMovie; % number of sprites in the movie
+len = checkMovie(wc.ai); % number of sprites in the movie
 gprimd = cggetdata('gpd');
 v_res = gprimd.RefRate100 / 100; % frames/second
 sr = get(wc.ai, 'SampleRate'); %samples/second
@@ -219,7 +221,7 @@ function setLoadFlag(varargin)
 SetParam(me,'load_me',1);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function len = checkMovie()
+function len = checkMovie(obj)
 % checks to make sure there's a movie loaded
 % returns the number of frames
 p = GetParam(me,'load_me','value');
@@ -227,14 +229,14 @@ if p
     queueStimulus;
 end
 stim = GetUIParam('scope','status','UserData');
-if ~strcmp(lower(get(wc.ai,'LoggingMode')),'memory')
-    [pn fn ext] = fileparts(get(wc.ai,'logfilename'));
+if ~strcmp(lower(get(obj,'LoggingMode')),'memory')
+    [pn fn ext] = fileparts(get(obj,'logfilename'));
     WriteStructure([pn filesep fn '-stim.mat'],stim);
 end
 len = size(stim.stimulus,3);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
-function queueStimulus()
+function stim = queueStimulus()
 % Loads a "movie" in the form of sprites.  Once the sprites are loaded into
 % video memory they can be rapidly accessed.
 
