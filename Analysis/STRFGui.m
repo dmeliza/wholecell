@@ -120,9 +120,9 @@ h = InitUIControl(me,'method','style','popup','backgroundcolor',BG,...
 h = InitUIControl(me,'analyze','style','pushbutton','String','Analyze',...
     'Position',[530 100 100 20],...
     'Callback',cb.analyze);
-h = InitUIControl(me,'xcorrtiming','style','pushbutton','String','XCorr Timing',...
-    'Position',[530 70 100 20],...
-    'Callback',cb.xcorrtiming);
+% h = InitUIControl(me,'analyze_save','style','pushbutton','String','Analyze & Save',...
+%     'Position',[530 70 100 20],...
+%     'Callback',cb.analyze_save);
 % Status bar
 h  = InitUIControl(me,'Status','style','text','backgroundcolor',BG,...
     'horizontalalignment','center','position',[1 1 690 20]);
@@ -300,6 +300,17 @@ else
     end
 end
 
+function [] = analyze_save(obj, event)
+% % calls analyze() and saves the results
+% a1 = analyze(obj,event);
+% if ~isempty(a1)
+%     [fn pn] = uiputfile('*.a1');
+%     if ~isnumeric(fn)
+%         WriteStructure(fullfile(pn,[fn '.a1']), a1);
+%         setstatus(['Wrote analysis to ' fn '.a1']);
+%     end
+% end
+
 function s = stimuluswindow(s,window)
 s.stimulus = s.stimulus(window(2,1):window(2,2),window(1,1):window(1,2),:);
 
@@ -357,7 +368,7 @@ function out = getCallbacks()
 % no introspection in matlab so we have to do this by hand
 fns = {'playstimulus','showstimulus','showresponse','xcorrresponse',...
         'pickstimulus', 'pickresponse','combineresponse','pickregion'...
-        'analyze','xcorrtiming'};
+        'analyze','analyze_save'};
 out = [];
 for i = 1:length(fns)
     sf = sprintf('out.%s = @%s;',fns{i},fns{i});
