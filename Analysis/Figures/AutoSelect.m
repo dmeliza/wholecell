@@ -70,8 +70,7 @@ for i = 1:length(sel)
     end
     pre = Z(i).pre(induced);
     pst = Z(i).pst(induced);
-    % baseline first
-    % length:
+    % baseline length:
     if ~isempty(BASELINE_LENGTH)
         baseline_length = pre.time(end) - pre.time(1);
         if baseline_length < BASELINE_LENGTH
@@ -81,7 +80,18 @@ for i = 1:length(sel)
             continue
         end
     end
-    % slope:
+    % post-induction length:
+    if ~isempty(POST_LENGTH)
+        pst_length = pst.time(end) - pst.time(1);
+        if round(pst_length) < POST_LENGTH
+            fprintf('%s/%s - rejected; post-induction too short (%3.2f)\n',...
+                Z(i).rat,Z(i).cell,pst_length);
+            sel(i)  = 0;
+            continue
+        end        
+    end
+    
+    % baseline slope:
     value           = mean(pre.(RESPONSE_TYPE));
     [slope, stats]  = polyfit(pre.time, pre.(RESPONSE_TYPE), 1);
     if ~isempty(BASELINE_SLOPE)
@@ -91,17 +101,6 @@ for i = 1:length(sel)
             sel(i)  = 0;
             continue
         end
-    end
-    % post-induction
-    % length:
-    if ~isempty(POST_LENGTH)
-        pst_length = pst.time(end) - pst.time(1);
-        if round(pst_length) < POST_LENGTH
-            fprintf('%s/%s - rejected; post-induction too short (%3.2f)\n',...
-                Z(i).rat,Z(i).cell,pst_length);
-            sel(i)  = 0;
-            continue
-        end        
     end
     % IR:
     field   = 'ir';
@@ -164,5 +163,5 @@ value = [];
 for j = 1:length(structure)
     t       = structure(j).time;
     ind     = find(t>=interval(1) & t<=interval(2));
-    value   = cat(1,value,structure(j).(field));
+    value   = cat(1,value,structure(j).(field)(ind));
 end
