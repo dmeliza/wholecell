@@ -1,16 +1,21 @@
-function out = compareRF(rf1, rf2, bar, window, pos)
+function out = compareRF(rf1, rf2, bar, window, pos, mode)
 %
-% D = COMPARERF(rf1, rf2, bar, window, [pos])
+% D = COMPARERF(rf1, rf2, bar, window, [pos, mode])
 %
 % stupid little figure script that loads, normalizes, and compares
 % two receptive fields (or reponse fields). plots equal amounts of time
 % on either side of the bar position.  BAR and WINDOW are in units
 % of time. POS is the number of the position which was induced.
-% ver little error checking
+% ver little error checking. If MODE is set to 'single', only the induced
+% bar will be shown
 %
 % $Id$
+BINRATE = 53;
+INTERP = 1;
+THRESH = 1;
+IMAGE = 1;
 
-error(nargchk(4,5,nargin))
+error(nargchk(4,6,nargin))
 
 A = load(rf1);
 B = load(rf2);
@@ -21,28 +26,23 @@ else
 end
 
 win  = [bar - window, bar + window];
-Z    = find(A.time >= win(1));
+T    = double(A.time) - 0.2;
+Z    = find(T >= win(1));
 t(1) = Z(1);
-Z    = find(A.time <= win(2));
+Z    = find(T <= win(2));
 t(2) = Z(end);
 t    = t(1):t(2);
-T    = A.time(t);
-
-% if nargin > 2
-%     t   = window(1):window(2);
-%     T   = A.time(t);
-% else
-%     T   = {A.time,B.time};
-%     [m i] = max(cellfun('length',T));
-%     T   = T{i};
-%     t   = 1:length(T);
-% end
+T    = T(t);
 
 t   = t(:);
 a   = A.data(t,:);
 b   = B.data(t,:);
-ma  = mean(a(1:100,:),1);
-mb  = mean(b(1:100,:),1);
+if nargin > 5
+    a   = a(:,pos);
+    b   = b(:,pos);
+end
+ma  = mean(a(1000:1500,:),1);
+mb  = mean(b(1000:1500,:),1);
 a   = a - repmat(ma,length(t),1);
 b   = b - repmat(mb,length(t),1);
 d   = b - a;
@@ -52,13 +52,13 @@ end
 
 % normalization is tricky because these are relative values.
 % find the point of largest absolute difference, then use the ratio
-% at that point
-% [m, i] = max(abs(d));
-% val    = [a(i) b(i)];
-% rat    = max(abs(val)) / min(abs(val));
-% d      = d ./ m .* rat;
-
-out = struct('difference',d,'time',T,'t_induce',bar,'x_induce',pos);
+% at that point. It may be better to use the peak of the pre-induction response?
+[m, i] = max(abs(d));
+[m, j] = max(abs(m));
+i      = i(j);
+val    = [a(i,j) b(i,j)];
+rat    = max(abs(val)) / min(abs(val));
+d      = d ./ m .* rat;
 
 if size(a,2) == 1
     figure
@@ -76,66 +76,100 @@ if size(a,2) == 1
     xlabel('Time (s)');
     ylabel(['Diff (rel)']);
     axis tight
+    
+    out = struct('difference',d,'time',T,'t_induce',bar)
 else
-%     n = size(a,2);
-%     mx  = mx + 0.1 * mx;
-%     for i = 1:n
-%         subplot(n+1,1,i)
-%         plot(T,[a(:,i),b(:,i)]);
-%         set(gca,'XtickLabel',[],'YLim',[-mx mx]);
-%         ylabel(sprintf('%d (%s)',i,u));
-%         vline(bar,'k:');
-%         axis tight
-%     end
-    
-    figure
+    [a,T] = smoothRF(a,T,BINRATE,INTERP);
+    b     = smoothRF(b,T,BINRATE,INTERP);
     mx  = max(max(abs([a b])));
-    n   = 2;
-    subplot(n+1,1,1)
-    [a,T] = smoothRF(a,T);
-    a     = thresholdRF(a,0.5);
-    imagesc(T,1:size(a,2),a',[-mx mx]);
-    set(gca,'YTick',[],'XTickLabel',[]);
-    vline(bar,'k');
-    ylabel('Pre');
-    
-    subplot(n+1,1,2)
-    d     = smoothRF(d,T);
-    %d     = thresholdRF(d,1);
-    mx1   = max(max(abs(d)));
-    imagesc(T,1:size(d,2),d',[-mx1 mx1]);
-    if nargin < 5
-        vline(bar,'w');
+    figure,colormap(redblue(0.45,200))
+    if IMAGE
+        n   = 2;        
+        if strcmpi(u,'pa')
+            a   = -a;
+            b   = -b;
+        end 
+        subplot(n+1,1,1)
+        imagesc(T,1:size(a,2),a',[-mx mx]);
+        [t,x] = centroid(a.*(a>0) ,T);
+        fprintf('Centroid (pre) = %3.2f, %3.4f\n',x,t);
+        hold on,scatter(t, x, 10, 'k', 'filled')
+        colorbar
+        set(gca,'YTick',[],'XTickLabel',[]);
+        vline(0,'k');
+        ylabel('Pre');
+        
+        subplot(n+1,1,2)
+        imagesc(T,1:size(b,2),b',[-mx mx]);
+        [t,x] = centroid(b.*(b>0) ,T);
+        fprintf('Centroid (post) = %3.2f, %3.4f\n',x,t);
+        hold on,scatter(t, x, 10, 'k', 'filled')
+        colorbar
+        vline(0,'k');
+        set(gca,'YTick',[],'XTickLabel',[]);
+        ylabel('Post');
     else
-        hold on
-        scatter(bar, pos, 10, 'w', 'filled')
+        n = size(a,2);
+        for i = 1:n
+            subplot(n+1,1,i)
+            plot(T,[a(:,i) b(:,i)]);
+            vline(0,'k')
+            vline(bar,'k:')
+            set(gca,'XTickLabel',[]);
+            ylabel(num2str(i))
+        end
     end
-    set(gca,'Ytick',[],'XTickLabel',[]);
+    
+    
+    subplot(n+1,1,n+1)
+    d     = smoothRF(d,T,BINRATE,INTERP);
+    %d     = thresholdRF(d,THRESH);
+    mx1   = max(max(abs(d)));
+    if IMAGE
+        imagesc(T,1:size(d,2),d',[-mx1 mx1]);
+        set(gca,'Ytick',[]);
+        colorbar
+        if nargin < 5
+            vline(bar,'w');
+        else
+            hold on
+            pos     = pos * INTERP;
+            plot(bar, pos,'k*')
+        end
+    else
+        plot(T,d)
+        vline(bar,'k:');
+    end
+    vline(0,'k');
     ylabel('Post - Pre');
-    
-    subplot(n+1,1,3)
-    b     = smoothRF(b,T);
-    imagesc(T,1:size(b,2),b',[-mx mx]);
-    set(gca,'YTick',[]);
     xlabel('Time (s)');
-    ylabel('Post');
-    %colorbar('horiz');
-    
+
+
+    out = struct('difference',d,'time',T,'t_induce',bar,'x_induce',pos);    
 end
 
-function [d,T] = smoothRF(d,T)
-d   = bindata(d,52,1);
-T   = bindata(T,52,1);
+function [d,T] = smoothRF(d,T,binrate,interp)
+d   = bindata(d,binrate,1);
+T   = bindata(T,binrate,1);
 s   = size(d);
-X   = linspace(1,s(2),s(2)*2);  % interpolate in x dimension
+X   = linspace(1,s(2),s(2)*interp);  % interpolate in x dimension
 t   = 1:s(1);
 d   = interp2(d,X,t(:));
 
 function [d] = thresholdRF(d,n)
 % Flattens signal which does not exceed n standard deviations (from zero)
 m   = mean(d(:));
-m   = 0;
+%m   = 0;
 s   = std(d(:)) * n;
 th  = [m - s, m + s];
 i   = (d > th(1)) & (d < th(2));
 d(i) = m;
+
+function [t,x] = centroid(d,T)
+% computes the centroid of the RF.  Note that this function is
+% meaningful only for positive valued d.
+M   = sum(sum(d));
+x   = sum(sum(d,1) .* (1:size(d,2)))/M;
+t   = sum(sum(d,2) .* T)/M;
+% t   = sum(sum(d,2) .* (1:size(d,1))')/M;
+% t   = T(round(t));
