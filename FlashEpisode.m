@@ -115,6 +115,7 @@ case 'stop'
         SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
         set(wc.ai,'LogFileName',NextDataFile);
     end
+    ClearAI(wc.ai);
 
 case 'close_callback'
     delete(gcbf);
