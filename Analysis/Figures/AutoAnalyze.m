@@ -83,11 +83,15 @@ try
         resfile  = writeresults(rootdir, reportfilename, results);
         fprintf(fid, 'Wrote results to %s', resfile);
     end
+    fprintf(fid,'Analysis run completed at %s\n', datestr(now));
+    fclose(fid)
+    
     
 catch
     if WRITE_RESULTS
         resfile  = writeresults(rootdir, reportfilename, results);
         fprintf(fid, 'Wrote results to %s', resfile);
+        fprintf(fid,'Analysis run terminated with errors at %s\n', datestr(now));
     end
     fclose(fid)
     error(lasterr)
