@@ -48,7 +48,7 @@ case 'init'
         channel = 0;
     end
     
-    availableChannels = setdiff(wc.control.channels, wc.control.usedChannels);
+    availableChannels = setdiff(wc.control.ai.channels, wc.control.ai.usedChannels);
     channels = ['  '; num2str(availableChannels')];
     set(wc.telegraphsetup.handles.channels,'String',channels);
     set(wc.telegraphsetup.handles.channels,'Value',1);  % TODO: set to current value
@@ -71,11 +71,11 @@ case 'ok_callback'
         makeTelegraph(choice);
     end
     uiresume(wc.telegraphsetup.fig);
-    delete(wc.telegraphsetup.fig);
+    DeleteFigure(me);
     
 case {'cancel_callback' 'close_callback'}
     uiresume(wc.telegraphsetup.fig);
-    delete(wc.telegraphsetup.fig);
+    DeleteFigure(me);
     
 otherwise
 
@@ -89,7 +89,7 @@ out = mfilename;
 function channels = getChannels()
 % returns a vector of hardware channels in use
 global wc
-channels = wc.control.usedChannels;
+channels = wc.control.ai.usedChannels;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function makeTelegraph(channelName)

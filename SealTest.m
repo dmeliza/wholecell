@@ -78,7 +78,7 @@ case 'scaling_callback'
     
 case 'close_callback'
     stop([wc.ai wc.ao]);
-    delete(gcbf);
+    DeleteFigure(me);
     
 case 'run_callback'
     run(me,'switch');

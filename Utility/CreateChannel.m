@@ -13,10 +13,19 @@ if nargin > 3
 end
 
 usedChannels = daq.Channel.HwChannel;
-if (length(usedChannels) == 1)
-    wc.control.usedChannels = usedChannels;
-else
-    wc.control.usedChannels = [usedChannels{:}];
+type = daq.Type;
+switch type
+case 'Analog Output'
+    sf = 'wc.control.ao.usedChannels';
+case 'Analog Input'
+    sf = 'wc.control.ai.usedChannels';
+otherwise
+    sf = 'wc.control.ai.usedChannels';
 end
-    
+
+if (length(usedChannels) == 1)
+    eval([sf '= usedChannels;']);
+else
+    eval([sf '= [usedChannels{:}];']);
+end    
 

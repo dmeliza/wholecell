@@ -27,6 +27,7 @@ case 'init'
         'DoubleBuffer','on','menubar','none','closerequestfcn',clfcn);
     
     initHardware(me);
+    updateChannels;
 
 case 'setup_mode_callback'
     TelegraphSetup('init','mode');
@@ -37,6 +38,26 @@ case 'setup_gain_callback'
     
 case 'ai_add_callback'
     ChannelSetup('add','ai');
+    updateChannels;
+    
+case 'ai_edit_callback'
+    channel = get(wc.wholecell.handles.ai_channels,'Value');
+    if (channel > 0)
+        ChannelSetup('edit','ai',channel);
+        updateChannels;
+    end
+    
+case 'ao_add_callback'
+    ChannelSetup('add','ao');
+    updateChannels;
+    
+case 'ao_edit_callback'
+    channel = get(wc.wholecell.handles.ao_channels,'Value');
+    if (channel > 0)
+        ChannelSetup('edit','ao',channel);
+        updateChannels;
+    end
+    
     
 case 'seal_test_callback'
     SealTest('init');
@@ -44,7 +65,7 @@ case 'seal_test_callback'
 case 'close_callback'
     clear wc;
     daqreset;
-    delete(gcbf);
+    DeleteFigure(me);
     
 otherwise
 end
@@ -84,16 +105,16 @@ function updateChannels()
 global wc
 % input:
 cs = '';
-c = get(wc.ai.Channel,{'HwChannel','ChannelName'});
+c = get(wc.ai.Channel,{'HwChannel','ChannelName','Units'});
 for i=1:size(c,1);
-    cs{i} = sprintf('%i: %s', c{i,1}, c{i,2});
+    cs{i} = sprintf('%i: %s (%s)', c{i,1}, c{i,2}, c{i,3});
 end
 set(wc.wholecell.handles.ai_channels,'String',cs);
 % output
 cs = '';
-c = get(wc.ao.Channel,{'HwChannel','ChannelName'});
+c = get(wc.ao.Channel,{'HwChannel','ChannelName', 'Units'});
 for i=1:size(c,1);
-    cs{i} = sprintf('%i: %s', c{i,1}, c{i,2});
+    cs{i} = sprintf('%i: %s (%s)', c{i,1}, c{i,2}, c{i,3});
 end
 set(wc.wholecell.handles.ao_channels,'String',cs);
 

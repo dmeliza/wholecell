@@ -20,19 +20,22 @@ end
 switch action
 
 case 'add'
+    OpenGuideFigure(me,'WindowStyle','modal');
     
     type = lower(varargin{2});
-    sf = sprintf('wc.%s',type);
-    daq = eval(sf);
+    daq = sprintf('wc.%s',type);
+    wc.channelsetup.daq = eval(daq);
+    wc.channelsetup.control = eval(sprintf('wc.control.%s',type));
     
-    OpenGuideFigure(me,'WindowStyle','modal');
-
-    indices = daq.Channel.Index;
-    nextIndex = max([daq.Channel.Index{:}]) + 1;
+    set(wc.channelsetup.handles.type,'String',type);
+    
+    indices = wc.channelsetup.daq.Channel.Index;
+    nextIndex = length(indices) + 1;
     set(wc.channelsetup.handles.index,'String',nextIndex);
     
-    availableChannels = setdiff(wc.control.channels, wc.control.usedChannels);
-    channels = ['  '; num2str(availableChannels')];
+    availables = setdiff(wc.channelsetup.control.channels, wc.channelsetup.control.usedChannels);
+    availables = num2str(availables');
+    channels = char(' ', availables);
     set(wc.channelsetup.handles.channels,'String',channels);
         
     set(wc.channelsetup.handles.channels,'Value',1);
@@ -41,24 +44,27 @@ case 'add'
 	uiwait(wc.channelsetup.fig);
     
 case 'edit'
+    OpenGuideFigure(me,'WindowStyle','modal');
     
     type = lower(varargin{2});
     index = varargin{3};
-    sf = sprintf('wc.%s',type);
-    daq = eval(sf);
-    
-    OpenGuideFigure(me,'WindowStyle','modal');
-    
+    daq = sprintf('wc.%s',type);
+    wc.channelsetup.daq = eval(daq);
+    wc.channelsetup.control = eval(sprintf('wc.control.%s',type));
+    wc.channelsetup.channel = wc.channelsetup.daq.Channel(index);
+
+    set(wc.channelsetup.handles.type,'String',type);    
     set(wc.channelsetup.handles.index,'String',index);
-    availableChannels = setdiff(wc.control.channels, wc.control.usedChannels);
-    channels = ['  '; num2str(availableChannels')];
+    % include the current channel first
+    availableChannels = [wc.channelsetup.channel.HwChannel;...
+            setdiff(wc.channelsetup.control.channels, wc.channelsetup.control.usedChannels)']; 
+    channels = num2str(availableChannels);
     set(wc.channelsetup.handles.channels,'String',channels);
 
-    channel = daq.Channel(index);
-    set(wc.channelsetup.handles.channels,'Value',find(availableChannels==channel.HwChannel) + 1);
-    set(wc.channelsetup.handles.name,'String',channel.ChannelName);
-    set(wc.channelsetup.handles.units,'String',channel.Units);
-    gain = channel.SensorRange ./ channel.UnitsRange;
+    set(wc.channelsetup.handles.channels,'Value',1);
+    set(wc.channelsetup.handles.name,'String',wc.channelsetup.channel.ChannelName);
+    set(wc.channelsetup.handles.units,'String',wc.channelsetup.channel.Units);
+    gain = ChannelGain(wc.channelsetup.channel,'get');
     set(wc.channelsetup.handles.gain,'String',num2Str(gain(1)));
 
     % Wait for callbacks to run and window to be dismissed:
@@ -68,20 +74,21 @@ case 'edit'
 case 'ok_callback'
     % when the user presses OK this module opens the channel
     % or if it already exists, reconfigures it
+    type = get(wc.channelsetup.handles.type,'String');
     choice = get(wc.channelsetup.handles.channels,'Value');
     channels = get(wc.channelsetup.handles.channels,'String');
     choice = channels(choice,:);
     if (isempty(choice))
         % do nothing
     else
-        makeChannel(choice);
+        makeChannel(type, choice);
     end
     uiresume(wc.channelsetup.fig);
-    delete(gcbf);
+    DeleteFigure(me);
     
 case {'cancel_callback' 'close_callback'}
     uiresume(wc.channelsetup.fig);
-    delete(gcbf);
+    DeleteFigure(me);
     
 otherwise
 
@@ -95,26 +102,29 @@ out = mfilename;
 function channels = getChannels()
 % returns a vector of hardware channels in use
 global wc
-channels = wc.control.usedChannels;
+channels = wc.channelsetup.control.usedChannels;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function makeChannel(channelName)
+function makeChannel(type, channelName)
 % creates a channel
+% type - ai or ao
 % channelName - a string identifying the channel hardware number
 global wc
 
-    % figure out whether to make a channel
-    channels = getChannels;
-    channel = str2num(channelName);
-    channelIndex = find(channels==channel);
-    if (~isempty(channelIndex))
-        c = wc.ai.Channel(channelIndex);  % channels have to be indexed by Index, not HwChannel
-    else
-        c = addchannel(wc.ai,channel);
-    end
-    % set up the channel
-    set(c, 'ChannelName', [wc.telegraphsetup.lineName ' telegraph']);
-    range = [-10 10];
-    set(c, {'InputRange','SensorRange','UnitsRange'}, {range, range, range});
-    sf = sprintf('wc.control.telegraph.%s=channelIndex;',wc.telegraphsetup.lineName);
-    eval(sf,'disp(sf)');
+channel = str2num(channelName);
+% figure out whether to make a channel
+if (isfield(wc.channelsetup,'channel'))
+    c = ReassignChannel(wc.channelsetup.channel, channel);
+else
+    c = CreateChannel(wc.channelsetup.daq,channel);
+end
+
+set(c, 'ChannelName', get(wc.channelsetup.handles.name,'String'));
+set(c, 'Units', get(wc.channelsetup.handles.units,'String'));
+gain = str2num(get(wc.channelsetup.handles.gain,'String'));
+if (isempty(gain))
+    gain = 1;
+end
+range = [-5 5];
+ChannelGain(c,'set',gain);
+%set(c, {'InputRange','SensorRange','UnitsRange'}, {range, range, range * gain});

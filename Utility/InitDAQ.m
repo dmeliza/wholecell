@@ -18,8 +18,11 @@ a = daqhwinfo(wc.ai);
 wc.control.DeviceName = a.DeviceName;
 wc.control.AdaptorName = a.AdaptorName;
 wc.control.TotalChannels = a.TotalChannels;
-wc.control.channels = a.SingleEndedIDs;
-wc.control.usedChannels = [];
+wc.control.ai.channels = a.SingleEndedIDs;
+wc.control.ai.usedChannels = [];
+a = daqhwinfo(wc.ao);
+wc.control.ao.channels = a.ChannelIDs;
+wc.control.ao.usedChannels = [];
 
 % set some basic values
 a = setverify(wc.ai,'InputType','SingleEnded');
