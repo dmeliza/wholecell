@@ -33,6 +33,7 @@ case {'init','reinit'}
     cs = GetChannelList(wc.ao);
     SetUIParam(me,'stim_channel','String',cs);
     SetUIParam(me,'command_channel','String',cs);
+    EpisodeStats('init','min','','PSR_IR');
     
     if (isfield(wc.control,'episode'))
         setValues(wc.control.episode);
@@ -49,6 +50,7 @@ case 'start'
     wc.episode.lastlogfilename = get(wc.ai,'LogFileName');
     [dir newdir] = fileparts(wc.episode.lastlogfilename);
     set(wc.ai,'LogFileName',fullfile(dir, '0000.daq'));
+    EpisodeStats('clear');
     startSweep;
     
 case 'record'
@@ -67,6 +69,7 @@ case 'record'
     s = mkdir(dir, newdir);
     set(wc.ai,'LogFileName',fullfile(dir,newdir, '0000.daq'));
     set(wc.ai,{'LoggingMode','LogToDiskMode'}, {'Disk&Memory','Overwrite'});
+    EpisodeStats('clear');
     startSweep;
     
     
@@ -86,11 +89,12 @@ case 'stop'
 case 'sweep'
     data = varargin{2};
     time = varargin{3};
+    abstime = varargin{4};
     if isvalid(wc.ai)
         fn = get(wc.ai,'LogFileName');
         set(wc.ai,'LogFileName',NextDataFile(fn));
     end
-    plotData(data, time, getScope, wc.control.amplifier.Index);
+    plotData(data, time, abstime, getScope, wc.control.amplifier.Index);
     
 case 'newsweep'
     if ~isempty(wc.episode.lastlogfilename)
@@ -231,8 +235,8 @@ end
 function varargout = setupScope(scope, amp, control);
 % sets up the scope properties
 clearPlot(scope);
-set(scope, 'YLim', [-3 3]);
-%set(scope, 'YLimMode','manual','XLimMode','manual');
+%set(scope, 'YLim', [-3 3]);
+set(scope, 'XLim', [0 1000]);
 set(scope, 'NextPlot', 'replacechildren');
 lbl = get(scope,'XLabel');
 set(lbl,'String','Time (ms)');
@@ -240,7 +244,7 @@ lbl = get(scope,'YLabel');
 set(lbl,'String',[get(amp, 'ChannelName') ' (' get(amp,'Units') ')']);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function varargout = plotData(data, time, scope, index)
+function varargout = plotData(data, time, abstime, scope, index)
 % plots the data
 
 mode = GetParam('control.telegraph', 'mode');
@@ -263,6 +267,7 @@ avgdata = get(scope,'UserData');
 avgdata = cat(2, avgdata, data); % TODO: catch irregular sized datas
 Scope('plot','plot',time * 1000, [data mean(avgdata,2)]);
 set(scope,'UserData', avgdata);
+EpisodeStats('plot', abstime, data);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function clearPlot(axes)

@@ -52,7 +52,7 @@ case 'plot'
     ah = GetUIHandle(me,'timecourse');
     % time may be in a clock format, so we have to convert it
     if length(time) > 1
-        time = convertTime(graph, time);
+        time = convertTime(ah, time);
     end
     fun = get(ah,'UserData');
     try
@@ -93,7 +93,7 @@ if isempty(start)
     realtime = 0;
 else
     time = clockvector - start;
-    realtime = atv(:,4)*60 + atv(:,5) + atv(:,6)/60;
+    realtime = time(:,4)*60 + time(:,5) + time(:,6)/60;
 end
 
 
@@ -108,9 +108,13 @@ function val = peakPSR(data)
 % artifact
 d = diff(data);
 [y i] = max(d); % artifact should be the fastest thing here
-baseline = mean(data(i-1000:i-800));
-peak = max(abs(data(i+40:i+1500) - baseline));
-val = peak;
+if i > 1000 & i < length(data) - 1500
+    baseline = mean(data(i-1000:i-800));
+    peak = max(abs(data(i+40:i+1500) - baseline));
+    val = peak;
+else
+    val = max(abs(data - mean(data)));
+end
 
 %%%%%%%%%%%%%%%%%%%%%
 function val = inputResist(data)
@@ -121,9 +125,13 @@ offset = 5000;
 d = diff(data);
 [y i] = min(d(offset:length(d)));
 offset = offset + i;
-baseline = mean(data(offset-1000:offset-50));
-peak = mean(data(offset+50:offset+1000));
-val = peak - baseline;
+if offset > 1000 & offset < length(data) - 1500
+    baseline = mean(data(offset-1000:offset-50));
+    peak = mean(data(offset+50:offset+1000));
+    val = peak - baseline;
+else
+    val = 0;
+end
 
 %%%%%%%%%%%%%%%%%%%5
 function val = PSR_IR(data)
