@@ -8,24 +8,31 @@ function varargout = RevCorr_2D(varargin)
 % Input: The data for the pixel sequence is read from a file.
 % Output: The DAQ toolkit stores the response from the cell
 %
-% Q: how to ensure synchronization?  The LCD panel has a vsync line which
-% can be run into a channel on the DAQ.  However, this is the internal refresh
-% of the display, and not the time at which the frame changes.  cgflip returns
-% a timestamp which is what we're using now, which seems to work pretty well.
-% For some reason, either due to timing issues in the hardware or precision issues
-% in the driver, frame rates (the rate at which the DAQ timer goes off) need to be
-% multiples of ten.  Bad values cause visually noticible variance in the timing
-% between frames.
 %
-% Alternatively, a loop could be used to play each frame, using pause() to
-% separate them from one another temporally.  However, pause appears to be
-% blocking, which isn't good for performance.
+% 1.8:
+% synchronization method changed. A region of the display is dedicated to a photosensor
+% which will detect frame changes.  The first frame change generates a positive-going
+% voltage, which triggers acquisition to start.  The 'TriggerType' is 'Software', although
+% because no pre-trigger data needs to be acquired we could use a hardware-specific
+% trigger type.  The same line used for triggering is also used to detect frame drops
+% during off-line analysis because each change in frame will result in a change of state
+% for this region of the display.  Only positive integer fractions will be accepted
+% for the frame rate of the stimulus because the method of playback is to flip,
+% as fast as possible, between frames.  In 1x playback each frame is substituted with the
+% next one, and in slower playback modes the same frame will be drawn to the screen
+% multiple times.
 %
-% Another concern is the maximum framerate, which is limited by the refresh rate
-% of the display system.  85 Hz = ~12 ms.  NTSC is 60 Hz, but this is interlaced,
-% so the true frame rate is more like ~33 ms.  Interlacing creates additional
-% problems because there is a 16 ms transition between fully formed frames.
+% Interlaced displays should be avoided because the transition between frames will take
+% twice the stated frame rate and intermediate frames will be a montage of the two
+% proper frames.
 %
+% TODO:
+% This protocol is still pretty hard-wired.  It needs the CogGph toolkit, and it
+% attempts to open the stimulus window at 1280x1024 without doing any error checking.
+% Also it would be nice to divide the movie-making function (e.g. turning the msequence
+% into an NxN movie) from the protocol, which could then be generalized to play
+% sparse noise or natural scenes.
+
 % The raw voltage trace isn't displayed so that we avoid dropping frames as much as
 % possible.  Buy an oscillscope.
 % 
@@ -116,7 +123,7 @@ global wc;
     f_sb = {'description','fieldtype','value','callback'};
     f_s = {'description','fieldtype','value'};
 
-    p.t_res = cell2struct({'Frame rate', 'value', 50, 'ms'},f,2);
+    p.t_res = cell2struct({'Frame rate (1/x)', 'value', 2},f_s,2);
     p.y_res = cell2struct({'Y Pixels','value',4,cb},f_sb,2);
     p.x_res = cell2struct({'X Pixels','value',4,cb},f_sb,2);
     
@@ -124,6 +131,8 @@ global wc;
     p.a_frames = cell2struct({'Stimulus Frames','value',1000,cb},f_sb,2);
     p.stim = cell2struct({'Stim File','fixed','',loadStim},f_sb,2);
     p.display = cell2struct({'Display', 'value', 2,cb},f_sb,2);
+    p.sync_val = cell2struct({'Sync Voltage','value',2,'V'},f,2);
+    p.sync_c = cell2struct({'Sync Channel','list',1,GetChannelList(wc.ai)},f_l,2);    
     p.input.description = 'Amplifier Channel';
     p.input.fieldtype = 'list';
     p.input.choices = GetChannelList(wc.ai);
@@ -136,13 +145,13 @@ global wc;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function setupHardware()
 % Sets up the hardware for this mode of acquisition
-% The timer is used to tell the software when to flip to the next frame
 global wc
 analyze = @analyze;
 flip = @nextFrame;
 sr = get(wc.ai, 'SampleRate');
 t_res = GetParam(me,'t_res','value');
 a_int = sr/1000 * t_res * GetParam(me,'a_frames','value');
+% acq params
 set(wc.ai,'SamplesPerTrigger', a_int);
 set(wc.ai,'SamplesAcquiredActionCount', a_int);
 set(wc.ai,'SamplesAcquiredAction',{me,analyze});
@@ -150,37 +159,52 @@ set(wc.ai,'TriggerType','Manual');
 set(wc.ai,'ManualTriggerHwOn','Trigger');
 set(wc.ai,'TimerPeriod', t_res / 1000);
 set(wc.ai,'TimerAction',{me,flip})
+% hardware triggering:
+sync = GetParam(me,'sync_c','value');
+sync_v = GetParam(me,'sync_val','value');
+curr = getsample(wc.ai);
+curr = curr(sync); % current value of sync detector
+set(wc.ai,'TriggerDelayUnits','seconds');
+set(wc.ai,'TriggerDelay',0);
+set(wc.ai,'TriggerType','HwAnalogChannel');
+set(wc.ai,'TriggerCondition','InsideRegion');
+set(wc.ai,'TriggerConditionValue',[curr+sync_v, curr+sync_v+10]);
+set(wc.ai,'TriggerChannel',wc.ai.Channel(sync));
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%55555
 function startSweep()
 % Begins a sweep.  Persistant data stored in two global variables
-global wc timing frame gprimd;
+global wc;
 stop([wc.ai wc.ao]);
 flushdata(wc.ai);
 fn = get(wc.ai,'LogFileName');
 set(wc.ai,'LogFileName',NextDataFile(fn));    
 SetUIParam('scope','status','String',get(wc.ai,'logfilename'));
-% need a check to see if a movie is loaded...
+start([wc.ai]);
+
+playStimulus;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function playStimulus()
+% plays the movie at the appropriate frame rate.
+% need a check to see if a movie of the appropriate length is loaded...
+
 % reset timing data and clear screen
-a_frames = GetParam(me,'a_frames','value');
+a_pix = GetParam(me,'a_frames','value');
+frate = GetParam(me,'t_res','value');
+a_frames = a_pix * frate;
 timing = zeros(a_frames+1,1);
 frame = 1;
 cgflip(0);
-gprimd = cggetdata('gpd');
+gprimd = cggetdata('gpd'); %max frame is given by gprimd.NextRASKey
 % bombs away
-start([wc.ai]);
-trigger([wc.ai]);
-timing(1) = cgflip(0);
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function clearDAQ()
-% resets callbacks so we don't get recordings where we don't want'em
-global wc
-set(wc.ai,'SamplesAcquiredAction',{});
-set(wc.ai,'TimerAction',{});
-SetUIParam('wholecell','status','String',get(wc.ai,'Running'));        
-set(wc.ai,'LoggingMode','Memory');
-set(wc.ai,'LogFileName',NextDataFile);
+for i = 1:a_frames;
+    cgdrawsprite(frame,0,0, gprimd.PixWidth, gprimd.PixHeight);
+    if mod(i,frate) == 0
+        frame = frame + 1;
+    end
+    timing(i) = cgflip;
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
 function queueStimulus(varargin)
@@ -228,16 +252,6 @@ if ~isnumeric(fn2)
 end
 queueStimulus;
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function nextFrame(obj, event)
-% for speed, global variables contain critical parameters
-global timing frame gprimd;
-
-if frame < gprimd.NextRASKey
-     cgdrawsprite(frame,0,0, gprimd.PixWidth, gprimd.PixHeight);
-     frame = frame + 1;
-     timing(frame) = cgflip;
-end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%55
 function stim = getStimulus(filename)
@@ -248,6 +262,17 @@ if length(n) < 1
     error('No data in stimulus file');
 end
 stim = getfield(d,n{1});
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function clearDAQ()
+% resets callbacks so we don't get recordings where we don't want'em
+global wc
+set(wc.ai,'SamplesAcquiredAction',{});
+set(wc.ai,'TimerAction',{});
+SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
+set(wc.ai,'LoggingMode','Memory');
+set(wc.ai,'LogFileName',NextDataFile);
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function analyze(obj, event)
