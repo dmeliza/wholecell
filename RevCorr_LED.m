@@ -43,7 +43,7 @@ case 'start'
     setupScope;
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
     SetUIParam('scope','status','String','Not recording');
-    queueStimulus(3);
+    queueStimulus;
     StartAcquisition(me,[wc.ai wc.ao]);
     
 case 'record'
@@ -60,7 +60,7 @@ case 'record'
     lf = NextDataFile;
     set(wc.ai,'LogFileName',lf);
     SetUIParam('scope','status','String',lf);
-    queueStimulus(3);
+    queueStimulus;
     StartAcquisition(me,[wc.ai wc.ao]);
     
 case 'stop'
@@ -76,10 +76,10 @@ case 'sweep'
     data = varargin{2};
     time = varargin{3};
     abstime = varargin{4};
-    in = get(wc.ai,'SamplesAvailable');
-    out = get(wc.ao,'SamplesAvailable');
-    status = sprintf('in: %d / out: %d',in, out); 
-    SetUIParam('scope','status','String',status);
+%     in = get(wc.ai,'SamplesAvailable');
+%     out = get(wc.ao,'SamplesAvailable');
+%     status = sprintf('in: %d / out: %d',in, out); 
+%     SetUIParam('scope','status','String',status);
     queueStimulus;
     plotData(data, time, abstime, getScope, wc.control.amplifier.Index);
     
@@ -152,19 +152,15 @@ wn = round(wn * s_res / max(wn)) * (s_max - s_min) / s_res + s_min;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
-function queueStimulus(varargin)
+function queueStimulus()
 % queues data in the ao object and records it to a param in wc
 global wc
-if nargin > 0
-    m = varargin{1};
-else
-    m = 1;
-end
+m = 20; % prebuffering
 update = get(wc.ai,'Samplesacquiredactioncount');
 t_res = GetParam(me,'t_res','value');
 update = ceil(update / t_res);
 queued = get(wc.ao,'SamplesAvailable');
-if (queued > 2 * update) & (m == 1)
+if (queued > 2 * update)
     return
 end
 control = GetParam(me,'output','value');
