@@ -240,9 +240,11 @@ function [] = createparameter(window)
 % the arguments of the analysis function and the results of the analysis.  If
 % such a figure is open, the handle is stored in the "paramfigs" app data field,
 % and an update command is sent to each open parameter figure when a new file is loaded
+dt      = diff(window);
 params  = getappdata(gcbf,'parameters');
 p       = struct('window',window,'name','New Parameter','parent',gcbf,'type','none',...
-                 'binning',1,'channel',GetUIParam(me,'channels','Value'));
+                 'binning',1,'channel',GetUIParam(me,'channels','Value'),...
+                 'marks',[dt * 0.3, dt * 0.7]);
 p       = EpisodeParameter('init',p);       % structure includes handle of new figure
 if isempty(params)
     params = p;
