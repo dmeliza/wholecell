@@ -145,7 +145,7 @@ function setupVisual()
 disp = GetParam(me,'vis_disp','value');
 cgloadlib;
 cgshut;
-cgopen(1,8,0,disp);
+cgopen(5,8,85,disp);
 stimfile = GetParam(me,'vis_image','value');
 s = load(stimfile);
 cgcoltab(0,s.colmap);
@@ -224,7 +224,6 @@ imageOff(obj,event);
 function imageOff(obj,event)
 % removes the image
 cgflip(0);
-disp('test');
 set(obj,'timeraction',{});
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
