@@ -14,4 +14,4 @@ unify select and zoom mode - doesn't work; zoom has to be off to avoid zooming
 hide and show marks -done 
 smoothed statistics and average -done (needs spline toolbox now...)
 
-a dialog to rescale the data
+a dialog to rescale the data -done

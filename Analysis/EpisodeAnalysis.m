@@ -48,9 +48,7 @@ case 'trace_click_callback'
     % complicated labelling
     v = GetUIParam(me,'select_button','Value');
     if (v > 0)
-        trace = gcbo;
-        traces = GetUIParam(me,'trace_list','UserData');
-        highlightTrace(find(traces==trace));
+        highlightTrace(gcbo);
     else
         % could replace this with a direct call, but we'll leave it flexible for now
         handler = GetUIParam(me,'trace_axes','ButtonDownFcn');
@@ -76,7 +74,9 @@ case 'stats_click_callback'
     
 case 'load_traces_callback'
     % loads traces from a .mat file and stores them in the figure
-    [fn pn] = uigetfile('*.mat');
+    pnfn = GetUIParam(me,'filename','String');
+    path = fileparts(pnfn);
+    [fn pn] = uigetfile([path filesep '*.mat']);
     if (fn ~= 0)
         wait('Loading data...');
         SetUIParam(me,'filename','String',fullfile(pn,fn));
@@ -136,7 +136,9 @@ case 'color_trace_callback'
     
 case 'save_trace_callback'
     % saves the selected traces to a new file
-    [fn pn] = uiputfile('*.mat');
+    pnfn = GetUIParam(me,'filename','String');
+    path = fileparts(pnfn);  
+    [fn pn] = uiputfile([path filesep '*.mat']);
     if (fn ~= 0)
         traces = str2num(GetUIParam(me,'trace_list','Selected'));
         saveData(fullfile(pn,fn), traces);
@@ -204,7 +206,9 @@ case 'time_changed_callback'
     updateStats;
     
 case 'load_times_callback'
-    [fn pn] = uigetfile('*.mat');
+    pnfn = GetUIParam(me,'filename','String');
+    path = fileparts(pnfn);
+    [fn pn] = uigetfile([path filesep '*.mat']);
     if exist(fullfile(pn,fn), 'file');
         d = load(fullfile(pn,fn));
         if (isfield(d,'times'))
@@ -218,14 +222,18 @@ case 'load_times_callback'
     end
     
 case 'export_times_callback'
-    [fn pn] = uiputfile('*.mat');
+    pnfn = GetUIParam(me,'filename','String');
+    path = fileparts(pnfn);  
+    [fn pn] = uiputfile([path filesep '*.mat']);
     if (fn ~= 0)
         times = getTimes;
         save(fullfile(pn,fn), 'times');
     end
     
 case 'export_stats_callback'
-    [fn pn] = uiputfile('*.csv');
+    pnfn = GetUIParam(me,'filename','String');
+    path = fileparts(pnfn);  
+    [fn pn] = uiputfile([path filesep '*.csv']);
     if (fn ~= 0)
         wait('Writing statistics...');
         [pspdata, srdata, irdata, abstime] = getStats;
@@ -235,7 +243,9 @@ case 'export_stats_callback'
     
 case 'save_analysis_callback'
     % stores a complete analysis in one file
-    [fn pn] = uiputfile('*.mat');
+    pnfn = GetUIParam(me,'filename','String');
+    path = fileparts(pnfn);  
+    [fn pn] = uiputfile([path filesep '*.mat']);
     if (fn ~=0)
         wait('Writing file...');
         saveData(fullfile(pn,fn));
@@ -257,6 +267,7 @@ case 'rescale_traces_callback'
         y_unit = d.info.y_unit;
         a = inputdlg({'Data scaling factor:','Units:'},'Data Rescaling',...
             1,{'1', y_unit});
+        wait('Scaling data');
         if length(a) == 2
             s = str2num(a{1});
             if isnumeric(s)
@@ -268,6 +279,7 @@ case 'rescale_traces_callback'
             SetUIParam(me,'filename','UserData',d);
             updateDisplay;
         end
+        wait('Data rescaled...');
     end
     
 case 'display_stats_callback'
@@ -369,6 +381,10 @@ if (isstruct(d))
         data = d.data;
         abstime = d.abstime;
         SetUIParam(me,'last_trace','StringVal',length(d.abstime));
+    end
+    if binfactor > size(data,2)
+        binfactor = size(data,2);
+        SetUIParam(me,'bin_factor','StringVal', binfactor);
     end
     data = smoothTraces(data, smoothfactor);
     [data, abstime] = binTraces(data, abstime, binfactor);
@@ -675,32 +691,36 @@ end
 d = GetUIParam(me,'filename','UserData');
 time = d.time;
 info = d.info;
-info.binfactor = 1;
+bf = GetUIParam(me,'bin_factor','StringVal');
+if bf > 1
+    info.binfactor = 1;
+end
 times = getTimes;
+
+data = shiftdim(data,1);
+pspdata = shiftdim(pspdata,1);
+irdata = shiftdim(irdata,1);
+abstime = shiftdim(abstime,1);
 save(filename,'data','time','abstime','info','pspdata',...
     'srdata','irdata','times');
 wait(['Data saved in ' filename]);
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function highlightTrace(traceindex)
+function highlightTrace(trace)
 % this function changes the trace's state from normal to highlighted
-% in four places: (the trace list), the trace axes, the psp statistics,
-% and the (resistance stats)
-if isempty(traceindex)
+% in four places: the trace axes, the psp statistics, and the resistance stats
+if isempty(trace)
     return;
 end
-tracehandles = GetUIParam(me, 'trace_list', 'UserData');
-trace = tracehandles(traceindex);
-currentcolor = get(trace,'UserData');
+currentcolor = get(trace,'Color');
 if (strcmp(currentcolor,'red'))
     newcolor = 'black';
 else
     newcolor = 'red';
 end
-set(trace,'Color',newcolor,'UserData',newcolor);
-psp_patches = GetUIParam(me, 'psp_axes', 'Children');
-set(psp_patches(traceindex),'EdgeColor',newcolor,'UserData',newcolor);
+set(trace,'Color',newcolor);
+updateStats;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function wait(varargin)
