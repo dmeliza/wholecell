@@ -6,16 +6,26 @@ function h = AddScaleBar(ax, units, scale)
 %
 % AXES - the handle for the axes to change
 % UNITS - a 2x1 cell array containing the units of the x and y axes. If
-% this is not supplied, the lines will not be labelled
+% this is not supplied, the lines will not be labelled. If one or both of
+% these is empty, the scale bar for that axis will not be generated. 
 % SCALE - 2x1 array with the length of the x and y bars.  If this is not
 % supplied, the distance between two ticks will be used.
 
 TAG = 'cdm_scalebar';
+doX = 1;
+doY = 1;
 
 if nargin < 2
     units   = {};
 elseif isempty(units)
     units   = {};
+else
+    if isempty(units{1})
+        doX = 0;
+    end
+    if isempty(units{2})
+        doY = 0;
+    end
 end
 
 % extract some data from the axes first
@@ -40,23 +50,38 @@ end
 scale = autoscale;
 
 % clear the matlab axes and any existing scalebar objects
-set(ax,'Box','Off','xcolor',[1 1 1],'ycolor',[1 1 1]);
-set(ax,'XTickLabel','','YTickLabel','');
+set(ax,'Box','Off');
+h   = [];
+if doX
+    set(ax,'xcolor',[1 1 1],'XTickLabel','');
+end
+if doY 
+    set(ax,'ycolor',[1 1 1],'YTickLabel','');
+end
 
 old_h   = findobj(gca, 'tag', TAG);
 
 % draw the lines
 hold on
-h(1)    = plot([xx xx+scale(1)],[yy yy],'k');
-h(2)    = plot([xx+scale(1) xx+scale(1)], [yy yy+scale(2)],'k');
-set(h,'Linewidth',2)
+if doX
+    h(end+1)    = plot([xx xx+scale(1)],[yy yy],'k');
+    if ~isempty(units)
+        h(end+1)    = text(xx,yy - scale(2),sprintf('%d %s',scale(1),units{1}));
+    end
+end
+if doY
+    h(end+1)    = plot([xx+scale(1) xx+scale(1)], [yy yy+scale(2)],'k');
+    if ~isempty(units)
+        h(end+1)    = text(xx + scale(1)*1.1, yy + scale(2)/2, sprintf('%d %s',scale(2),units{2}));    
+    end
+end
+%set(h,'Linewidth',2)
 % labels. position is tricky because their height is relative to the axes,
 % not to the scale. Fortunately the user can adjust this later.
-if ~isempty(units)
-    h(3)    = text(xx,yy - scale(2),sprintf('%d %s',scale(1),units{1}));
-    h(4)    = text(xx + scale(1)*1.1, yy + scale(2)/2, sprintf('%d %s',scale(2),units{2}));
+
+if ~isempty(h)
+    set(h,'tag',TAG)
 end
-set(h,'tag',TAG)
 
 
 % add a buttondown fxn to the scalebar object so that the user can move it
