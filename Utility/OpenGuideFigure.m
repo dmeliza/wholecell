@@ -10,9 +10,9 @@ global wc
 
 
 if nargin > 1
-    tag = varargin{1};
+    tag = lower(varargin{1});
 else
-    tag = module;
+    tag = lower(module);
 end
 
 obj.fig = findobj('tag', tag);
