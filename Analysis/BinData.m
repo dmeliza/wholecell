@@ -12,10 +12,15 @@ function binneddata = BinData(data, binfactor)
 % note that incomplete bins are discarded, so pick a binfactor as close
 % as possible to a factor of size(data, 2)
 %
+% 1.3 - now attempts to detect if the input is a column
+%
 % $Id$
 
-
 lT = size(data, 2);
+if lT == 1 % data is probably columnwise
+    data = shiftdim(data, 1);
+    lT = size(data,2);
+end
 traceCount = fix(lT / binfactor); % throws away modulus
 lT = traceCount * binfactor;
 
