@@ -68,7 +68,7 @@ for i = 1:repeats
     fprintf('Frameshifting response... \n');
     r     = FrameShift(double(resp(i).data),...
                       resp(i).timing,...
-                      window,'correctstart');               % frame shift data
+                      window);               % frame shift data
     len   = size(r,1);                                      % number of parameters we can look at
     
     if bin > 1
