@@ -25,6 +25,11 @@ function varargout = RevCorr_LED(varargin)
 
 global wc
 
+if isobject(varargin{1})
+    feval(varargin{3},varargin{1:2});
+    return;
+end
+
 if nargin > 0
 	action = lower(varargin{1});
 else
@@ -54,8 +59,6 @@ case 'record'
     setupHardware;
     setupScope;
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
-    %SetUIParam('scope','status','String',['Sweeps Acquired: 0']);
-    % data is stored in a directory, one file per sweep.
     set(wc.ai,{'LoggingMode','LogToDiskMode'}, {'Disk&Memory','Overwrite'});
     lf = NextDataFile;
     set(wc.ai,'LogFileName',lf);
@@ -64,9 +67,10 @@ case 'record'
     StartAcquisition(me,[wc.ai wc.ao]);
     
 case 'stop'
-    stop([wc.ai wc.ao]); % we only stop wc.ai because the ao needs to flush
+    stop([wc.ai wc.ao]);
     if (isvalid(wc.ai))
         set(wc.ai,'SamplesAcquiredAction','');
+        set(wc.ai,'TimerAction','');
         SetUIParam('wholecell','status','String',get(wc.ai,'Running'));        
         set(wc.ai,'LoggingMode','Memory');
     end
@@ -95,6 +99,7 @@ out = mfilename;
 function p = defaultParams()
 global wc;
 
+    f = {'description','fieldtype','value','units'};
     p.output.description = 'LED channel';
     p.output.fieldtype = 'list';
     p.output.choices = GetChannelList(wc.ao);
@@ -115,8 +120,8 @@ global wc;
     p.t_res.units = 'ms';
     p.t_res.value = 100;
     
-    p.u_rate = cell2struct({'Update Rate','value',10,'Hz'},...
-        {'description','fieldtype','value','units'},2);
+    p.d_rate = cell2struct({'Display Rate','value',10,'Hz'},f,2);
+    p.a_int = cell2struct({'Analyze every:','value',30,'s'},f,2);
     p.input.description = 'Amplifier Channel';
     p.input.fieldtype = 'list';
     p.input.choices = GetChannelList(wc.ai);
@@ -127,18 +132,26 @@ global wc;
 function setupHardware()
 % Sets up the hardware for this mode of acquisition
 global wc
-
+display = @updateDisplay;
+analyze = @analyze;
 sr = get(wc.ai, 'SampleRate');
-u_rate = GetParam(me,'u_rate','value');
+u_rate = GetParam(me,'d_rate','value');
+a_int = sr * GetParam(me,'a_int','value');
 update = fix(sr / u_rate); 
-set(wc.ai,'SamplesPerTrigger',inf);
-set(wc.ai,'SamplesAcquiredActionCount',update);
-set(wc.ai,'SamplesAcquiredAction',{'SweepAcquired',me}) % calls SweepAcquired m-file, which deals with data
+set(wc.ai,'SamplesPerTrigger',a_int);
+set(wc.ai,'TimerPeriod',1 / u_rate);
+set(wc.ai,'TimerAction',{me,display})
+set(wc.ai,'SamplesAcquiredActionCount',a_int);
+set(wc.ai,'SamplesAcquiredAction',{me,analyze});
+set(wc.ai,'DataMissedAction',{me,'showerr'});
 set(wc.ai,'UserData',update);
 
 t_res = GetParam(me,'t_res','value');
 sr = 1000 / t_res ;
 set(wc.ao, 'SampleRate', sr);
+
+Spool('stim','init');
+Spool('resp','init');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function wn = whitenoise(samples)
@@ -155,18 +168,57 @@ wn = round(wn * s_res / max(wn)) * (s_max - s_min) / s_res + s_min;
 function queueStimulus()
 % queues data in the ao object and records it to a param in wc
 global wc
-m = 20; % prebuffering
-update = get(wc.ai,'Samplesacquiredactioncount');
 t_res = GetParam(me,'t_res','value');
-update = ceil(update / t_res);
+a_int = GetParam(me,'a_int','value');
+update = a_int * 1000 / t_res * 1.2;
 queued = get(wc.ao,'SamplesAvailable');
-if (queued > 2 * update)
-    return
+if (queued < 0.1 * update)
+    control = GetParam(me,'output','value');
+    c = zeros(update, length(wc.ao.Channel));
+    wn =  whitenoise(update);
+    c(:,control) = wn;
+    putdata(wc.ao, c);
+    Spool('stim', 'append', wn');
 end
-control = GetParam(me,'output','value');
-c = zeros(update * m, length(wc.ao.Channel));
-c(:,control) = whitenoise(update * m);
-putdata(wc.ao, c);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
+function updateDisplay(obj, event)
+% this method displays data, using peekdata to acquire the latest
+% bit of data
+samp = get(obj,'TimerPeriod');
+sr = get(obj,'SampleRate'); % samp/sec
+d = peekdata(obj,samp*sr);
+sr = 1000/sr; % ms/samp
+t = 0:sr:(length(d)-1)*sr;
+plotData(t,d);
+%queueStimulus;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function analyze(obj, event)
+% this method analyzes the data, using getdata to clear the latest
+% data from the buffer
+global wc
+[data, time, abstime] = getdata(obj);
+index = wc.control.amplifier.Index;
+stim = Spool('stim','retrieve');
+samplerate = get(obj,'SampleRate');
+stimrate = GetParam(me,'t_res','value');
+stimstart = get(wc.ao,'InitialTriggerTime');
+
+bin = samplerate * stimrate / 1000;
+d = bindata(data(:,index)', bin);
+offset = fix((datenum(stimstart) - datenum(abstime)) * 1000 / stimrate); % positive numbers - late stim
+if offset > 0
+    d = d(offset:end);
+elseif offset < 0
+    stim = stim(-offset:end);
+end
+% c = xxxcorr(d, stim);
+% figure,plot(c);
+window = 1000 / stimrate;
+c = xxxcorr(d, stim,-window:2);
+figure,plot((-window:2)*stimrate, c);
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function scope = getScope()
@@ -186,16 +238,15 @@ set(scope, 'XLim', [0 1000]);
 set(scope, 'NextPlot', 'add');
 lbl = get(scope,'XLabel');
 set(lbl,'String','Time (ms)');
-% lbl = get(scope,'YLabel');
-% set(lbl,'String',[get(amp, 'ChannelName') ' (' get(amp,'Units') ')']);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function varargout = plotData(data, time, abstime, scope, index)
-% plots the data
+function varargout = plotData(time, data)
+% updates the scope with the latest bit of data
+global wc
 
-data = data(:,index);
 mode = GetParam('control.telegraph', 'mode');
 gain = GetParam('control.telegraph', 'gain');
+scope = getScope;
 if ~isempty(mode)
     units = TelegraphReader('units',mean(data(:,mode)));
 else
@@ -209,9 +260,26 @@ end
 lbl = get(scope,'YLabel');
 set(lbl,'String',['amplifier (' units ')']);
 % plot the data and average response
+index = wc.control.amplifier.Index;
 data = AutoGain(data(:,index), gain, units);
-Scope('scope',time * 1000, data);
+Scope('scope',time, data);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function clearPlot(axes)
 Scope('clear');
+
+%%%%%%%%%%%%%%%%%%%%%55
+function c = xxxcorr(stim, resp, window)
+% plots a quick crosscorrelation of the stimulus and response
+stim = stim - mean(stim);
+resp = resp - mean(resp);
+c = xcorr(resp, stim);
+if nargin == 3
+    o = length(c) / 2;
+    c = c(o + window);
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%5
+function showerr(obj, event)
+keyboard;
+
