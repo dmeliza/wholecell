@@ -15,13 +15,14 @@ initValues;
 
 function initValues()
 % sets initial values
-methods = {'SparseAnalysis','PCA_2D'};
+methods = {'Sparse','PCA'};
 SetUIParam(me,'directory','String',pwd);
 updateLists;
 SetUIParam(me,'stimulusstatus','String','No stimulus loaded.');
 SetUIParam(me,'responsestatus','String','No responses loaded.');
 SetUIParam(me,'method','String',methods);
 SetUIParam(me,'binfactor','String','1');
+SetUIParam(me,'analysisframes','String','5');
 
 function initFigure()
 % opens the figure
@@ -29,6 +30,7 @@ cb = getCallbacks;
 BG = [1 1 1];
 f = OpenFigure(me,'position',[360   343   700   600],...
     'color',BG,'menubar','none');
+movegui(f,'northeast');
 % Frame 1: file operations
 h = uicontrol(gcf, 'style', 'frame','backgroundcolor',BG,'position',[15 390 450 200]);
 % text
@@ -87,15 +89,26 @@ h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[480 325 60 20]
     'String','Window:','horizontalalignment','left');
 h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[480 305 60 20],...
     'String','Bin Factor:','horizontalalignment','left');
-h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[480 265 60 20],...
+h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[480 285 60 20],...
+    'String','Frames:','horizontalalignment','left');
+h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[480 245 60 20],...
     'String','Method:','horizontalalignment','left');    
 % 'editables'
 h = InitUIControl(me,'analysiswindow','style','edit','backgroundcolor',BG,...
     'horizontalalignment','right','position',[580 328 100 20],'enable','inactive');
 h = InitUIControl(me,'binfactor','style','edit','backgroundcolor',BG,...
     'horizontalalignment','right','position',[580 308 100 20]);
+h = InitUIControl(me,'analysisframes','style','edit','backgroundcolor',BG,...
+    'horizontalalignment','right','position',[580 288 100 20]);
 h = InitUIControl(me,'method','style','popup','backgroundcolor',BG,...
-    'horizontalalignment','right','position',[580 268 100 20]);
+    'horizontalalignment','right','position',[580 248 100 20],'String',' ');
+% buttons
+h = InitUIControl(me,'analyze','style','pushbutton','String','Analyze',...
+    'Position',[530 100 100 20],...
+    'Callback',cb.analyze);
+h = InitUIControl(me,'xcorrtiming','style','pushbutton','String','XCorr Timing',...
+    'Position',[530 70 100 20],...
+    'Callback',cb.xcorrtiming);
 % Status bar
 h  = InitUIControl(me,'Status','style','text','backgroundcolor',BG,...
     'horizontalalignment','center','position',[1 1 690 20]);
@@ -109,48 +122,58 @@ if ~isempty(stim)
 end
 
 function [] = showstimulus(obj, event)
+% Plots stimulus and its 2D FFT
 f            = findfig('strfgui_stimulus');
 set(f,'Color',[1 1 1]);
 a            = axes;
 stim         = GetUIParam(me,'stimulus','UserData');
-if isfield(stim,'parameters')
-    [stimulus param params] = unique(stim.parameters,'rows');
-    s = rasterize([params stim.parameters(:,3)]);
-    s(find(~s)) = 2;  % fudge!
-else
+% if isfield(stim,'parameters')
+%     [stimulus param params] = unique(stim.parameters,'rows');
+%     s = rasterize([params stim.parameters(:,3)]);
+%     s(find(~s)) = 2;  % fudge!
+% else
     [X Y FRAMES] = size(stim.stimulus);
     s            = reshape(stim.stimulus,X*Y,FRAMES);
-end
+% end
 imagesc(s);
-colormap(stim.colmap);
+title('Stimulus')
 axis(a,'tight');
 xlabel('Frame')
 ylabel('Parameter');
+colormap(stim.colmap);
 
 
 function [] = showresponse(obj, event)
-wd     = GetUIParam(me,'directory','String');    % working directory
-choice = GetUIParam(me,'response','selected');   % selected responses
-resp   = loadResponse(wd,choice);
+resp   = loadResponse;
 r      = struct2array(resp,'data','pad');
-mtrialplot(r);
+figure,mtrialplot(r);
 
 function [] = xcorrresponse(obj, event)
-wd     = GetUIParam(me,'directory','String');    % working directory
-choice = GetUIParam(me,'response','selected');   % selected responses
-resp   = loadResponse(wd,choice);
+resp   = loadResponse;
+if length(resp) == 1
+    setstatus('Data does not contain any repeats');
+    return
+end
 r      = struct2array(resp,'data','drop');
 time   = struct2array(resp,'timing','drop');
-frate  = fix(mean(mean(diff(time))));   % more breakage possibilities
-data   = bindata(r,frate,1);           % etc
+frate  = fix(mean(mean(diff(time))));
+data   = bindata(r,frate,1);
 corr_repeats(data);
 
+function [] = xcorrtiming(obj,event)
+resp   = loadResponse;
+if length(resp) == 1
+    setstatus('Data does not contain any repeats.');
+    return
+end
+time        = struct2array(resp,'timing','drop');
+corr_repeats(diff(time));
+
+    
 function [] = combineresponse(obj, event)
 [fn pn] = uiputfile('*.r1');
 if isa(fn,'char')
-    wd      = GetUIParam(me,'directory','String');    % working directory
-    choice  = GetUIParam(me,'response','selected');   % selected responses
-    r1      = loadResponse(wd,choice);
+    r1      = loadResponse;
     save(fullfile(pn,fn),'r1','-mat');
     setstatus(['Saved response as ' fullfile(pn,fn)]);
     updateLists;
@@ -212,6 +235,44 @@ elseif strcmpi(button,'alt')
     drawLines(obj);
 end
 
+function [] = analyze(obj,event)
+% this function takes responsibility for conditioning the data for the analysis fxns
+% the "adaptor" GUIs are responsible for displaying the data in a useful format.
+stim    = GetUIParam(me,'stimulus','UserData');
+resp    = loadResponse;
+win     = str2num(GetUIParam(me,'analysiswindow','String'));
+bin     = GetUIParam(me,'binfactor','StringVal');
+m       = GetUIParam(me,'method','Selected');
+lags    = GetUIParam(me,'analysisframes','StringVal');
+repeats = length(resp);
+frate   = mean(diff(resp(1).timing));
+setpref('strfGUI','frate',frate);                       % this is used to set time units elsewhere
+binrate = fix(bin * frate);
+if binrate == 0
+    binrate = 1;
+end
+setpref('strfGUI','srate',resp(1).t_rate / binrate);   % this is used to set time units elsewhere
+if isempty(stim)
+    setstatus('Analysis failed: No stimulus selected');
+elseif isempty(resp)
+    setstatus('Analysis failed: No response selected');
+elseif ~exist(m)
+    setstatus('Analysis failed: Could not find mfile');
+else
+    switch lower(m)
+    case 'sparse'
+        if ~isfield(stim,'parameters')
+            setstatus('Analysis failed: Sparse Analysis requires parameterized stimulus');
+        else
+            SparseAnalysis(stim,resp, fix(lags * frate), fix(bin * frate));
+        end
+    case 'pca_2d'
+            results = PCA_2D(stim, resp, win, bin, lags);
+    otherwise
+        setstatus('Analysis failed: adaptor has not been written for this analysis method.');
+    end
+end
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Internal functions
 function updateLists()
@@ -226,7 +287,7 @@ SetUIParam(me,'response','String',opt);
 SetUIParam(me,'response','Value',1);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function [] = loadStimulus(path)
+function stim = loadStimulus(path)
 % Loads a stimulus, displaying its properties and first frame
 [stim, str] = LoadStimulusFile(path);
 SetUIParam(me,'stimulusstatus','String',str);
@@ -235,9 +296,10 @@ if ~isempty(stim)
     plotStimulus(stim)
 end
 
-function resp = loadResponse(path, files)
+function resp = loadResponse()
 % Loads responses from daq or .r1 files
-% files should be a character array
+path        = GetUIParam(me,'directory','String');    % working directory
+files       = GetUIParam(me,'response','selected');   % selected responses
 path        = [path filesep];
 fqp         = cat(2,repmat(path,size(files,1),1),files);
 [resp, str] = CombineFiles('r1',deblank(cellstr(fqp)),[1 4]); % this is a fudge, need to get channel indices somewhere
@@ -248,7 +310,8 @@ function out = getCallbacks()
 % returns a structure with function handles to functions in this mfile
 % no introspection in matlab so we have to do this by hand
 fns = {'playstimulus','showstimulus','showresponse','xcorrresponse',...
-        'pickstimulus', 'pickresponse','combineresponse','pickregion'};
+        'pickstimulus', 'pickresponse','combineresponse','pickregion'...
+        'analyze','xcorrtiming'};
 out = [];
 for i = 1:length(fns)
     sf = sprintf('out.%s = @%s;',fns{i},fns{i});
@@ -320,76 +383,3 @@ SetUIParam(me,'analysiswindow','String',str);
 
 function out = me()
 out = mfilename;
-% 
-% 
-% % load stimulus and reduce parameters to a single vector
-% if exist('stim.mat','file') > 0
-%     d = load('stim.mat');
-% else
-%     error('Stimulus file (stim.mat) could not be found');
-% end
-% % stimulus-param mappings and the parameter vector
-% [stimulus param params] = unique(d.parameters,'rows'); % all the unique combinations of values
-% stimulus = binarystimulus(stimulus);
-% ind_on = find(stimulus(:,3));
-% ind_off = find(stimulus(:,3)==0);
-% stimulus = d.stimulus(:,:,param);                      % 2D arrays for each stimulus
-% % param_on = param(find(stimulus(:,3)));
-% % param_off = param(find(stimulus(:,3)==0));
-% % stimulus_on = d.stimulus(:,:,param_on); 
-% % stimulus_off = d.stimulus(:,:,param_off);
-% clear('d')
-% 
-% % load response and sync data
-% if exist('daqdata-sparse.mat','file') > 0
-%     d = load('daqdata-sparse.mat');
-%     data = d.data;
-%     disp('Response loaded from daqdata-sparse.mat');
-% else
-%     % assumes sync data is in channel 4 (could get this from the timing files?)
-%     data = daq2mat('indiv',[1 4]);
-%     save('daqdata-sparse.mat','data');
-%     disp('Wrote daqdata-sparse.mat');
-% end
-% clear('d')
-% 
-% % loop through each of the sweeps
-% S = warning('off');
-% for i = 1:length(data)
-%     fprintf('Sweep %d: ', i);
-%     resp = double(data(i).data(:,1));
-%     sync = double(data(i).data(:,2));
-%     w = window;
-% 
-%     % convert continuous sync data into timing indices
-%     timing = Sync2Timing(sync);
-%     clear('sync');
-%     
-%     % frame shift response
-%     fprintf('Conditioning response... ');
-%     Fs = data(i).info.t_rate;
-%     w = w * Fs / 1000;
-%     R = FrameShift(resp,timing,w);
-%     clear('resp','timing');
-%     
-%     % parameterize response
-%     fprintf('Parameterizing response...\n');
-%     len = size(R,1);
-%     k(:,:,i) = Parameterize(params(1:len),R);
-%     clear('R');
-% end
-% warning(S);
-% out.h1_est = mean(k,3);
-% %save('results.mat','k');
-% 
-% % generate STRF
-% fprintf('Computing STRF...\n');
-% stimulus = permute(stimulus,[3 1 2]);
-% [out.strf_on, out.strf_off] = Param2STRF(out.h1_est,stimulus,ind_on,ind_off);
-% WriteStructure('results.mat',out);
-% 
-% function stim = binarystimulus(stim)
-% % fixes the z values in the Nx3 array to be 1 and 0
-% mx = max(stim(:,3));
-% mn = min(stim(:,3));
-% stim(:,3) = (stim(:,3) - mn) / (mx - mn);
