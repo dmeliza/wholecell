@@ -10,7 +10,7 @@ global wc
 
 
 if nargin > 1
-    tag = varargin{2};
+    tag = varargin{1};
 else
     tag = module;
 end
@@ -22,7 +22,7 @@ end
 set(obj.fig,'Color',get(0,'defaultUicontrolBackgroundColor'));
 obj.handles = guihandles(obj.fig);
 guidata(obj.fig, obj.handles);
-clfcn = sprintf('%s(''close_Callback'', %s);', module, tag);
+clfcn = sprintf('%s(''close_Callback'', ''%s'')', module, tag);
 set(obj.fig, 'numbertitle', 'off', 'name', tag, 'tag', tag,...
              'DoubleBuffer','on','menubar','none','closerequestfcn',clfcn);
 
