@@ -22,8 +22,9 @@ LTP_DELTA   = [0    50];
 WINDOW = 150;       % ms; switch to 250 for the wider window in fig 2
 Fs     = 10;
 SZ      = [6.3 3.0];
-SE      = 1;        % if 1, plot standard error
-BINSIZE = 4.3;       % 4.3 gives a nice smooth curve
+SE      = [1 1 1];        % if 1, plot standard error
+PLOTFUN = @plotbar;
+BINSIZE = 10;       % 4.3 gives a nice smooth curve
 
 % load control data from file
 [data, files]   = xlsread(control);
@@ -58,7 +59,8 @@ delta           = delta(ind);
 % load data from matfiles
 trials  = length(files);
 for i = 1:trials
-    fprintf('%s: (delta = %d)\n',files{i,1},delta(i));
+    fprintf('%s: (delta = %d) (x = %d) \n',files{i,1},delta(i),...
+        abs(x_center(i)-x_induced(i)));
     [dd(:,:,i), aa(:,:,i), bb(:,:,i), T(:,i)]   = CompareRF(files{i,1},...
         files{i,2}, t_spike(i), x_induced(i), WINDOW);
 end
@@ -78,6 +80,7 @@ switch lower(mode)
         % plots all the delta curves in separate windows
         for i = 1:size(dd,3)
             figure
+            subplot(3,1,1)
             plot(t,dd(:,x_induced(i),i));
             title(files{i,1})
         end
@@ -141,7 +144,7 @@ subplot(3,3,1)
 ind     = ind_surround;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectcentralneighbor(dd(:,:,ind),x_induced(ind),x_center(ind));
-plotcomparison(t, black, blue, {'surr','peak'},SE);
+feval(PLOTFUN,t, {black, blue} , {'surr','peak'},SE);
 title('LTP/LTD');
 ylabel('Condition Surround');
 
@@ -149,77 +152,101 @@ subplot(3,3,2)
 ind     = ind_surround & ind_ltp;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectcentralneighbor(dd(:,:,ind),x_induced(ind),x_center(ind));
-plotcomparison(t, black, blue, {'surr','peak'},SE);
+feval(PLOTFUN,t, {black, blue}, {'surr','peak'},SE);
 title('LTP');
 
 subplot(3,3,3)
 ind     = ind_surround & ind_ltd;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectcentralneighbor(dd(:,:,ind),x_induced(ind),x_center(ind));
-plotcomparison(t, black, blue, {'surr','peak'},SE);
+feval(PLOTFUN,t, {black, blue}, {'surr','peak'},SE);
 title('LTD');
 
 subplot(3,3,4)
 ind     = ind_center;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectneighbors(dd(:,:,ind),x_induced(ind));
-plotcomparison(t, black, blue, {'peak','surr'},SE);
+feval(PLOTFUN,t, {black, blue}, {'peak','surr'},SE);
 ylabel('Condition Center');
 
 subplot(3,3,5)
 ind     = ind_center & ind_ltp;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectneighbors(dd(:,:,ind),x_induced(ind));
-plotcomparison(t, black, blue, {'peak','surr'},SE);
+feval(PLOTFUN,t, {black, blue}, {'peak','surr'},SE);
 
 subplot(3,3,6)
 ind     = ind_center & ind_ltd;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectneighbors(dd(:,:,ind),x_induced(ind));
-plotcomparison(t, black, blue, {'peak','surr'},SE);
+feval(PLOTFUN,t, {black, blue}, {'peak','surr'},SE);
 
 subplot(3,3,7)
 black   = select(dd,x_induced);
 blue    = selectneighbors(dd,x_induced);
-plotcomparison(t, black, blue, {'cond','uncond'},SE);
+feval(PLOTFUN,t, {black, blue}, {'cond','uncond'},SE);
 ylabel('All locations');
 
 subplot(3,3,8)
 ind     = ind_ltp;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectneighbors(dd(:,:,ind),x_induced(ind));
-plotcomparison(t, black, blue, {'cond','uncond'},SE);
+feval(PLOTFUN,t, {black, blue}, {'cond','uncond'},SE);
 xlabel('Time From Spike (ms)')
 
 subplot(3,3,9)
 ind     = ind_ltd;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectneighbors(dd(:,:,ind),x_induced(ind));
-plotcomparison(t, black, blue, {'cond','uncond'},SE);
+feval(PLOTFUN,t, {black, blue}, {'cond','uncond'},SE);
 
 end
 
-function [] = plotcomparison(t, tr1, tr2, legendary, SE)
+function [] = plotbar(t, traces, legendary, SE)
+% plots bar graphs with CI
+% integrate over these windows:
+ncond   = length(traces);
+LTP_WIN = -30;
+LTD_WIN = 80;
+for i = 1:ncond
+    [ltp_m(i), ltp_ci(i), ltp_p(i)] = integrate(traces{i},t<=0 & t>=LTP_WIN);
+    [ltd_m(i), ltd_ci(i), ltd_p(i)] = integrate(traces{i},t>=0 & t<=LTD_WIN);
+end
+h   = whiskerbar(1:2,[ltp_m; ltd_m],[ltp_ci; ltd_ci]);
+axis tight
+set(gca,'XTickLabel',{'dt<0','dt>0'});
+
+function [m, ci, p] = integrate(data, index)
+A   = data(index,:);
+A   = A(:);
+m   = mean(A);
+ci  = std(A)/sqrt(length(A));
+[h,p]  = ttest(A);
+
+function [] = plotcomparison(t, traces, legendary, SE)
 % plots two traces with a legend. If SE > 0, plots the standard error * SE
 % of the second trace
-rf1     = mean(tr1,2);
-rf2     = mean(tr2,2);
-h       = plot(t, rf1, 'k', t, rf2, 'b');
-mx      = max(max(abs([rf1 rf2])));
-if SE > 0
-%    rf1_err = std(tr1,[],2) ./ sqrt(size(tr1,2)) .* SE;
-    rf2_err = std(tr2,[],2) ./ sqrt(size(tr2,2)) .* SE;
-    hold on
-%    hh      = plot(t, rf1 + rf1_err, 'k:', t, rf1 - rf1_err, 'k:');
-    hh      = plot(t, rf2 + rf2_err, 'b:', t, rf2 - rf2_err, 'b:');
-    mx      = max(max(abs([rf1, rf2 + rf2_err, rf2 -rf2_err])));
+trcolors    = {'k','b','r','g'};
+ncond       = length(traces);
+for i = 1:ncond
+    tr  = traces{i};
+    rf  = mean(tr,2);
+    h(i)    = plot(t, rf, trcolors{i});
+    if SE(i) > 0
+        rf_err  = std(tr,[],2) ./ sqrt(size(tr,2)) .* SE(i);
+        hold on
+        style   = [trcolors{i} ':'];
+        hh      = plot(t, rf + rf_err, style, t, rf - rf_err, style);
+    end
 end
 legend(h,legendary{:});
 legend boxoff
+
 axis   tight
+mx    = max(abs(get(gca,'ylim')));
 set(gca,'Box','On','YLim',[-mx mx]);
 vline(0),hline(0)
-text(t(size(rf1,1))*.4,mx*.6,sprintf('(n = %d)',size(tr1,2))); 
+text(t(size(rf,1))*.4,mx*.6,sprintf('(n = %d)',size(traces{1},2))); 
 
 function out = select(data, columns)
 % select a set of columns from a group of experiments
@@ -234,9 +261,13 @@ valcols = 1:size(data,2);
 for i = 1:length(columns)
     nind             = columns(i) + [-1 1];
     nind             = intersect(nind, valcols);
-    for j = nind
-        out          = cat(2,out,data(:,j,i));
-    end
+    % average first:
+    d                = mean(data(:,nind,i),2);
+    out              = cat(2,out,d);
+    % or average later?
+%     for j = nind
+%         out          = cat(2,out,data(:,j,i));
+%     end
 end
 
 function out = selectcentralneighbor(data, columns, centers)
