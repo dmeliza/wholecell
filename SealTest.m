@@ -138,7 +138,8 @@ InitDAQ(5000);
 wc.control.amplifier = CreateChannel(wc.ai, 0, {'ChannelName','Units'}, {'Im','nA'});
 wc.control.telegraph.gain = 2;
 CreateChannel(wc.ai, wc.control.telegraph.gain);
-out = CreateChannel(wc.ao, 0, {'ChannelName','Units','UnitsRange'},{'Vcommand', 'mV', [-200 200]}); % 20 mV/V
+wc.control.command = CreateChannel(wc.ao, 0,...
+    {'ChannelName','Units','UnitsRange'},{'Vcommand', 'mV', [-200 200]}); % 20 mV/V
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function setupSweep(fcn)
@@ -146,13 +147,13 @@ function setupSweep(fcn)
 % samples and time rather too often.
 global wc
 [start, finish, sweeplen] = pulseTimes;
-wc.command = zeros(sweeplen,1);
-wc.command(start:finish,:) = wc.sealtest.pulse;
+wc.control.pulse = zeros(sweeplen,1);
+wc.control.pulse(start:finish,:) = wc.sealtest.pulse;
 set(wc.ai,'SamplesPerTrigger',inf);
 set(wc.ao,'SamplesOutputAction',{'SweepAcquired',me}) % calls SweepAcquired m-file, which deals with data
-set(wc.ao,'SamplesOutputActionCount',length(wc.command)+20)  % some padding
+set(wc.ao,'SamplesOutputActionCount',length(wc.control.pulse)+20)  % some padding
 set([wc.ai wc.ao],'StopAction','daqaction')
-putdata(wc.ao, wc.command);
+putdata(wc.ao, wc.control.pulse);
 set(wc.ao,'RepeatOutput',inf);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -187,8 +188,7 @@ else
     plot(time, data, 'Parent', wc.sealtest.handles.axes);
     switch num2str(find(wc.sealtest.scaling))
     case '1'
-        set(wc.sealtest.handles.axes,'DataAspectRatioMode','auto');
-        set(wc.sealtest.handles.axes,'YLimMode','auto');
+        set(wc.sealtest.handles.axes,{'YLimMode','XLimMode'},{'auto','auto'});
     case '2'
         set(wc.sealtest.handles.axes,'YLim',[-5 5]);
     case '3'
@@ -196,7 +196,7 @@ else
     case '4'
         set(wc.sealtest.handles.axes,'YLim',[-1 1]);
     otherwise
-        set(wc.sealtest.handles.axes,'YLimMode','manual');
+        set(wc.sealtest.handles.axes,{'YLimMode','XLimMode'},{'manual','manual'});
     end
 end
 
@@ -227,5 +227,3 @@ end
 if (Ii ~= 0)
     Ri = Vpulse./Ii;
 end
-    
-

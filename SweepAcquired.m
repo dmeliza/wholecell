@@ -28,7 +28,7 @@ function varargout = SweepAcquired(obj, event, callback)
 % $Id$
 global wc
 
-samples = length(wc.command);
+samples = length(wc.control.pulse);
 s = get(wc.ai,'SamplesAvailable');
 if (s < samples)
     samples = s;
@@ -45,11 +45,9 @@ if (isfield(wc.control.telegraph,'gain'))
     gainChannel = wc.control.telegraph.gain;
     gainVoltage = mean(data(:,gainChannel));
     gain = gain(gainVoltage);
-else
-    gain = 1;
+    ir = get(wc.control.amplifier, 'SensorRange');
+    set(wc.control.amplifier,'UnitsRange',ir ./ gain);
 end
-ir = get(wc.control.amplifier, 'SensorRange');
-set(wc.control.amplifier,'UnitsRange',ir ./ gain);
 
 if (isfield(wc.control.telegraph,'mode'))
     modeChannel = wc.control.telegraph.mode;

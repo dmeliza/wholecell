@@ -107,5 +107,5 @@ global wc
     set(c, 'ChannelName', [wc.telegraphsetup.lineName ' telegraph']);
     range = [-10 10];
     set(c, {'InputRange','SensorRange','UnitsRange'}, {range, range, range});
-    sf = sprintf('wc.control.telegraph.%s=channelIndex;',wc.telegraphsetup.lineName);
+    sf = sprintf('wc.control.telegraph.%s=c.Index;',wc.telegraphsetup.lineName);
     eval(sf,'disp(sf)');

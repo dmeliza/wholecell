@@ -3,7 +3,7 @@ function varargout = WholeCell(varargin)
 %    FIG = WHOLECELL launch WholeCell GUI.
 %    WHOLECELL('callback_name', ...) invoke the named callback.
 
-% Last Modified by GUIDE v2.0 26-Mar-2003 11:13:36
+% Last Modified by GUIDE v2.0 27-Mar-2003 12:01:57
 
 global wc
 
@@ -58,9 +58,17 @@ case 'ao_edit_callback'
         updateChannels;
     end
     
+case 'amplifier_callback'
+    channel = get(wc.wholecell.handles.amplifier,'Value');
+    if (channel > 0)
+        wc.control.amplifier = wc.ai.Channel(channel);
+    end
     
 case 'seal_test_callback'
     SealTest('init');
+    
+case 'wcdump_callback';
+    keyboard;
     
 case 'close_callback'
     clear wc;
@@ -110,6 +118,14 @@ for i=1:size(c,1);
     cs{i} = sprintf('%i: %s (%s)', c{i,1}, c{i,2}, c{i,3});
 end
 set(wc.wholecell.handles.ai_channels,'String',cs);
+% amplifier selection
+selected = get(wc.wholecell.handles.amplifier,'Value');
+if (length(cs) > 0)
+    set(wc.wholecell.handles.amplifier,'String',cs);
+    set(wc.wholecell.handles.amplifier,'Value',selected);
+    wc.control.amplifier = wc.ai.Channel(selected);
+end
+
 % output
 cs = '';
 c = get(wc.ao.Channel,{'HwChannel','ChannelName', 'Units'});
@@ -232,3 +248,15 @@ disp('record Callback not implemented yet.')
 function varargout = stop_Callback(h, eventdata, handles, varargin)
 % Stub for Callback of the uicontrol handles.stop.
 disp('stop Callback not implemented yet.')
+
+
+% --------------------------------------------------------------------
+function varargout = amplifier_Callback(h, eventdata, handles, varargin)
+% Stub for Callback of the uicontrol handles.amplifier.
+disp('amplifier Callback not implemented yet.')
+
+
+% --------------------------------------------------------------------
+function varargout = wcdump_Callback(h, eventdata, handles, varargin)
+% Stub for Callback of the uicontrol handles.wcdump.
+disp('wcdump Callback not implemented yet.')
