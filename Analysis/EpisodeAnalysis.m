@@ -47,7 +47,8 @@ case 'trace_click_callback'
     v = GetUIParam(me,'select_button','Value');
     if (v > 0)
         trace = gcbo;
-        % do something
+        traces = GetUIParam(me,'trace_list','UserData');
+        highlightTrace(find(traces==trace));
     else
         % could replace this with a direct call, but we'll leave it flexible for now
         handler = GetUIParam(me,'trace_axes','ButtonDownFcn');
@@ -62,6 +63,14 @@ case 'mark_click_callback'
         handler = GetUIParam(me,'trace_axes','ButtonDownFcn');
         eval(handler);
     end
+
+case 'stats_click_callback'
+    % figure out the index of the patch clicked, then highlight
+    patch = gcbo;
+    t = get(patch,'XData');
+    abstime = GetUIParam(me,'psp_traces','UserData');
+    traceindex = find(abstime==t);
+    highlightTrace(traceindex);
     
 case 'load_traces_callback'
     % loads traces from a .mat file and stores them in the figure
@@ -204,6 +213,9 @@ case 'save_analysis_callback'
     
 case 'close_callback'
     delete(gcbf);
+
+otherwise
+    disp([action ' not supported']);
     
 end
 
@@ -374,6 +386,7 @@ function [pspdata, srdata, irdata, abstime] = updateStats()
 d = GetUIParam(me,'filename','UserData');
 times = getTimes;
 [data, abstime] = getData;
+tracehandles = GetUIParam(me, 'trace_list', 'UserData');
 dt = 1 / d.info.t_rate;
 w = warning('off');
 pspdata = ComputeSlope(data, [times.pspbs times.pspbe], times.pspm, dt);
@@ -383,16 +396,15 @@ warning(w);
 % plot it
 a = GetUIHandle(me,'psp_axes');
 clearAxes(a);
-ph = plot(abstime, pspdata,'bo');
-ylabel('PSP Slope');
-set(ph, 'ButtonDownFcn',[me '(''stats_click_callback'')']);
+ph = scatter(abstime, pspdata);
+ylabel('PSP Slope (mV/s)');
+
 a = GetUIHandle(me,'resist_axes');
 clearAxes(a);
-sh = plot(abstime, srdata, 'bo');
-set(sh, 'ButtonDownFcn',[me '(''stats_click_callback'')']);
-ih = plot(abstime, irdata,'b*');
-set(ih, 'ButtonDownFcn',[me '(''stats_click_callback'')']);
-xlabel('Time (min)'),ylabel('R (M\ohm');
+sh = scatter(abstime, srdata);
+ih = scatter(abstime, irdata,'*');
+set([ph ih sh], 'ButtonDownFcn',[me '(''stats_click_callback'')'],'EdgeColor','black');
+xlabel('Time (min)'),ylabel('R (M\Omega)');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function clearAxes(axes_handle)
@@ -482,61 +494,25 @@ end
 data = data';
 abstime = GetUIParam(me,'trace_axes','UserData');
 
-
-% --------------------------------------------------------------------
-function varargout = computeStats_Callback(h, eventdata, handles, varargin)
-% Stub for Callback of the uicontrol handles.computeStats.
-if (length(handles.filename) <= 0)
-    setStatus('No ABF file loaded',handles);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function highlightTrace(traceindex)
+% this function changes the trace's state from normal to highlighted
+% in four places: (the trace list), the trace axes, the psp statistics,
+% and the (resistance stats)
+if isempty(traceindex)
     return;
 end
-times = getTimes(handles);
-if (~(times.ePSPBaseline < times.endPSP & times.eResistBaseline < times.endSeries & times.eResistBaseline < times.endInput))
-    setStatus('Invalid time points',handles);
-    return; 
+tracehandles = GetUIParam(me, 'trace_list', 'UserData');
+trace = tracehandles(traceindex);
+currentcolor = get(trace,'UserData');
+if (strcmp(currentcolor,'red'))
+    newcolor = 'black';
+else
+    newcolor = 'red';
 end
-stats = computeStats(handles);
-dispStats(handles, stats);
-
-%---------------------------------------------------------------------
-% Stub for Callback of the uicontrol handles.saveStats.
-function varargout = saveStats_Callback(h, eventdata, handles, varargin)
-[filename path] = uiputfile('*.csv');
-[pathstr,baseName,ext,versn] = fileparts([path filename]);
-stats = computeStats(handles);
-exportStats(stats,[pathstr '\' baseName]);
-setStatus(['Statistics saved in ' pathstr '\' baseName '.csv'], handles);
-
-%----------------------------------------------------------------------
-% my functions
-
-% computes the statistics from the traces
-% note: inter-trace interval is hard-coded
-function stats = computeStats(handles)
-stats = getTimeCourse(handles.traces,getTimes(handles));
-stats.binFactor = str2double(get(handles.binFactor,'String'));
-timeDelta = 5 * stats.binFactor;
-stats.time = 1:timeDelta:(timeDelta * length(stats.psp));
-
-
-
-% Displays the statistics
-function dispStats(handles, stats)
-axes(handles.pspAxes);
-timeDelta = 5 * stats.binFactor;
-stats.time = 1:timeDelta:(timeDelta * length(stats.psp));
-scatter(stats.time,stats.psp);
-ylabel('PSP Slope (mV/ms)');
-yrange = get(handles.pspAxes,'YLim');
-set(handles.pspAxes,'YLim',[0 yrange(2)]);
-axes(handles.resistAxes);
-scatter(stats.time,stats.series);
-hold on;
-ylabel('Resistance (mohm)');
-scatter(stats.time,stats.ir,10,'filled');
-xlabel('Time (s)');
-hold off;
-showSummary(stats, handles);
+set(trace,'Color',newcolor,'UserData',newcolor);
+psp_patches = GetUIParam(me, 'psp_axes', 'Children');
+set(psp_patches(traceindex),'EdgeColor',newcolor,'UserData',newcolor);
 
 % Shows summary information
 function showSummary(stats, handles)
@@ -552,10 +528,4 @@ x = get(handles.resistAxes, 'XLim');
 t = sprintf('IR: %2.4f +/- %2.2f %%', stats.irAvg, (stats.irStd / stats.irAvg * 100));
 text((x(2) - x(1)) * 0.8, (y(2) -  y(1)) * 0.8 + y(1), t);
 
-% Clears the statistics window
-function clearStats(handles)
-axes(handles.pspAxes);
-cla;
-axes(handles.resistAxes);
-cla;
 
