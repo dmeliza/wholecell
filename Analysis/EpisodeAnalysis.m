@@ -152,7 +152,13 @@ case 'xslider_callback'
 case 'adjust_baseline_callback'
     % Adjusts the baseline of the loaded traces using values in
     % adjust_baseline.UserData
-    adjustBaseline(GetUIParam(me,'adjust_baseline','UserData'));
+    % adjustBaseline(GetUIParam(me,'adjust_baseline','UserData'));
+    times = getTimes;
+    if times.pspbs > 0 & times.pspbe > times.pspbs
+        adjustBaseline([times.pspbs, times.pspbe]);
+    else
+        adjustBaseline(GetUIParam(me,'adjust_baseline','UserData'));
+    end
     
 case 'set_baseline_limits_callback'
     lim = GetUIParam(me,'adjust_baseline','UserData');
@@ -279,8 +285,16 @@ if (isstruct(d))
     smoothfactor = GetUIParam(me,'smooth_factor','StringVal');
     lpfactor = GetUIParam(me,'lp_factor','StringVal');
     
-    data = smoothTraces(d.data, smoothfactor);
-    [data, abstime] = binTraces(data, d.abstime, binfactor);
+    if (lasttrace > binfactor & lasttrace < length(d.abstime))
+        data = d.data(:,1:lasttrace);
+        abstime = d.abstime(:,1:lasttrace);
+    else
+        data = d.data;
+        abstime = d.abstime;
+        SetUIParam(me,'last_trace','StringVal',length(d.abstime));
+    end
+    data = smoothTraces(data, smoothfactor);
+    [data, abstime] = binTraces(data, abstime, binfactor);
     data = filterTraces(data, lpfactor);
     
     plotTraces(data, d.time, d.info, abstime);
