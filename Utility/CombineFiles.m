@@ -89,5 +89,5 @@ case 'r0'               % abstime is appended, and data is catted, if dimensions
 case 'r1'               
     resp = [resp{:}];   % structure arrays are appended to each other, no checks
     [N P]= size(resp(1).data);
-    str  = sprintf('[r1: %d x %d x %d (%s)]', N, P, length(resp), resp(1).y_unit);
+    str  = sprintf('[r1: %d x %d x %d (%s)]', N, P, length(resp), resp(1).y_unit{1});
 end
