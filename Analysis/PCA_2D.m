@@ -71,7 +71,7 @@ for i = 1:REPEATS
         rows = FRAMES;
         u   = U;        
     elseif rows < FRAMES
-        u     = U(1:rows,:)              % truncated response
+        u     = U(1:rows,:);             % truncated response
     else
         u   = U;
     end
