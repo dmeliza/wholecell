@@ -122,7 +122,8 @@ FILTER_ELEC     = 200;      % lowpass cutoff for electrical
 FILTER_VIS      = 100;      % lowpass cutoff for finding peak of response
 FILTER_ORDER    = 3;
 THRESH_ONSET    = 3;        % X standard deviations away from mean defines onset
-LENGTH_EVENT    = 0.040;    % events must be at least 20 ms long
+LENGTH_VIS      = 0.040;    % events must be at least 20 ms long
+LENGTH_ELEC     = 0.010;    % electrical thresh can be lower
 WINDOW_BASELN   = 0.05;     % length of the baseline to use in computing the response
 WINDOW_PEAK     = 0.001;    % amount of time on either side of the peak to use
 ARTIFACT_WIDTH  = 0.0015;   % width of the artifact to cut out for certain analyses
@@ -195,10 +196,13 @@ for ifile = 1:length(dd)
     % electrical stimuli we cut out the artifact and filter at ~500 Hz,
     % and for visual stimuli filter at around 50
     if ~iselectrical
-        fp          = FILTER_VIS;
+        fp              = FILTER_VIS;
+        LENGTH_EVENT    = LENGTH_VIS;
         filtavg     = filterresponse(avg,fp,FILTER_ORDER,R.t_rate);
     else
-        fp          = FILTER_ELEC;
+        fp              = FILTER_ELEC;
+        THRESH_ONSET    = THRESH_ONSET * 0.66; % this may be a bad idea
+        LENGTH_EVENT    = LENGTH_ELEC;
         sel_artifact= time>-ARTIFACT_WIDTH & time < ARTIFACT_WIDTH;
         in          = avg;
         in(sel_artifact)    = deal(mu);  % this isn't perfect but it's easy
