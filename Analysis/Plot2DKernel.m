@@ -36,7 +36,7 @@ subplot(1,3,1)
     colormap(gray)    
 subplot(1,3,2)
     k = mean(hl_est(1:3,:),1);
-    k = reshape(k,stim_dim(1),stim_dim(2))';
+    k = reshape(k,stim_dim(1),stim_dim(2));
     mx = max(max(abs(k)));
     imagesc(k,[-mx mx]);
     set(gca,'XTick',[],'YTick',[])
