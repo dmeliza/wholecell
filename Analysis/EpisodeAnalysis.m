@@ -18,13 +18,7 @@ function [] = EpisodeAnalysis()
 % PSP immediately following the stimulus artifact, and a "slope" function specified,
 % which returns the slope of the response between two time offsets.
 %
-% The implementation of this is somewhat complicated because data has to be passed back
-% and forth between the parameter figures and the main figure.  There is a single
-% structure which accomplishes this, as it contains the handle of the parent figure and
-% the child figures.  The child figure, which is managed by the EpisodeParameter mfile
-% accesses the authoritative structure array which is stored in the appdata of the main
-% figure.
-%
+% 
 % A second major change is designed to speed up the display of data.  Normally the user
 % will be presented by an average trace, while analysis functions will operate on single
 % sweeps.  The final results will be binned at whatever rate the user specifies.  Binning
@@ -52,14 +46,14 @@ BG = [1 1 1];
 f = OpenFigure(me,'position',[4 433 750 519],...
     'color',BG,'menubar','none');
 movegui(f,'northwest')
-set(f,'WindowButtonDownFcn',cb.clickaxes)
+set(f,'WindowButtonDownFcn',cb.clickaxes,'KeyPressFcn',cb.keypress)
 % Frame 0: File selection
 h = uicontrol(gcf,'style','frame','backgroundcolor',BG,'position',[10 430 200 80]);
 h = InitUIControl(me,'files','style','list',...
     'Callback',cb.pickfiles,'Max',2,...
     'position',[20 440 180 60],'backgroundcolor',BG);
 % Frame 0.5: Trace information
-h = uicontrol(gcf,'style','frame','backgroundcolor',BG,'position',[255 430 480 80]);
+% h = uicontrol(gcf,'style','frame','backgroundcolor',BG,'position',[255 430 480 80]);
 % Frame 1: Trace selection
 h = uicontrol(gcf, 'style', 'frame','backgroundcolor',BG,'position',[10 155 200 270]);
 h = uicontrol(gcf, 'style','text','backgroundcolor',BG,'position',[25 395 160 20],...
@@ -80,13 +74,27 @@ m = uicontextmenu;
 h = uimenu(m,'Label','Delete','Callback',cb.pickparams);
 h = InitUIControl(me, 'parameters', 'style','list',...
     'Callback',cb.pickparams,'UIContextMenu',m,...
-    'position', [20 30 180 90],'backgroundcolor',BG);
-%h = InitUIControl(me, 'addparam', '
-% Axes:
-h = InitUIObject(me, 'response', 'axes', 'units','pixels','position',[255 60 480 360],...
+    'position', [20 80 180 40],'backgroundcolor',BG);
+h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[20 50 40 20],...
+    'horizontalalignment','left','String','Name:');
+h = InitUIControl(me,'parametername','style','edit','Callback',cb.editparameter,...
+    'position', [100 55 100 20],'backgroundcolor',BG,'horizontalalignment','right',...
+    'enable','off');
+h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[20 30 40 20],...
+    'horizontalalignment','left','String','Action:');
+t = {'none','amplitude','difference','slope'};
+h = InitUIControl(me,'parameteraction','style','popup','Callback',cb.editparameter,...
+    'position', [100 35 100 20],'backgroundcolor',BG,'String',t,'enable','off');
+%h = InitUIControl(me, '
+% Trace Axes:
+h = InitUIObject(me, 'response', 'axes', 'units','pixels','position',[255 190 480 310],...
     'nextplot','replacechildren','Box','On');
 xlabel('Time (s)')
 ylabel('Response')
+% Parameter axes:
+h = InitUIObject(me, 'timecourse','axes','units','pixels','position',[255 60 480 90],...
+     'nextplot','replacechildren','Box','On');
+xlabel('Time (m)')
 % Status bar
 h = InitUIControl(me, 'status', 'style', 'text', 'backgroundcolor', BG,...
     'position', [255 0 480 20],'String','(status)');
@@ -98,14 +106,14 @@ m    = uimenu(file, 'Label', '&Save Parameters...', 'Callback', cb.menu,'tag','m
 m    = uimenu(file, 'Label', '&Export Results...', 'Callback', cb.menu,'tag','m_export');
 m    = uimenu(file, 'Label', 'E&xit', 'Callback', cb.menu, 'Separator', 'On','tag','m_exit');
 
-% par  = uimenu(gcf, 'Label', '&Parameters');
-% m    = uimenu(par, 'Label', '
-
 op   = uimenu(gcf,'Label','&Operations');
 m    = uimenu(op, 'Label', 'Remove &Baseline', 'Callback', cb.menu, 'tag', 'm_baseline');
 m    = uimenu(op, 'Label', '&Align Episodes', 'Callback', cb.menu, 'tag', 'm_align');
-m    = uimenu(op, 'Label', 'Re&scale', 'Callback', cb.menu, 'tag', 'm_rescale');
+m    = uimenu(op, 'Label', 'Re&scale...', 'Callback', cb.menu, 'tag', 'm_rescale');
 m    = uimenu(op, 'Label', '&Crop', 'Callback', cb.menu, 'tag', 'm_crop');
+m    = uimenu(op, 'Label', '&Delete', 'Callback', cb.menu, 'tag', 'm_delete');
+m    = uimenu(op, 'Label', '&Filter...', 'Callback', cb.menu, 'tag', 'm_filter');
+m    = uimenu(op, 'Label', '&Trace Properties...', 'Callback', cb.menu, 'tag', 'm_traceprop');
 
 % toolbar:
 
@@ -119,10 +127,11 @@ u   = InitUIObject(me,'m_close','uipushtool',p);
 p   = cell2struct({cb.menu,'Export Response',z.savedoc,'m_export'},f,2);
 u   = InitUIObject(me,'m_export','uipushtool',p);
 
-
+p   = cell2struct({cb.menu,'Move Object',z.select,'moveobject'},f,2);
+u   = InitUIObject(me,'moveobject','uitoggletool',p);
+set(u,'Separator','On','State','On');
 p   = cell2struct({cb.menu,'Mouse Zoom',z.zoom,'mousezoom'},f,2);
 u   = InitUIObject(me,'mousezoom','uitoggletool',p);
-set(u,'Separator','On');
 p   = cell2struct({cb.menu,'Reset Axes',z.fullview,'resetaxes'},f,2);
 u   = InitUIObject(me,'resetaxes','uipushtool',p);
 p   = cell2struct({cb.menu,'Select Parameter Window',z.mousezoom,'paramselect'},f,2);
@@ -135,39 +144,42 @@ p   = cell2struct({cb.menu,'Align Episodes',z.zoominx,'m_align'},f,2);
 u   = InitUIObject(me,'m_baseline','uipushtool',p);
 p   = cell2struct({cb.menu,'Rescale',z.zoomouty,'m_rescale'},f,2);
 u   = InitUIObject(me,'m_rescale','uipushtool',p);
+p   = cell2struct({cb.menu,'Filter Traces',z.arraysigs,'m_filter'},f,2);
+u   = InitUIObject(me,'m_filter','uipushtool',p);
+p   = cell2struct({cb.menu,'Trace Properties',z.lineprop,'m_traceprop'},f,2);
+u   = InitUIObject(me,'m_traceprop','uipushtool',p);
 
 function [] = initValues()
 % Initializes some app data so that calls to getappdata don't break
 setappdata(gcf,'dir',pwd)       % current directory
 setappdata(gcf,'r0',[])         % response file
 setappdata(gcf,'parameters',[]) % parameter data
+setappdata(gcf,'ds',[]);        % dataselector
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Callbacks:
 
 function [] = pickfiles(obj, event)
 % this requires a call to updateDisplay
-updateDisplay;
+updateFields
+plotTraces
 
 function [] = picktraces(obj, event)
+updateDS
 plotTraces
 
 function [] = selectaverage(obj, event)
 plotTraces
 
 function [] = pickchannels(obj,event)
+updateDS
 plotTraces
 
-function [] = pickparams(obj, event)
+function [] = pickparams(obj,event)
 button = get(gcbf,'selectiontype');
 switch lower(button)
 case 'open'
-    % re-open the parameter window
-    v       = get(obj,'Value');
-    p       = getappdata(gcbf,'parameters');
-    p(v)    = EpisodeParameter('init',p(v));
-    setappdata(gcbf,'parameters',p);
-    updateParameters(p(v));
+    updateParameters
 case 'alt'
     % right-click and selected delete
     obj     = findobj(gcbf,'tag','parameters');
@@ -181,7 +193,42 @@ case 'alt'
     else
         set(obj,'String',{},'Value',1);
     end
+    updateParameters
 end
+
+function [] = editparameter(obj, event)
+% updates the parameter appdata with values in fields
+params  = getappdata(gcf,'parameters');
+if isempty(params)
+    return
+end
+name    = GetUIParam(me,'parametername','String');
+c       = GetUIParam(me,'parameteraction','String');
+v       = GetUIParam(me,'parameteraction','Value');
+action  = c{v};
+names   = GetUIParam(me,'parameters','String');
+ind     = GetUIParam(me,'parameters','Value');
+params(ind).name = name;
+params(ind).action = action;
+names{ind} = name;
+setappdata(gcf,'parameters',params);
+SetUIParam(me,'parameters','String',names);
+
+function [] = keypress(obj, event)
+% handles keypress activity.  I want to capture ctrl-a and maybe some other things
+key = get(obj,'currentkey');
+mod = get(obj,'currentmodifier');
+if isempty(key)
+    return
+end
+if strcmpi(mod{1},'control')
+    if strcmpi(key,'a')
+        c   = GetUIParam(me,'traces','String');
+        SetUIParam(me,'traces','Value',1:length(c));
+        picktraces([],[])
+    end
+end
+
 
 function [] = clickaxes(obj, event)
 % Handles rbbox operations in the axes; the action depends on the state of
@@ -189,6 +236,7 @@ function [] = clickaxes(obj, event)
 % Selections in the axes have the effect of opening a new parameter with
 % the window set to the x limits of the user's selection.  Right clicks and
 % small windows have no effect
+s0  = GetUIParam(me,'moveobject','State');
 s1  = GetUIParam(me,'mousezoom','State');
 s2  = GetUIParam(me,'paramselect','State');
 if strcmpi(s1,'on')
@@ -219,7 +267,8 @@ case 'm_resp'
         [r0 str] = LoadResponseFile(fullfile(pn,fn));
         if isstruct(r0)
             storeData(r0, fn);
-            updateDisplay;
+            updateFields;
+            plotTraces;
         end
         setappdata(gcf,'dir',pn);
         SetUIparam(me,'status','String',str);
@@ -235,16 +284,21 @@ case 'm_close'
     case 1
         c   = {};
         r   = [];
+        ds  = [];
     otherwise
-        ind = setdiff(len,v);
+        ind = setdiff(1:len,v);
         r   = getappdata(gcf,'r0');
+        ds  = getappdata(gcf,'ds');
         c   = c(ind);
         r   = r(ind);
+        ds  = ds(ind);
     end
     SetUIParam(me,'files','Value',1);
     SetUIParam(me,'files','String',c);
     setappdata(gcf,'r0',r);
-    updateDisplay;
+    setappdata(gcf,'ds',ds);
+    updateFields;
+    plotTraces;
     
 case 'm_save'
     % save parameters
@@ -310,12 +364,15 @@ case 'm_export'
         
 case 'm_baseline'
     % adjust baseline (modifies stored r0), subtracting out DC of each trace
+    % operates on all traces and signals in the selected files
     r0      = getappdata(gcf,'r0');
+    fls     = GetUIParam(me,'files','Value');
     if isstruct(r0)
-        for i = 1:length(r0)
-            samp        = size(r0(i).data,1);
-            m           = mean(r0(i).data,1);
-            r0(i).data  = double(r0(i).data) - repmat(m,[samp,1,1]);
+        for i = 1:length(fls)
+            f           = fls(i);
+            samp        = size(r0(f).data,1);
+            m           = mean(r0(f).data,1);
+            r0(f).data  = double(r0(f).data) - repmat(m,[samp,1,1]);
         end
         setappdata(gcf,'r0',r0);
         plotTraces;
@@ -323,37 +380,92 @@ case 'm_baseline'
     end
 case 'm_crop'
     % removes traces not selected in the trace list
-    r0      = getappdata(gcf,'r0')
-    if isstruct(r0)
-        v   = GetUIParam(me,'traces','Value');
-        r0.data     = r0.data(:,v,:);
-        r0.abstime  = r0.abstime(v);
-        setappdata(gcf,'r0',r0);
-        updateDisplay;
-        SetUIParam(me,'status','String','Episode cropped');
+    % only works if a single file is selected
+    % TODO: add a tool for cropping multiple files
+    fls     = GetUIParam(me,'files','Value');
+    if length(fls) == 1
+        r0      = getappdata(gcf,'r0');
+        if isstruct(r0)
+            v       = GetUIParam(me,'traces','Value');
+            ds      = getappdata(gcf,'ds');
+            r0(fls).data     = r0(fls).data(:,v,:);
+            at               = r0(fls).abstime(v)';
+            r0(fls).abstime  = at;
+            ds(fls).abstime  = at;
+            ds(fls).sweeps   = (1:length(at))';
+            setappdata(gcf,'r0',r0);
+            setappdata(gcf,'ds',ds);
+            updateFields;
+            plotTraces;
+            SetUIParam(me,'status','String','Episode cropped');
+        end
     end
+case 'm_delete'
+    % removes selected traces
+    % only works if a single file is selected
+    % TODO: add a tool for cropping multiple files
+    fls     = GetUIParam(me,'files','Value');
+    if length(fls) == 1
+        r0      = getappdata(gcf,'r0');
+        if isstruct(r0)
+            sel       = GetUIParam(me,'traces','Value');
+            ds        = getappdata(gcf,'ds');
+            v         = setdiff(1:length(ds(fls).abstime),sel)';
+            r0(fls).data     = r0(fls).data(:,v,:);
+            at               = r0(fls).abstime(v)';
+            r0(fls).abstime  = at;
+            ds(fls).abstime  = at;
+            ds(fls).sweeps   = (1:length(at))';
+            setappdata(gcf,'r0',r0);
+            setappdata(gcf,'ds',ds);
+            updateFields;
+            plotTraces;
+            SetUIParam(me,'status','String','Episode cropped');
+        end
+    end   
 case 'resetaxes'
     % resets axes limits
     a   = GetUIHandle(me,'response');
     axis(a,'tight');
-case 'mousezoom'
+    zoom reset;
+case {'mousezoom','paramselect','moveobject'}
     % the state of this button is queried by clickaxes(), but this mode is exclusive
     % with paramselect
-    s  = get(obj,'State');
+    ts  = {'mousezoom','paramselect','moveobject'};
+    s   = get(obj,'State');
+    t   = get(obj,'Tag');
     if strcmpi(s,'on')
-        h   = findobj(gcf,'tag','paramselect');
-        if ~isempty(h)
-            set(h,'State','Off')
+        i   = strmatch(t,ts);
+        ind = setdiff(1:length(ts),i);
+        for i = 1:length(ind)
+            h   = findobj(gcf,'tag',ts{ind(i)});
+            if ~isempty(h)
+                set(h,'State','Off')
+            end
         end
     end
-case 'paramselect'
-    s  = get(obj,'State');
-    if strcmpi(s,'on')
-        h   = findobj(gcf,'tag','mousezoom');
-        if ~isempty(h)
-            set(h,'State','Off')
+case 'm_filter'
+    % pops up a window asking for the cutoff and order of the filter
+    % we run all the selected files through a butterworth
+    a   = inputdlg({'Filter cutoff', 'Filter order'},'Filter Parameters',1,{'1000','3'});
+    if isempty(a)
+        return
+    end
+    lp  = str2num(a{1});
+    od  = str2num(a{2});
+    r0  = getappdata(gcf,'r0');
+    fls = GetUIParam(me,'files','Value');
+    for i = 1:length(fls)
+        f       = fls(i);
+        Fs      = r0(f).t_rate / 2; % max sampling rate
+        if lp < Fs
+            [b a]   = butter(od,lp/Fs);
+            r0(f).data = filtfilt(b, a, double(r0(f).data));
         end
-    end    
+    end
+    setappdata(gcf,'r0',r0)
+    plotTraces
+            
 otherwise
     disp(tag)
 end    
@@ -361,19 +473,35 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Internals:
 
+function ds = getDataSelector(r0)
+% returns a structure that defines the set of data the user wishes to view.
+%   .start  - the absolute time at which the data starts
+%   .abstime - the offsets (in minutes) from the start time of each sweep
+%   .sweeps - an array of indices defining which sweeps to use
+%   .channels - a cell structure of the channel names
+%   .chan   - an array of indices defining which channels to use
+%   .color  - an Nx3 array defining the color to use for each channel (random from hsv)
+cnum = size(r0.data,3);
+if isfield(r0,'channels')
+    c = {r0.channels.ChannelName};
+else
+    c  = cellstr(num2str((1:cnum)'));
+end
+cmap  = jet(50);
+cmap  = cmap(randperm(50),:);
+ds = struct('start',r0.info.start_time,'abstime',r0.abstime',...
+            'sweeps',(1:length(r0.abstime))','channels',{c},...
+            'chan',1,'color',cmap(1:cnum,:));
+
 function [] = createparameter(window)
 % creates a new parameter defined over the time points supplied in the first
 % argument.  The parameter is a structure which is stored in the "parameters"
-% app data field.  An "EpisodeParameter" figure can be opened which displays
-% the arguments of the analysis function and the results of the analysis.  If
-% such a figure is open, the handle is stored in the "paramfigs" app data field,
-% and an update command is sent to each open parameter figure when a new file is loaded
+% app data field.
 dt      = diff(window);
 params  = getappdata(gcbf,'parameters');
-p       = struct('window',window,'name','New Parameter','parent',gcbf,'type','none',...
+p       = struct('window',window,'name','New Parameter','action','none',...
                  'binning',1,'channel',GetUIParam(me,'channels','Value'),...
                  'marks',[dt * 0.3, dt * 0.7]);
-p       = EpisodeParameter('init',p);       % structure includes handle of new figure
 if isempty(params)
     params = p;
 else
@@ -386,7 +514,7 @@ updateParameters
 
 function [] = storeData(r0, fn)
 % Adds the r0 file to the data stored in the figure,
-% adds filename to list
+% adds filename to list and initializes default values of dataselector
 v   = GetUIParam(me,'files','String');
 if iscell(v)
     v   = {v{:},fn};
@@ -397,20 +525,23 @@ else
 end
 SetUIParam(me,'files','String',v);
 r   = getappdata(gcf,'r0');
+ds  = getappdata(gcf,'ds');
+d_new = getDataSelector(r0);
 if isempty(r)
     r   = r0;
+    ds  = d_new;
 else
     r   = cat(1,r,r0);
+    ds  = cat(1,ds,d_new);
 end
 setappdata(gcf, 'r0', r);
+setappdata(gcf, 'ds', ds);
 
 
-function [] = updateDisplay()
-% updates fields in the GUI with new data's properties
-% this is kind of tricky.
-r0  = getappdata(gcf, 'r0');
-len = length(r0);
-switch len
+function [] = updateFields()
+% updates fields in the GUI according to the files selected by the user
+ds  = getappdata(gcf, 'ds');
+switch length(ds)
 case 0
     % no data is loaded, so we need to clear everything
     SetUIParam(me,'traces','String',{});
@@ -418,7 +549,7 @@ case 0
     SetUIParam(me,'channels','String',{});
     SetUIParam(me,'channels','Value',1);
 otherwise
-    % now we have to check to see what the user has selected for display
+    % based on the number of files selected, load values into the fields
     v   = GetUIParam(me,'files','Value');
     switch length(v)
     case 0
@@ -426,95 +557,106 @@ otherwise
         return
     case 1
         % when one file is selected, the user is allowed to pick multiple traces and
-        % channels to display
-        r0  = r0(v);
-        [samp sweep chan] = size(r0.data);
-        % update trace list
-        tr = (1:sweep)';
-        c  = cellstr(num2str(r0.abstime'));
-        SetUIParam(me,'traces','String',c);
-        SetUIParam(me,'traces','Value',tr);
-        % update channel list
-        if isfield(r0,'channels')
-            c = {r0.channels.ChannelName};
-        else
-            c  = cellstr(num2str((1:chan)'));
-        end
-        SetUIParam(me,'channels','String',c);        
+        % channels to display.  Changes are updated in the 'ds' appdata, which means
+        % they persist even if the user changes which file he wants to view
+        ds  = ds(v);
+        SetUIParam(me,'traces','String',cellstr(num2str(ds.abstime)));
+        SetUIParam(me,'traces','Value',ds.sweeps);
+        SetUIParam(me,'channels','String',ds.channels);
+        SetUIParam(me,'channels','Value',ds.chan);
     otherwise
-        % when multiple files are selected, we can either (a) only show average traces
-        % (leaving the trace selection list blank) or (b) allow the user to color-code
-        % traces from each file, and simply interleave the files' abstime values.  (a) is
-        % easier to implement, but (b) may be useful at some point, and could be
-        % switched to using the average trace clickbox
+        % when multiple files are selected, the user is not allowed to select individual
+        % traces or channels; rather, these values are obtained from the ds appdata
         SetUIParam(me,'traces','String',{'Multiple files selected'});
         SetUIParam(me,'traces','Value',1);
         SetUIParam(me,'channels','String',{'Multiple files selected'});
         SetUIParam(me,'channels','Value',1);
-    end
+    end    
 end
-% plot traces (or clear them if no data in r0 field)
-plotTraces;
-% update parameter windows with new data
-updateParameters;
+
+function [] = updateDS()
+% updates the dataselector ('ds') appdata based on what the user has selected
+% in the GUI fields
+d   = getappdata(gcf,'ds');
+if length(d) == 0
+    return
+end
+v   = GetUIParam(me,'files','Value');
+switch length(v)
+case 1
+    tr  = GetUIParam(me,'traces','Value');
+    chn = GetUIParam(me,'channels','Value');
+    d(v).sweeps = tr;
+    d(v).chan   = chn;
+    setappdata(gcf,'ds',d);
+otherwise
+    % actions ignored if multiple files are selected
+end
+
+function ds = getSelected()
+% returns the "active" dataset
+ds  = getappdata(gcf,'ds');
+if length(ds) == 0
+    return
+end
+fls = GetUIParam(me,'files','Value');
+r0  = getappdata(gcf,'r0');
+ds  = ds(fls);
+for i = 1:length(fls)
+    f               = fls(i);
+    ds(i).data      = r0(f).data(:,ds(i).sweeps,ds(i).chan);
+    ds(i).abstime   = r0(f).abstime(ds(i).sweeps);
+    ds(i).time      = r0(f).time;
+    ds(i).units     = r0(f).y_unit;
+end
 
 function [] = plotTraces()
 % replots traces in the main window
-r0  = getappdata(gcf,'r0');
-if ~isempty(r0)
-    % load and clear axes
-    a   = GetUIHandle(me,'response');
-    axes(a);
-    cla
-    hold on
-    c   = cat(1,[0 0 0],get(a, 'ColorOrder'));
-    % figure out what to plot:
-    fls = GetUIParam(me,'files','Value');
-    if length(fls) > 1
-        % if multiple files selected, we plot the average of each r0
-        for i = 1:length(fls)
-            f      = fls(i);
-            d      = mean(r0(f).data(:,:,1),2);
-            p      = plot(r0(f).time, d);
-            set(p,'Color',c(i,:))
+ds  = getSelected;
+a   = GetUIHandle(me,'response');
+axes(a),cla,hold on
+for i = 1:length(ds)
+    avg = GetUIParam(me,'average','Value');
+    for j = 1:size(ds(i).data,3)
+        c   = ds(i).color(ds(i).chan(j),:);
+        if ~avg
+            p   = plot(ds(i).time,ds(i).data(:,:,j));
+            cd  = (c + 1) / 2;
+            set(p,'Color',cd);
         end
-    else
-        % one file selected, so we pick the traces and channels selected by the user
-        r0  = r0(fls);
-        tr  = GetUIParam(me,'traces','Value');
-        chn = GetUIParam(me,'channels','Value');
-        avg = GetUIParam(me,'average','Value');
-        if avg == 0
-            % plot unaveraged traces
-            cd  = (c + 1) / 2;      % whitens the colors
-            for i = 1:length(chn)
-                p = plot(r0.time, r0.data(:,tr,chn(i)));
-                set(p,'Color',cd(i,:),'LineWidth',0.1);
-            end
-        end
-        % plot the averaged traces
-        for i = 1:length(chn)
-            d   = squeeze(mean(r0.data(:,tr,chn(i)),2));
-            p   = plot(r0.time, d);
-            set(p,'Color',c(i,:),'LineWidth',2);
-        end
+        m   = mean(ds(i).data(:,:,j),2);
+        p   = plot(ds(i).time, m);
+        set(p,'Color',c,'LineWidth',2);
     end
 end
 
-function [] = updateParameters(p)
-% calls the 'update' action on the parameter windows, which populates them
-% with nice data
-if nargin == 0
-    p   = getappdata(gcbf,'parameters');
-end
+function [] = updateParameters()
+% Updates display when a new parameter is selected or created
+p   = getappdata(gcbf,'parameters');
+v   = GetUIParam(me,'parameters','Value');
 if ~isempty(p)
-    r0  = getappdata(gcbf,'r0');
-    for i = 1:length(p)
-        h = p(i).handle;
-        r = windowR0(p.window,r0);
-        EpisodeParameter('update',h,r);
+    p   = p(v);     % select active parameter
+    SetUIParam(me,'parametername','String',p.name);
+    SetUIParam(me,'parametername','Enable','On');
+    c   = GetUIParam(me,'parameteraction','String');
+    i   = strmatch(p.action,c);
+    if isempty(i)
+        i = 1;
     end
+    SetUIParam(me,'parameteraction','Value',i);
+    SetUIParam(me,'parameteraction','Enable','On');
+    % calculate things
+    plotParameter(p(v));
+else
+    SetUIParam(me,'parametername','Enable','Off');
+    SetUIParam(me,'parameteraction','Enable','Off');
 end
+
+function [] = plotParameter(param)
+% plots a parameter's time course on the parameter axes
+ds  = getSelected;
+if ~isempty(ds)
+end 
 
 function d = windowR0(window,r0)
 % snips out the relevant bit of the r0 for each parameter
@@ -534,7 +676,8 @@ out = mfilename;
 function out = getCallbacks()
 % returns a structure with function handles to functions in this mfile
 % no introspection in matlab so we have to do this by hand
-fns = {'pickfiles','clickaxes','picktraces','pickchannels','selectaverage','pickparams','menu'};
+fns = {'pickfiles','clickaxes','picktraces','pickchannels',...
+        'editparameter','selectaverage','pickparams','menu','keypress'};
 out = [];
 for i = 1:length(fns)
     sf = sprintf('out.%s = @%s;',fns{i},fns{i});
