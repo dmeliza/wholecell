@@ -39,11 +39,3 @@ case 'filter'
 otherwise
     error(['Action ' action ' is not supported.']);
 end
-
-% error(nargchk(3,4,nargin))
-% if nargin < 4
-%     order   = 3;
-% end
-% Wn          = pass/(Fs/2);
-% [b,a]       = butter(order,Wn,'high');
-% data        = filtfilt(b,a,data);
