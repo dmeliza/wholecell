@@ -52,7 +52,7 @@ if COMPLETE
     rep     = ceil(frames / length(compl));     % minimum # of repeats to meet frames
     param   = repmat(compl,rep,1);
     ind     = randperm(prod(size(param)));      % random indices into parameters
-    param   = param(ind);
+    param   = param(ind)';
 else
     param   = unidrnd(2 * states + 1, frames, 1);
     param   = param - states - 1;
