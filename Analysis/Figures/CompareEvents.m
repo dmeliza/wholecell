@@ -7,13 +7,14 @@ function [d, t] = CompareEvents(pre, post, time, binsize)
 SZ   =  [3.4    5.6];
 SZ1  = [3.4    2];
 SZ2  = [3.4    2.6];
-BS   = 50;               % binrate
+BS   = 61;               % binrate
 THRESH  = 2;          % z-score
 WIN = 1000:8000;        % samples
 SCATTER = 1;
+NORM    = 0;
 xlim    = [-100 600];
 N   = 4;
-mode = 'psth';     % psth, amppsth, meanevent
+mode = 'amppsth';     % psth, amppsth, meanevent
 
 
 if nargin > 3
