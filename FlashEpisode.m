@@ -76,7 +76,7 @@ case {'init','reinit'}
     CGDisplay(action)
     p = defaultParams;
     fig = findobj('tag',[lower(me) '.param']);        % checks if the param window is already
-    if isempty(fig)                              % open
+    if isempty(fig)                                   % open
         fig = ParamFigure(me, p);
     end
     getScope;
@@ -322,8 +322,7 @@ EpisodeStats('plot', abstime, data);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function [] = clearScope()
-a   = getScope;
-axes(a)
+axes(getScope)
 set(gca,'UserData',[])
 cla
 
