@@ -14,7 +14,8 @@ len_traces = size(data,1);
 orig_data = data;
 data = data(window,:); % restrict analysis to a small window
 data_p = diff(data,1,1); % derivatives along each column
-[m_p i_p] = max(abs(data_p),[],1); % find indices of maximum
+%[m_p i_p] = max(abs(data_p),[],1); % find indices of maximum
+[m_p i_p] = max(data_p,[],1);
 
 % this code will break if we try to access values we don't have
 % a more robust (but slower) algorhythm would go through each line
@@ -50,4 +51,4 @@ for j = 1:num_traces
     data(:,j) = orig_data(offset:offset + len_data,j);
 end
 
-time = time(1:length(data));
+time = time(1:length(data)) - time(min(i_p) + window(1));

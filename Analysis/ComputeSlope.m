@@ -1,4 +1,4 @@
-function slope = ComputeSlope(trace, baseline, mark, dt)
+function slope = ComputeSlope(trace, time, baseline, mark)
 %
 %   Computes the slope between two points on a trace.  However, this method
 %   can compute from interval averages or from single points
@@ -12,8 +12,9 @@ function slope = ComputeSlope(trace, baseline, mark, dt)
 %   $Id$
 
 % convert units to indices into trace
-bs = fix(baseline / dt) + 1;
-mk = fix(mark / dt) + 1;
+dt = time(2) - time(1);
+bs = fix((baseline - time(1))/ dt) + 1;
+mk = fix((mark - time(1))/ dt) + 1;
 
 y1 = mean(trace(:,bs),2);
 y2 = mean(trace(:,mk),2);

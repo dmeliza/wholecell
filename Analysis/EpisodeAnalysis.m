@@ -568,11 +568,10 @@ elseif nargin == 2
 else
     [data, abstime, color] = getTraceData;
 end
-dt = 1 / d.info.t_rate;
 w = warning('off');
-pspdata = ComputeSlope(data, [times.pspbs times.pspbe], times.pspm, dt) / 1000;
-srdata = ComputeDiff(data, [times.rbs times.rbe], times.srm, dt);
-irdata = ComputeDiff(data, [times.rbs times.rbe], times.irm, dt);
+pspdata = ComputeSlope(data, d.time, [times.pspbs times.pspbe], times.pspm) / 1000;
+srdata = ComputeDiff(data, d.time, [times.rbs times.rbe], times.srm);
+irdata = ComputeDiff(data, d.time, [times.rbs times.rbe], times.irm);
 switch(lower(d.info.y_unit))
 case 'na'
     srdata = times.curr ./ srdata;
