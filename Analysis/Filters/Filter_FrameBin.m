@@ -29,7 +29,7 @@ case 'filter'
             br      = mean(diff(data(i).timing));       % samples / frame
             data(i).data    = FrameBinData(data(i).data,data(i).timing);
             data(i).t_rate  = fix(Fs/br);               % frames / sec
-            data(i).timing  = 1:length(data(i).data);   % each sample is a frame
+            data(i).timing  = [1:length(data(i).data)]';   % each sample is a frame
         end
         out = data;
     end
