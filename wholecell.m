@@ -3,7 +3,7 @@ function varargout = wholecell(varargin)
 %    FIG = WHOLECELL launch wholecell GUI.
 %    WHOLECELL('callback_name', ...) invoke the named callback.
 
-% Last Modified by GUIDE v2.0 05-Mar-2003 13:26:29
+% Last Modified by GUIDE v2.0 10-Mar-2003 12:49:01
 
 if nargin == 0  % LAUNCH GUI
 
@@ -85,22 +85,40 @@ end
 digitizers = get(handles.digitizerMenu, 'String');
 choice = digitizers{get(handles.digitizerMenu,'Value')};
 % start up the controller with dummy values
+% TODO: add dialog to set some of this crap
 daqconfig.SampleRate = 8000;
 newcontroller = controller(choice, daqconfig);
-set(handles.daqProperties, 'String', get(newcontroller, 'HardwareInfo'));
-set(handles, 'controller', newcontroller);
+handles.controller = newcontroller;
+updateDisplay(handles);
+guidata(gcbo,handles);
+
+%---
+function updateDisplay(handles)
+% Updates fields in the GUI with information in hidden objects, e.g. the controller
+if (isfield(handles,'controller'))
+    c = handles.controller;
+    set(handles.txtDevice,'String',get(c,'DeviceName'));
+    set(handles.txtAdaptor,'String',get(c,'AdaptorName'));
+    set(handles.txtCoupling,'String',get(c,'Coupling'));
+    set(handles.txtSampling,'String',get(c,'SamplingRate'));
+    set(handles.txtChannels,'String',get(c,'TotalChannels'));
+    set(handles.txtStatus,'String',get(c,'Status'));
+    % generate a list of channels
+    channels = getChannelList(c);
+    if (isempty(channels))
+        set(handles.channels,'String',{'No Channels'});
+        set(handles.channels,'Enable','Inactive');
+    else
+        set(handles.channels,'String',channels);
+        set(handles.channels,'Enable','On');
+    end
+end
+    
 
 % --------------------------------------------------------------------
-function varargout = digitizerMenu_Callback(h, eventdata, handles, varargin)
-% Stub for Callback of the uicontrol handles.digitizerMenu.
-% choosing a digitizer does nothing
-
-
-
-% --------------------------------------------------------------------
-function varargout = ai_Callback(h, eventdata, handles, varargin)
+function varargout = btnAI_Callback(h, eventdata, handles, varargin)
 % Stub for Callback of the uicontrol handles.ai.
-disp('ai Callback not implemented yet.')
+% Allows the user to create an analog input channel on the digitizer
 
 
 % --------------------------------------------------------------------
@@ -127,3 +145,46 @@ disp('msg Callback not implemented yet.')
 function varargout = channels_Callback(h, eventdata, handles, varargin)
 % Stub for Callback of the uicontrol handles.channels.
 disp('channels Callback not implemented yet.')
+
+
+% --------------------------------------------------------------------
+function varargout = txtDevice_Callback(h, eventdata, handles, varargin)
+% Stub for Callback of the uicontrol handles.txtDevice.
+disp('txtDevice Callback not implemented yet.')
+
+
+% --------------------------------------------------------------------
+function varargout = txtAdaptor_Callback(h, eventdata, handles, varargin)
+% Stub for Callback of the uicontrol handles.txtAdaptor.
+disp('txtAdaptor Callback not implemented yet.')
+
+
+% --------------------------------------------------------------------
+function varargout = txtCoupling_Callback(h, eventdata, handles, varargin)
+% Stub for Callback of the uicontrol handles.txtCoupling.
+disp('txtCoupling Callback not implemented yet.')
+
+
+% --------------------------------------------------------------------
+function varargout = txtSampling_Callback(h, eventdata, handles, varargin)
+% Stub for Callback of the uicontrol handles.txtSampling.
+disp('txtSampling Callback not implemented yet.')
+
+
+% --------------------------------------------------------------------
+function varargout = txtChannels_Callback(h, eventdata, handles, varargin)
+% Stub for Callback of the uicontrol handles.txtChannels.
+disp('txtChannels Callback not implemented yet.')
+
+
+% --------------------------------------------------------------------
+function varargout = txtStatus_Callback(h, eventdata, handles, varargin)
+% Stub for Callback of the uicontrol handles.txtStatus.
+disp('txtStatus Callback not implemented yet.')
+
+% --------------------------------------------------------------------
+function varargout = digitizerMenu_Callback(h, eventdata, handles, varargin)
+% Stub for Callback of the uicontrol handles.digitizerMenu.
+% choosing a digitizer does nothing
+
+
