@@ -1,4 +1,4 @@
-function [] = PCA_2D(stim, resp, lags,option)
+function [a1] = PCA_2D(stim, resp, lags,option)
 % This function performs a PCA/reverse correlation analysis of a stimulus/response pair.
 % The stimulus is framshifted into a matrix with various lags and parameters,
 % and the response is used to perform reverse correlation on the stimulus, or to
@@ -6,7 +6,7 @@ function [] = PCA_2D(stim, resp, lags,option)
 %
 % It makes a nice GUI, goes well with STRFGui
 %
-% Usage: [] = PCA_2D(stim, resp, lags,[option])
+% Usage: [a1] = PCA_2D(stim, resp, lags,[option])
 %
 % stim   - the stimulus structure
 % resp   - the response structure (r1 format).  
@@ -15,10 +15,13 @@ function [] = PCA_2D(stim, resp, lags,option)
 % lags   - the window, in frames, to analyze.  Smaller windows save memory, etc.
 % option - can be 'xcorr','pca',or 'both', to choose 1st and second order analyses
 %          default is 'both'
-% 
+% a1     - the results stored in an a1 structure 
+%
+%
 % See Also:
 %           headers/stim_struct.m
 %           headers/r1_struct.m
+%           headers/a1_struct.m
 %           Analysis/PlotSTRF.m (used to view/analyze STRF)
 %
 % $Id$
@@ -34,6 +37,8 @@ end
 if nargin < 4
     option = 'both';
 end
+
+a1 = [];
 
 %%%%%%%% CHECK INPUT %%%%%%%%
 % Get Stimulus Dimensions %
@@ -59,7 +64,8 @@ end
 for i = 1:REPEATS
     fprintf('Sweep %d:', i);
     bin     = fix(mean(diff(resp(i).timing)));      % frame rate of stimulus (in samples)
-    y       = BinData(resp(i).data,bin,1);
+    %y       = BinData(resp(i).data,bin,1);
+    y       = FrameBinData(resp(i).data,resp(i).timing,bin);
     y       = y - mean(y);
     
     % Get Response Dimensions %
@@ -121,7 +127,7 @@ if strcmpi(option,'pca') | strcmpi(option,'both')
     f       = ploteigs(h2_sig);
     movegui(f,[pos(1),pos(2)])
     pos     = get(f,'position') + [320 0 0 0];
-    f       = plotstrf(struct('data',k,'title',t));
+    f       = plotstrf(struct('data',k,'title',t,'frate',bin));
     movegui(f,[pos(1),pos(2)])
 end
 % plot
