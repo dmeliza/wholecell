@@ -41,6 +41,7 @@ function [] = VisualEpisode(varargin)
 % Changes: 
 % 1.1:     Adapted from VisualSequence and Episode
 % 1.3:     Designed to supercede FlashEpisode
+% 1.8:     Changed the specification for the s2 file, 0 is no longer used as an index
 %
 % $Id$
 
@@ -252,7 +253,7 @@ syncmap  = [1 1 1; 0 0 0];
 sync     = 1;
 for i = 1:len
     fr   = seq(i);
-    % draw frame if index is nonzero
+    % draw frame if index is nonzero; this is left in to avoid breaking old s2 files
     if fr > 0
         cgdrawsprite(fr,x,y,pw,ph)
     else
@@ -285,7 +286,7 @@ function analyze(obj, event)
 % if the data is being written to disk the timing data must also be written
 % ASAP
 % clear the stimulus display
-cgflip(0,0,0)
+% cgflip(0,0,0)
 % plots and analyzes the data
 stop(obj)
 [data, time, abstime] = getdata(obj);
