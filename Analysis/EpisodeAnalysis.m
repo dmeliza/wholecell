@@ -7,6 +7,15 @@ function varargout = EpisodeAnalysis(varargin)
 % to generalize this to any filter that yields a single value from an entire
 % trace.
 %
+% A lot of data is stored in UserData fields of various objects.
+% filename.UserData - .data, .time, .abstime, .info (original .mat data)
+% trace_list.UserData - handles of traces in the trace_axes
+% trace_axes.UserData - abstime, binned to correspond to the traces in the axes
+% (x|y)slider.UserData - original XLim and YLim of the data in trace_axes
+% adjust_baseline.UserData - limits of data to be averaged for baseline
+% lp_factor.UserData - original sampling rate of data
+% times.UserData - times for computation marks
+%
 % $Id$
 global wc;
 
@@ -28,13 +37,16 @@ case 'init'
     
 case 'trace_axes_callback'
     %keyboard;
-    %updateSliders;
+    updateSliders;
     
 case 'trace_click_callback'
     % captures clicks on traces
+    % left-button highlights the trace and associated values (listbox etc)
+    % right button opens a trace context menu that allows deletion or more
+    % complicated labelling
     v = GetUIParam(me,'select_button','Value');
     if (v > 0)
-        trace = varargin{2};
+        trace = gcbo;
         % do something
     else
         % could replace this with a direct call, but we'll leave it flexible for now
@@ -45,11 +57,10 @@ case 'trace_click_callback'
 case 'mark_click_callback'
     v = GetUIParam(me,'select_button','Value');
     if (v > 0)
-        mark = varargin{2};
-        % do something
+        clickMark(gcbo);
     else
         handler = GetUIParam(me,'trace_axes','ButtonDownFcn');
-        feval(handler);
+        eval(handler);
     end
     
 case 'load_traces_callback'
@@ -60,17 +71,23 @@ case 'load_traces_callback'
         d = load(fullfile(pn,fn));
         SetUIParam(me,'filename','UserData',d);
         SetUIParam(me,'status','String',['Loaded data from ' fn]);
+        SetUIParam(me,'last_trace','StringVal',length(d.abstime));
+        SetUIParam(me,'lp_factor','StringVal',d.info.t_rate);
+        SetUIParam(me,'lp_factor','UserData',d.info.t_rate);
         updateDisplay;
     end
     
     
 case 'daq_converter_callback'
     % runs DAQ2MAT
-    [d.data, d.time, d.abstime, d.info] = DAQ2MAT;
-    SetUIParam(me,'filename','UserData',d);
-    SetUIParam(me,'status','String',['Loaded data from daq files']);
+    [fn pn] = uigetfile('*.daq');
+    if (fn ~= 0)
+        [d.data, d.time, d.abstime, d.info] = DAQ2MAT(pn);
+        SetUIParam(me,'filename','UserData',d);
+        SetUIParam(me,'status','String',['Loaded data from daq files']);
+        updateDisplay;
+    end
     
-    updateDisplay;
     
 case 'trace_list_callback'
     % handles user selections from the trace list
@@ -109,9 +126,29 @@ case 'select_button_callback'
 
 case 'yslider_callback'
     y = GetUIParam(me,'yslider', 'Value');
-    center = getCenter(handles)
+    center = getCenter;
     setCenter([center(1) y])
-        
+
+case 'xslider_callback'
+    x = GetUIParam(me,'xslider', 'Value');
+    center = getCenter;
+    setCenter([x center(2)])
+
+case 'adjust_baseline_callback'
+    % Adjusts the baseline of the loaded traces using values in
+    % adjust_baseline.UserData
+    adjustBaseline(GetUIParam(me,'adjust_baseline','UserData'));
+    
+case 'set_baseline_limits_callback'
+    lim = GetUIParam(me,'adjust_baseline','UserData');
+    % fix this later
+    
+case 'time_changed_callback'
+    f = gcbo;
+    m = get(f,'UserData');
+    v = str2num(get(f,'String'));
+    set(m,'XData',[v v]);
+    
 case 'close_callback'
     delete(gcbf);
     
@@ -121,6 +158,33 @@ end
 %
 function out = me()
 out = mfilename;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+% these functions define a drag operation; we have to do some fancy callback
+% magic
+function clickMark(mark)
+obj = gcf;
+set(obj,'UserData',mark);
+dragHandler = @dragMark;
+releaseHandler = @releaseMark;
+set(obj,'WindowButtonMotionFcn',dragHandler);
+set(obj,'WindowButtonUpFcn',releaseHandler);
+set(obj,'DoubleBuffer','on');
+
+function dragMark(varargin)
+obj = gcf;
+mark = get(obj,'UserData');
+pt = get(gca,'CurrentPoint');
+x = pt(1);
+set(mark,'XData',[x x]);
+f = get(mark,'UserData');
+set(f,'String',num2str(x));
+
+function releaseMark(varargin)
+obj = gcf;
+set(obj,'WindowButtonMotionFcn','');
+set(obj,'WindowButtonUpFcn','');
+set(obj,'DoubleBuffer','off');
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function varargout = setupFigure()
 % sets up the figure's default values
@@ -132,10 +196,10 @@ SetUIParam(me,'resistbaselinestart','String','0');
 SetUIParam(me,'resistbaselineend','String','0');
 SetUIParam(me,'seriesend','String','0');
 SetUIParam(me,'inputend','String','0');
-SetUIParam(me,'lastTrace','String','0');
-SetUIParam(me,'binFactor','String','12');
-SetUIParam(me,'smoothFactor','String','1');
-SetUIParam(me,'filterFactor','String','1');
+SetUIParam(me,'last_trace','String','0');
+SetUIParam(me,'bin_factor','String','12');
+SetUIParam(me,'smooth_factor','String','1');
+SetUIParam(me,'lp_factor','String','1');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function varargout = updateDisplay
@@ -153,22 +217,45 @@ if (isstruct(d))
     [data, abstime] = binTraces(data, d.abstime, binfactor);
     data = filterTraces(data, lpfactor);
     
-    plotTraces(data, d.time, abstime, d.info);
-    %plotMarks;
+    plotTraces(data, d.time, d.info, abstime);
+    updateSliders;
+    plotMarks;
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function times = getTimes;
+% returns the times from the user entry fields
+times.pspbs = GetUIParam(me,'pspbaselinestart','StringVal');
+times.pspbe = GetUIParam(me,'pspbaselineend','StringVal');
+times.pspm = GetUIParam(me,'pspslopeend','StringVal');
+times.rbs = GetUIParam(me,'resistbaselinestart','StringVal');
+times.rbe = GetUIParam(me,'resistbaselineend', 'StringVal');
+times.srm = GetUIParam(me,'seriesend','StringVal');
+times.irm = GetUIParam(me,'inputend','StringVal');
+times.curr = GetUIParam(me,'current_inj','StringVal');
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function varargout = plotTraces(data, time, abstime, info)
+function varargout = plotTraces(varargin)
 % plots the traces in the trace axes, setting the correct callbacks, etc
 % stores the times of the traces in UserData
+% void plotTraces(data, time, info, abstime)
+% void plotTraces(data, time, info) [uses existing values for abstime]
+data = varargin{1};
+time = varargin{2};
+info = varargin{3};
+if (nargin > 3)
+    abstime = varargin{4};
+else
+    abstime = GetUIParam(me,'trace_axes','UserData');
+end
 a = GetUIHandle(me,'trace_axes');
 axes(a);
-traces = plot(time, data);
+traces = plot(time, data,'k');
 xlabel(['time (' info.t_unit ')'],'FontSize', 12);
 ylabel(info.y_unit, 'FontSize',12);
 
 for i = 1:length(traces)
-    click_handler = sprintf('%s(''trace_click_callback'',%i)', me, traces(i));
+    click_handler = sprintf('%s(''trace_click_callback'')', me);
     set(traces,'ButtonDownFcn',click_handler);
 end
 set(a,'ButtonDownFcn',[me '(''trace_axes_callback'')']);
@@ -178,7 +265,35 @@ SetUIParam(me,'trace_list','UserData',traces);
 tr = 1:length(traces);
 SetUIParam(me,'trace_list','String',num2str(tr'));
 SetUIParam(me,'trace_list','Value',tr);
+% store original limits in the sliders
+SetUIParam(me,'xslider','UserData',GetUIParam(me,'trace_axes','XLim'));
+SetUIParam(me,'yslider','UserData',GetUIParam(me,'trace_axes','YLim'));
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
+function plotMarks
+% draws the mark lines (off screen) and sets up the correspondance between
+% the handles of the marks and the displays.
+colors = {'red','blue','black','red','blue','green','black'};
+tags = {'pspbaselinestart','pspbaselineend','pspslopeend',...
+        'resistbaselinestart','resistbaselineend','seriesend','inputend'};
+ydim = GetUIParam(me,'yslider','UserData');
+for i = 1:length(tags)
+    f = findobj('tag',tags{i});
+    v = str2num(get(f,'String'));
+    m = get(f,'UserData');
+    if (m > 1 & ishandle(m))
+        delete(m);
+    end
+    m = line([v v], ydim);
+    set(m,'Color',colors{i});
+    bdfn = sprintf('%s(''%s'')',me, 'mark_click_callback');
+    set(m,'ButtonDownFcn', bdfn);
+    set(m,'tag',[tags{i} '_mark']);
+    set(m,'UserData',f);
+    set(f,'UserData',m);
+    bdfn = sprintf('%s(''%s'')',me, 'time_changed_callback');
+    set(f,'ButtonDownFcn', bdfn);
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [data, abstime] = binTraces(data, abstime, binfactor)
@@ -196,19 +311,62 @@ function data = filterTraces(data, lpfactor)
 % does nothing at present
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Returns the center point of the axes
 function center = getCenter;
-a = findobj('tag','trace_axes');
-v = axis(a);
-center = [mean(a(1:2)) mean(a(3:4))];
+% Returns the center point of the axes
+x = GetUIParam(me,'trace_axes','XLim');
+y = GetUIParam(me,'trace_axes','YLim');
+center = [mean(x) mean(y)];
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%555
-% Sets the center of the axes without zooming
 function setCenter(centerPoint)
-a = findobj('tag','trace_axes');
-v = axis(a);
-trans = [mean(a(1:2)) mean(a(3:4))] - centerPoint;
-axis(a,[xdim - trans(1), ydim - trans(2)]);
+% Sets the center of the axes without zooming
+x = GetUIParam(me,'trace_axes','XLim');
+y = GetUIParam(me,'trace_axes','YLim');
+trans = [mean(x) mean(y)] - centerPoint;
+SetUIParam(me,'trace_axes','XLim', x - trans(1));
+SetUIParam(me,'trace_axes','YLim', y - trans(2));
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%555
+function updateSliders
+% Sets the value of the sliders based on the axes' view
+sl = GetUIHandle(me,'xslider');
+lim = GetUIParam(me,'trace_axes','XLim');
+updateSlider(sl, lim);
+sl = GetUIHandle(me,'yslider');
+lim = GetUIParam(me,'trace_axes','YLim');
+updateSlider(sl, lim);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function updateSlider(slider, limits)
+% Updates an individual slider.
+% void updateSlider(slider[handle], limits[2-vector])
+% limits are the current limits of the graph
+
+dim = get(slider,'UserData');
+if (diff(limits) >= diff(dim))
+    set(slider, 'Enable', 'off');
+else
+    set(slider, 'Enable', 'on');
+    set(slider, 'Min', dim(1), 'Max', dim(2), 'Value', mean(limits));
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function adjustBaseline(limits)
+% Adjusts the baseline of the traces in the trace axes
+% Uses adjust_baseline.UserData ms
+d = GetUIParam(me,'filename','UserData');
+th = GetUIParam(me,'trace_list','UserData'); % trace handles
+ydata = get(th,'YData');
+if iscell(ydata)
+    data = cat(1,ydata{:});
+else
+    data = ydata;
+end
+limits = (limits * d.info.t_rate) + 1;
+adj = mean(data(:,limits(1):limits(2)),2);
+data = data - repmat(adj, 1, size(data,2));
+plotTraces(data, d.time, d.info);
+plotMarks;
 
 % --------------------------------------------------------------------
 function varargout = loadTimes_Callback(h, eventdata, handles, varargin)
@@ -256,10 +414,6 @@ stats = computeStats(handles);
 exportStats(stats,[pathstr '\' baseName]);
 setStatus(['Statistics saved in ' pathstr '\' baseName '.csv'], handles);
 
-% Stub for Callback of the uicontrol handles.adjustBaseline.
-function varargout = adjustBaseline_Callback(h, eventdata, handles, varargin)
-adjustBaseline(handles);
-
 %----------------------------------------------------------------------
 % my functions
 
@@ -271,14 +425,7 @@ stats.binFactor = str2double(get(handles.binFactor,'String'));
 timeDelta = 5 * stats.binFactor;
 stats.time = 1:timeDelta:(timeDelta * length(stats.psp));
 
-% Adjusts the baseline of the loaded traces
-% uses the first 5 ms
-function adjustBaseline(handles)
-traces = handles.traces;
-delta = 5 * ceil(1000 / handles.pc8h.fADCSampleInterval);
-handles.traces = traces - repmat(mean(traces(10:delta,:)),size(traces,1),1);
-handles = drawTraces(handles);
-guidata(gcbo,handles);
+
 
 % Displays the statistics
 function dispStats(handles, stats)
@@ -394,41 +541,6 @@ marks.inputend = line([times.endInput times.endInput], ydim);
 set(marks.inputend, 'ButtonDownFcn', clickHandler);
 set(marks.inputend, 'Color', 'black');
 
-% plots traces with correct units
-% traces - columnwise data
-% returns handles to the trace objects
-function handles = dispTraces(pc8h,traces,axesHandle)
-axes(axesHandle);
-sampleInt = pc8h.fADCSampleInterval / 1000;
-sampleUnit = 'ms';
-sweepInt = size(traces,1) * sampleInt;
-time = 0:sampleInt:(sweepInt-sampleInt);
-handles = plot(time(:),traces);
-xlabel(['time (' sampleUnit  ')'],'FontSize',12);
-ylabel('Vm (mV)', 'FontSize', 12);
-
-% Generates a list corresponding to the traces
-function fillList(traceCount,handles)
-traces = 1:traceCount(2);
-set(handles.traceList,'String',num2str(traces(:)));
-set(handles.traceList,'Value',traces);
-
-% retrieves a partial time struct
-function times = getMarks(handles)
-times.sPSPBaseline = str2double(get(handles.pspbaselinestart,'String'));
-times.ePSPBaseline = str2double(get(handles.pspbaselineend,'String'));
-times.endPSP = str2double(get(handles.pspslopeend,'String'));
-times.sResistBaseline = str2double(get(handles.resistbaselinestart,'String'));
-times.eResistBaseline = str2double(get(handles.resistbaselineend,'String'));
-times.endSeries = str2double(get(handles.seriesend,'String'));
-times.endInput = str2double(get(handles.inputend,'String'));
-
-% Returns the times structure from the text entry fields
-function times = getTimes(handles)
-times = getMarks(handles);
-times.sampleInterval = handles.pc8h.fADCSampleInterval / 1000;
-times.currentInjection = str2double(get(handles.currentInj,'String'));
-
 % fills text fields with times data
 function setTimes(times,handles)
 set(handles.pspbaselinestart,'String',num2str(times.sPSPBaseline));
@@ -439,29 +551,6 @@ set(handles.resistbaselineend,'String',num2str(times.eResistBaseline));
 set(handles.seriesend,'String',num2str(times.endSeries));
 set(handles.inputend,'String',num2str(times.endInput));
 set(handles.currentInj,'String',num2str(times.currentInjection));
-
-% Sets the value of the sliders based on the axes' view
-function updateSliders(handles)
-dim = handles.origX;
-sel = get(handles.axes1,'XLim');
-range = (sel(2) - sel(1));
-if (sel >= dim)
-    set(handles.xSlider, 'Enable', 'off');
-else
-    set(handles.xSlider, 'Enable', 'on');
-    set(handles.xSlider, 'Min', dim(1), 'Max', dim(2), 'Value', sel(1) + range / 2);
-    %set(handles.xSlider, 'SliderStep', [0.1 0.5]);
-end
-dim = handles.origY;
-sel = get(handles.axes1,'YLim');
-range = (sel(2) - sel(1));
-if (sel >= dim)
-    set(handles.ySlider, 'Enable', 'off');
-else
-    set(handles.ySlider, 'Enable', 'on');
-    set(handles.ySlider, 'Min', dim(1), 'Max', dim(2), 'Value', sel(1) + range / 2);
-    %set(handles.ySlider, 'SliderStep', [0.1 0.5]);
-end
 
 % updates the marks
 function updateMarks(handles)
@@ -480,25 +569,3 @@ set(handles.marks.resistbaselineend,'XData',[x x]);
 x = str2double(get(handles.seriesend,'String'));
 set(handles.marks.seriesend,'XData',[x x]);
 
-% --------------------------------------------------------------------
-function varargout = ySlider_Callback(h, eventdata, handles, varargin)
-% Stub for Callback of the uicontrol handles.slider2.
-
-% --------------------------------------------------------------------
-function varargout = xSlider_Callback(h, eventdata, handles, varargin)
-% Stub for Callback of the uicontrol handles.slider3.
-x = get(handles.xSlider, 'Value');
-center = getCenter(handles);
-setCenter(handles, [x center(2)]);
-
-% --------------------------------------------------------------------
-function varargout = filterFactor_Callback(h, eventdata, handles, varargin)
-reloadABF_Callback(h, eventdata, handles, varargin);
-
-% --------------------------------------------------------------------
-function varargout = gainFactor_Callback(h, eventdata, handles, varargin)
-reloadABF_Callback(h, eventdata, handles, varargin);
-
-% --------------------------------------------------------------------
-function varargout = exit_Callback(h, eventdata, handles, varargin)
-close;
