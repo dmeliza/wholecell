@@ -21,3 +21,5 @@ y2 = mean(trace(:,mk),2);
 dx = (mk(length(mk)) - bs(length(bs))) * dt;
 
 slope = (y2 - y1) / dx;
+
+%slope = mean(diff(trace(:,bs(2):mk),1,2),2) / dt;
