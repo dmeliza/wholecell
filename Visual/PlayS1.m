@@ -32,8 +32,8 @@ set(gca,'xtick',[],'ytick',[],'NextPlot','replacechildren');
 play(gcf,[]);
 
 function play(obj,event)
-stop           = @stop;
-set(gcf,'buttondownfcn',stop);
+stopHandle      = @stop;
+set(gcf,'buttondownfcn',stopHandle);
 movie           = get(gcf,'UserData');
 mfile           = movie.mfile;
 param           = movie.param;
@@ -43,7 +43,7 @@ setpref('wholecell_PlayMovie','Running',1);
 for i = 1:frames
     Z    = feval(mfile,movie.static{:},param(i,:));
     h    = image(Z);
-    set(h,'buttondownfcn',stop);
+    set(h,'buttondownfcn',stopHandle);
     text(1.5,1.5,num2str(i))
     if ~getpref('wholecell_PlayMovie','Running')
         break

@@ -18,7 +18,7 @@ end
 
 module = lower(module);
 fig = findobj('tag',module);
-if ~ishandle(fig)
+if isempty(fig) | ~ishandle(fig)
     error('No such module figure exists');
 elseif length(fig) > 1
     error('Too many figures open with that tag');

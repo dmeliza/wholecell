@@ -49,10 +49,10 @@ row       = floor(dims(1) / binfactor);         % number of hyperrows in the bin
 last      = dims(1) - mod(dims(1),binfactor);   % the index of the last evenly divisible hyperrow
 if last < dims(1)
     nd   = SliceRef(data,1,1:last);               % the reshapable portion of the matrix
-    mod  = SliceRef(data,1,last+1:dims(1));       % the modulus
+    md   = SliceRef(data,1,last+1:dims(1));       % the modulus
 else
     nd   = data;
-    mod  = [];
+    md   = [];
 end
 
 % bin the data by reshaping and averaging the matrix
@@ -66,9 +66,9 @@ else
 end
 
 % compute binned modulus here
-if ~isempty(mod) & MODULUS
-    mod    = mean(mod,1);
-    nd     = cat(1,nd,mod);
+if ~isempty(md) & MODULUS
+    mod    = mean(md,1);
+    nd     = cat(1,nd,md);
 end
 
 % permute the matrix back to its correct shape

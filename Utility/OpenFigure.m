@@ -12,6 +12,7 @@ function fig = OpenFigure(module,varargin)
 global wc
 
 % open or find the figure
+module  = lower(module);
 obj.fig = findfig(module);
 % set some default values
 set(obj.fig, 'numbertitle','off','name',module,'DoubleBuffer','on','menubar','none');

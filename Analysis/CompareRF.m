@@ -41,8 +41,8 @@ if nargin > 5
     a   = a(:,pos);
     b   = b(:,pos);
 end
-ma  = mean(a(1000:1500,:),1);
-mb  = mean(b(1000:1500,:),1);
+ma  = mean(a(1:200,:),1);
+mb  = mean(b(1:200,:),1);
 a   = a - repmat(ma,length(t),1);
 b   = b - repmat(mb,length(t),1);
 d   = b - a;

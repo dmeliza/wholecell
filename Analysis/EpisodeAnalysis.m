@@ -117,7 +117,7 @@ h = InitUIObject(me, 'timecourse','axes','units','pixels','position',[255 60 480
 xlabel('Time (m)')
 % Status bar
 h = InitUIControl(me, 'status', 'style', 'text', 'backgroundcolor', BG,...
-    'position', [255 0 480 20],'String','(status)');
+    'position', [255 3 475 20],'String','(status)');
 % Menus
 file = uimenu(gcf, 'Label', '&File');
 m    = uimenu(file, 'Label', '&Open File...','Callback',cb.menu, 'tag', 'm_open');
@@ -897,6 +897,7 @@ end
 
 function [] = plotParameter(param)
 % plots a parameter's time course on the parameter axes
+str = [];
 ax  = GetUIHandle(me,'timecourse');
 axes(ax)
 cla,hold on
