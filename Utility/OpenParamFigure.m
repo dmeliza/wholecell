@@ -24,9 +24,9 @@ if nargin < 2
 end
 
 % units are in pixels for my sanity
-w_fn = 76;
-w_f = 95;
-w_units = 22;
+w_fn = 100;
+w_f = 70;
+w_units = 20;
 h = 23;
 x_pad = 5;
 y_pad = 5;
@@ -151,10 +151,10 @@ case 'list'
     set(handle,'String',c);
     v = struct.value;
     if ~isnumeric(v)
-        s = strmatch(v, struct.choices);
+        v = strmatch(v, struct.choices);
     end
-    if ~isempty(s)
-        set(handle,'Value',s);
+    if ~isempty(v)
+        set(handle,'Value',v);
     end
 otherwise
     v = num2str(struct.value);
