@@ -178,10 +178,18 @@ lbl = get(scope,'YLabel');
 set(lbl,'String',['amplifier (' units ')']);
 % plot the data and average response
 data = AutoGain(data(:,index), gain, units);
-avgdata = get(scope, 'UserData');
-avgdata = cat(2, avgdata, data); % TODO: catch irregular sized datas
-Scope('plot','plot',time * 1000, [data mean(avgdata,2)]);
-set(scope,'UserData', avgdata);
+a = get(scope, 'UserData'); % avgdata is now a cell array
+if isempty(a)
+    numtraces = 1;
+    avgdata = data;
+else
+    avgdata = a{2};
+    numtraces = a{1} + 1;
+    avgdata = avgdata + (data - avgdata) / (numtraces);
+end
+Scope('plot','plot',time * 1000, [data avgdata]);
+a = {numtraces, avgdata};
+set(scope,'UserData', a);
 EpisodeStats('plot', abstime, data);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
