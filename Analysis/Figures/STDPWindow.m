@@ -6,8 +6,9 @@ function [] = STDPWindow(csvfile)
 %
 % $Id$
 
-WIDTH = 70;
-YLIM  = [0 2];
+WIDTH   = 70;
+YLIM    = [0 2];
+SZ      = [3.5 2.9];
 
 z   = csvread(csvfile);
 s   = size(z,2);
@@ -16,10 +17,7 @@ if s > 2
 end
 f   = figure;
 set(f,'color',[1 1 1]);
-set(f,'units','inches')
-p   = get(f,'position');
-p   = [p(1) p(2) 3.5 2.9];
-set(f,'position',p);
+ResizeFigure(f,SZ);
 
 a   = axes;
 h   = plot(z(:,1),z(:,2),'ko');
