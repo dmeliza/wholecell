@@ -112,11 +112,10 @@ case 'record'
     
 case 'stop'
     if (isvalid(wc.ai))
-        stop(wc.ai);
+        ClearAI(wc.ai)
         if get(wc.ai,'samplesavailable') > 0
             analyze(wc.ai,[]);
         end
-        clearDAQ;
     end
     
 otherwise
@@ -277,6 +276,7 @@ stim = queueStimulus;
 SetParam(me,'x_res',stim.x_res);
 SetParam(me,'y_res',stim.y_res);
 SetParam(me,'a_frames',size(stim.stimulus,3));
+ParamFigure(me);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function clearDAQ()
@@ -323,25 +323,21 @@ in = GetParam(me,'input','value');
 sync = GetParam(me,'sync_c','value');
 [data, time, abstime] = getdata(obj);
 Scope('plot','plot', time, data(:,in));
-% data is already aligned to the stim times
-% stim_start = timing(2) - timing(1);
-% i = max(find(time < stim_start)) + 1;
-% resp = data(i:end,GetParam(me,'input','value'));
-% time = time(i:end) - time(i);
 % bin the data (rough, ignores variance in timing)
 t_resp = 1000 / get(obj,'SampleRate'); %ms/sample
-t_res = GetParam(me,'t_res','value');
-t_stim = t_res * 1000 / GetParam(me,'v_res','value'); %ms/sample
+t_res = GetParam(me,'t_res','value'); % frames/sprite
+gpd = cggetdata('gpd');
+t_stim = t_res * 1000 / gpd.RefRate100 * 100; %ms/sample
 r = bindata(data(:,in),fix(t_stim/t_resp));
 r = r - mean(r);
 stim_times = timing(:,1) - timing(1);
 % reconstruct the stimulus (as an N by X matrix)
 s_frames = length(r);
-stim = getStimulus(GetParam(me,'stim','value'));
+stim_struct = GetUIParam('scope','status','UserData');
 x_res = GetParam(me,'x_res','value');
 y_res = GetParam(me,'y_res','value');
 pix = x_res * y_res * s_frames; % # of pixels
-s = reshape(stim(1:pix),x_res * y_res, s_frames);
+s = reshape(stim_struct.stimulus(1:pix),x_res * y_res, s_frames);
 s = permute(s,[2 1]);
 % reverse correlation:
 options.correct = 'no';
