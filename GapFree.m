@@ -78,7 +78,7 @@ daq     = amp.Parent;
 sr      = get(daq, 'SampleRate');
 update  = fix(sr / 10); % update at 20 Hz
 set(daq,'SamplesPerTrigger',inf);
-set(daq,'SamplesAcquiredAction',{me, acq}) % calls SweepAcquired m-file, which deals with data
+set(daq,'SamplesAcquiredAction',{me, acq})
 set(daq,'SamplesAcquiredActionCount',update)
 set(daq,'StopAction','daqaction');
 set(daq,'UserData',update);                 % the number of samples to acquire is stored here
