@@ -30,11 +30,11 @@ switch action
     
 case 'standalone'
     InitWC;
-    fig = OpenGuideFigure(me,'DoubleBuffer','on');
+    fig = OpenGuideFigure(me,me,'DoubleBuffer','on');
     setupFigure;
     
 case 'init'
-    fig = OpenGuideFigure(me,'DoubleBuffer','on');
+    fig = OpenGuideFigure(me,me,'DoubleBuffer','on');
     setupFigure;
     
 case 'trace_axes_callback'
@@ -173,11 +173,7 @@ case 'kill_outliers_callback'
     deleteOutliers;
     
 case 'time_changed_callback'
-    f = gcbo;
-    m = get(f,'UserData');
-    v = str2num(get(f,'String'));
-    set(m,'XData',[v v]);
-    updateStats;
+    timeChanged(gcbo);
     
 case 'load_times_callback'
     pnfn = GetUIParam(me,'filename','String');
@@ -312,6 +308,9 @@ case 'clear_legend_callback'
         delete(l);
     end
     
+case 'reset_mark_callback'
+    resetMark(varargin{2});
+    
 case {'ignore_outliers_callback','outlier_tolerance_callback',...
             'invert_stats_callback'}
     updateStats;
@@ -353,6 +352,25 @@ obj = gcf;
 set(obj,'WindowButtonMotionFcn','');
 set(obj,'WindowButtonUpFcn','');
 updateStats;
+
+%%%%%%%%%%%%%%%%%%5
+function resetMark(button)
+tag_start = 'reset_';
+tag = get(button,'tag');
+field_name = tag(length(tag_start)+1:end);
+f = GetUIHandle(me,field_name);
+lims = GetUIParam(me,'trace_axes','XLim');
+newpos = lims(1) + diff(lims) * rand;
+set(f,'String',num2str(newpos));
+timeChanged(f);
+
+function timeChanged(field)
+% changes position of marks when the time in a field is updated
+m = get(field,'UserData');
+v = str2num(get(field,'String'));
+set(m,'XData',[v v]);
+updateStats;
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function varargout = setupFigure()
@@ -430,7 +448,11 @@ if (isstruct(d))
     end
     data = smoothTraces(data, smoothfactor);
     [data, abstime] = binTraces(data, abstime, binfactor);
-    data = filterTraces(data, lpfactor);
+    data = filterTraces(data, lpfactor, d.info.t_rate);
+    % currently we throw away any extra data sets
+    if size(data,3) > 1
+        data = data(:,:,1);
+    end
     
     plotTraces(data, d.time, d.info, abstime);
     updateSliders;
@@ -472,7 +494,7 @@ function varargout = plotTraces(data, time, info, abstime)
 
 a = GetUIHandle(me,'trace_axes');
 axes(a);
-traces = plot(time, data,'k');
+    traces = plot(time, data,'k');
 xlabel(['time (' info.t_unit ')'],'FontSize', 12);
 ylabel(info.y_unit, 'FontSize',12);
 
@@ -493,12 +515,15 @@ SetUIParam(me,'trace_list','Value',tr);
 % store original limits in the sliders
 SetUIParam(me,'xslider','UserData',GetUIParam(me,'trace_axes','XLim'));
 SetUIParam(me,'yslider','UserData',GetUIParam(me,'trace_axes','YLim'));
+% set(a,'nextplot','add')
+% plot(time,mean(data,2),'b');
+% set(a,'nextplot','replacechildren');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
 function plotMarks()
 % draws the mark lines (off screen) and sets up the correspondance between
 % the handles of the marks and the displays.
-colors = {'red','blue','black','magenta','cyan','green','yellow'};
+colors = {'red','blue','black','magenta','cyan','green',[0.97 0.71 .23]};
 tags = {'pspbaselinestart','pspbaselineend','pspslopeend',...
         'resistbaselinestart','resistbaselineend','seriesend','inputend'};
 ydim = GetUIParam(me,'yslider','UserData');
@@ -664,8 +689,10 @@ function data = smoothTraces(data, smoothfactor)
 % does nothing currently
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5555555
-function data = filterTraces(data, lpfactor)
-% does nothing at present
+function data = filterTraces(data, lpfactor, Fs)
+% constructs a butterworth filter for lowpass filtering the data
+if (lpfactor + 100) >= Fs, return, end
+data = LowPass(data, lpfactor, Fs);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function center = getCenter;
@@ -944,7 +971,8 @@ a = GetUIHandle(me,'psp_axes');
 [pspspline t] = TimeWeight(pspdata, abstime, SP,100);
 plot(t, pspspline, 'b', 'Parent', a, 'Linewidth', 2)
 pspmean = mean(pspdata);
-t = sprintf('Mean: %2.4f +/- %2.2f %%', pspmean, (std(pspspline) / pspmean * 100));
+psperr = stderr(pspdata) / pspmean * 100;
+t = sprintf('Mean: %2.4f +/- %2.2f %%', pspmean, psperr);
 y = get(a, 'YLim');
 x = get(a, 'XLim');
 x = diff(x) * 0.80 + x(1);
@@ -957,12 +985,17 @@ plot(t, srspline, 'b', 'Parent', a, 'Linewidth', 2);
 [irspline t]= TimeWeight(irdata, abstime, SP, 100);
 plot(t, irspline, 'r', 'Parent', a, 'Linewidth', 2);
 srmean = mean(srdata);
+srerr = stderr(srdata) / srmean * 100;
 irmean = mean(irdata);
-t1 = sprintf('SR: %2.4f +/- %2.2f %%', srmean, (std(srspline) / srmean * 100));
+irerr = stderr(irdata) / irmean * 100;
+t1 = sprintf('SR: %2.4f +/- %2.2f %%', srmean, srerr);
 y = get(a, 'YLim');
-t2 = sprintf('IR: %2.4f +/- %2.2f %%', irmean, (std(irspline) / irmean * 100));
+t2 = sprintf('IR: %2.4f +/- %2.2f %%', irmean, irerr);
 l = legend(a, t1, t2);
 set(l,'tag','resist_legend');
+
+function err = stderr(data)
+err = std(data) / sqrt(length(data));
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function handle = getSelectedRadioButton()
