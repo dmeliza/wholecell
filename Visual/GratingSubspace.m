@@ -1,68 +1,63 @@
-function s0 = GratingSubspace(dim,frequency,repeats)
+function s1 = GratingSubspace(dim,wn,num,repeats)
 %
-% Generates a random sampling of the grating basis set between
-% two spatial frequencies.
+% Generates a complete sampling of the hartley basis set between
+% between a minimum and a maximum wavenumber.
 %
-% USAGE: s0 = GratingSubspace(dim,frequency,[repeats])
+% USAGE: s0 = GratingSubspace(dim,wn,[num,[repeats]])
 %
-% dim - [width height]
-% frequency - [minfreq, maxfreq] (in cycles per 100 pixels)
-% repeats - the number of sequences to generate (default 1)
+% dim       - size of square images to generate
+% wn        - max wavenumber
+% num       - the number of kx or ky values to generate (# of parameters = num^2)
+%             default is 10
+% repeats   - the number of sequences to generate (default 1)
 % 
-% s0 - stimulus structure
+% s1 - stimulus structure
 %
 % $Id$
-error(nargchk(0,3,nargin))
+
+MFILE   = 'hartleygrating';
+
+error(nargchk(0,4,nargin))
 if nargin < 2
-    [dim, frequency, repeats] = ask;
+    [dim, wn, num, repeats] = ask;
 elseif nargin < 3
+    num     = 10;
+elseif nargin < 4
+    num     = 10;
     repeats = 1;
 end
 
-NORIENT = 20;      % sample x orientations between 0 and pi
-NPHASE  = 2;       % sample x phases between 0 and pi/2
-NFREQ   = 20;      % sample x frequencies between lowest and higesth
 MINCOL  = 1;       % minimum CLUT value
 MAXCOL  = 255;     % maximum CLUT value
 
-rho     = 0:pi/(NORIENT):pi;
-rho     = rho(1:end-1); % discard pi==0
-phi     = [0 pi/2];
-omega   = frequency(1):diff(frequency)/(NFREQ-1):frequency(2);
+kx      = -wn:2*wn/(num-1):wn;
+ky      = kx;
+frames  = num*num;
 
-
-frames  = prod([NORIENT, NPHASE, NFREQ]);
 % parameter space:
-[R O P] = meshgrid(rho, omega, phi);
-params  = [reshape(R,frames,1), reshape(O,frames,1), reshape(P,frames,1)];
-clear R P O rho omega phi
+[X Y]   = meshgrid(kx, ky);
+params  = [reshape(X,frames,1), reshape(Y,frames,1)];
+
 % shuffled indices into parameter space:
 ind     = repmat(1:frames,repeats,1);
 indind  = randperm(frames*repeats);
 ind     = ind(indind);
 
-% evil loop, with clutting:
-s = zeros([dim(1) dim(2) frames]);
-for i = 1:length(ind)
-    p = params(ind(i),:);
-    S        = SinGrating(p(1),p(2),p(3),dim);
-    S        = S - min(min(S));
-    s(:,:,i) = round(S * (MAXCOL-MINCOL) / max(max(S)) + MINCOL);
-end
+s1        = struct('mfile',MFILE,'param',params(ind,:),'xlim',dim,'ylim',dim,...
+                   'colmap',gray(MAXCOL-MINCOL));
+s1.static = {dim}; 
 
-% package it up, which also compresses s:
-s0 = struct('colmap',gray(MAXCOL-MINCOL+1),'stimulus',s,'x_res',dim(1),'y_res',dim(2),...
-            'parameters',params(ind,:));
         
-function [dim, frequency, repeats] = ask()
+function [dim, frequency, num, repeats] = ask()
 % opens a dialog box to ask values
-prompt = {'X Resolution (pixels):','Y Resolution (pixels):',...
-        'Min Spatial Frequency (cycles/100 pixels):',...
-        'Max Spatial Frequency (cycles/100 pixels);',...
+prompt = {'Resolution (pixels):',...
+        'Max Spatial Frequency (wavenumber):',...
+        'Number of frequencies:',...
         'Sequence Repeats:'};
-def = {'100','100','1','20','1'};
+def = {'100','9','10','1'};
 title = 'Values for 2D Gratings';
 answer = inputdlg(prompt,title,1,def);
-dim = [str2num(answer{1}) str2num(answer{2})];
-frequency = [str2num(answer{3}) str2num(answer{4})];
-repeats = str2num(answer{5});
+dim = str2num(answer{1});
+frequency = str2num(answer{2}); 
+num = str2num(answer{3});
+repeats = str2num(answer{4});
