@@ -3,14 +3,11 @@ function varargout = wholecell(varargin)
 %    FIG = WHOLECELL launch wholecell GUI.
 %    WHOLECELL('callback_name', ...) invoke the named callback.
 
-% Last Modified by GUIDE v2.0 04-Mar-2003 13:00:30
+% Last Modified by GUIDE v2.0 05-Mar-2003 13:26:29
 
 if nargin == 0  % LAUNCH GUI
 
 	fig = openfig(mfilename,'reuse');
-
-	% Use system color scheme for figure:
-	set(fig,'Color',get(0,'defaultUicontrolBackgroundColor'));
 
 	% Generate a structure of handles to pass to callbacks, and store it. 
 	handles = guihandles(fig);
@@ -23,11 +20,11 @@ if nargin == 0  % LAUNCH GUI
 
 elseif ischar(varargin{1}) % INVOKE NAMED SUBFUNCTION OR CALLBACK
 
-	try
+%	try
 		[varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
-	catch
-		disp(lasterr);
-	end
+        %	catch
+		%disp(lasterr);
+        %end
 
 end
 
@@ -73,17 +70,31 @@ function varargout = initializeFigure(h, handles, varargin)
 daqinfo = daqhwinfo;
 set(handles.digitizerMenu, 'String', daqinfo.InstalledAdaptors)
 % let the user know what the status is
-set(handles.daqStatus, 'String', 'Digitizer uninitialized.')
+%set(handles.daqStatus, 'String', 'Digitizer uninitialized.')
+set(handles.channels, 'String', 'Digitizer Uninitialized...');
+set(handles.channels, 'Enable', 'Off');
+
+% --------------------------------------------------------------------
+function varargout = daqInitialize_Callback(h, eventdata, handles, varargin)
+% Stub for Callback of the uicontrol handles.pushbutton1.
+% Clean up existing controller or make one if there is none
+if (isfield(handles, 'controller'))
+    delete(handles.controller);
+end
+% find out which digitizer the user wants
+digitizers = get(handles.digitizerMenu, 'String');
+choice = digitizers{get(handles.digitizerMenu,'Value')};
+% start up the controller with dummy values
+daqconfig.SampleRate = 8000;
+newcontroller = controller(choice, daqconfig);
+set(handles.daqProperties, 'String', get(newcontroller, 'HardwareInfo'));
+set(handles, 'controller', newcontroller);
 
 % --------------------------------------------------------------------
 function varargout = digitizerMenu_Callback(h, eventdata, handles, varargin)
 % Stub for Callback of the uicontrol handles.digitizerMenu.
 % choosing a digitizer does nothing
 
-% --------------------------------------------------------------------
-function varargout = pushbutton1_Callback(h, eventdata, handles, varargin)
-% Stub for Callback of the uicontrol handles.pushbutton1.
-disp('pushbutton1 Callback not implemented yet.')
 
 
 % --------------------------------------------------------------------
@@ -109,3 +120,10 @@ function varargout = msg_Callback(h, eventdata, handles, varargin)
 % Stub for Callback of the uicontrol handles.msg.
 disp('msg Callback not implemented yet.')
 
+
+
+
+% --------------------------------------------------------------------
+function varargout = channels_Callback(h, eventdata, handles, varargin)
+% Stub for Callback of the uicontrol handles.channels.
+disp('channels Callback not implemented yet.')
