@@ -203,7 +203,7 @@ cgcoltab(0,colmap);
 cgnewpal;
 % load sprites:
 pix = x_res * y_res;
-h = waitbar(0,['Loading movie ('num2str(a_frames) ' frames)']);
+h = waitbar(0,['Loading movie (' num2str(a_frames) ' frames)']);
 for i = 1:a_frames
     o = (i - 1) * pix + 1;
     cgloadarray(i,x_res,y_res,stim(o:o+pix-1),colmap,0);
@@ -297,6 +297,7 @@ s = reshape(stim(1:pix),x_res * y_res, s_frames);
 s = permute(s,[2 1]);
 % reverse correlation:
 options.correct = 'no';
+options.display = 'no';
 Fs = fix(1000/t_stim);
 hl_est = danlab_revcor(s,r,5,Fs,options);
 Plot2DKernel(hl_est,r,s,stim_times,[x_res,y_res],Fs);
