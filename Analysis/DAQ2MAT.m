@@ -42,7 +42,7 @@ else
     mode = [];
     gain = [];
 end
-t_unit = 's';
+info.t_unit = 's';
 info.t_rate = d.ObjInfo.SampleRate;
 info.start_time = d.ObjInfo.InitialTriggerTime;
 info.samples = d.ObjInfo.SamplesAcquired;
@@ -82,7 +82,8 @@ case 'stack'
         end
     end
     [abstime, ind] = reltimes(abstime);
-    data = single(data(:,ind));
+    info.y_unit = units;
+    data = single(data(:,ind,:));
     time = single(time);
     save('daqdata.mat','data','time','abstime','info');
     disp('Wrote data to daqdata.mat');
@@ -108,6 +109,7 @@ case 'cat'
     end
     clocks = datenum(abstime);
     [at, ind] = sort(clocks);
+    info.y_unit = units;
     data = single(cat(1,data{ind}));
     disp('Aligning times');
     t = [];
@@ -133,6 +135,7 @@ case 'indiv'
             end
             s = sprintf('%s: %d x %d (%s)',fn, l(i), length(traceindices), units);
             disp(s);
+            info.y_unit = units;
             data = single(dat(:,tracindices));
             time = single(t);
             abstime = at;
