@@ -48,12 +48,12 @@ for i = 1:length(ds)
                          'abstime',ds(i).abstime,'value',res);
     end
 end
+out = fixAbstime(out);
 if nargin > 2
     if bs ~= 0
         out = bin(out, bs);
     end
 end
-out = fixAbstime(out);
 
 
 function [out, units] = compute(action, data, ind, units, dt)
