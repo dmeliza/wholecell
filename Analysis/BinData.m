@@ -13,9 +13,21 @@ function binneddata = BinData(data, binfactor)
 % as possible to a factor of size(data, 2)
 %
 % $Id$
-  
+
+
 lT = size(data, 2);
 traceCount = fix(lT / binfactor); % throws away modulus
 lT = traceCount * binfactor;
+
+% reshape method
 nd = reshape(data(:,1:lT),size(data,1), binfactor, traceCount);
 binneddata = squeeze(mean(nd,2));
+
+% iterative method
+% binneddata = zeros(size(data,1), traceCount);
+% for i = 1:traceCount
+%     o = i*binfactor;
+%     d = data(:,o:(o+binfactor));
+%     binneddata(:,i) = mean(d,2);
+% end
+    

@@ -224,7 +224,17 @@ case 'align_episodes_callback'
     [d.data d.time] = AlignEpisodes(d.data, d.time, 1000:5000);
     SetUIParam(me,'filename','UserData',d);
     updateDisplay;
-    SetUIParam(me,'status','String','Episodes realigned');
+    SetUIParam(me,'status','String','Episodes realigned.');
+    
+case 'delete_trace_callback'
+    % deletes selected traces in the trace window
+    i = GetUIParam(me, 'trace_list', 'Value');
+    if (i > 0)
+        h = GetUIParam(me, 'trace_list', 'UserData');
+        t = GetUIParam(me, 'trace_list', 'String');
+        delete(h(i));
+        updateStats;
+    end    
     
 case 'close_callback'
     delete(gcbf);
@@ -495,13 +505,14 @@ end
 function adjustBaseline(limits)
 % Adjusts the baseline of the traces in the trace axes
 % Uses adjust_baseline.UserData ms
+SetUIParam(me,'status','String','Adjusting baseline...');
 d = GetUIParam(me,'filename','UserData');
-data = getData;
 limits = (limits * d.info.t_rate) + 1;
-adj = mean(data(limits(1):limits(2),:),1);
-data = data - repmat(adj, size(data,1),1);
-plotTraces(data, d.time, d.info);
-plotMarks;
+adj = mean(d.data(limits(1):limits(2),:),1);
+d.data = d.data - repmat(adj, size(d.data,1),1);
+SetUIParam(me,'filename','UserData',d);
+updateDisplay;
+SetUIParam(me,'status','String','Baseline adjusted.');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [data, abstime] = getData()
