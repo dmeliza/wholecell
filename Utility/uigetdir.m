@@ -2,7 +2,8 @@ function currdir = uigetdir( varargin )
 % UIGETDIR A dialog window that fetches a directory; analogous to UIGETFILE.
 %
 
-%   Author(s): P. N. Secakusuma, 27/04/98
+%   Adapted from: P. N. Secakusuma, 27/04/98
+%   
 %   Copyright (c) 1997 by The MathWorks, Inc.
 %   $Revision$   $Date$
 
@@ -14,7 +15,7 @@ if nargin == 0,
               'MenuBar', 'none', ...
                  'Name', 'Get Directory', ...
                     'Resize', 'off', ...
-                'Color', [0.760784 0.74902 0.647059], ...
+                'Color', get(0,'defaultUicontrolBackgroundColor'), ...
                'Position', [700 500 300 250], ...
                'WindowStyle', 'modal', ...
                'CloseRequestFcn', 'set(gcf, ''Userdata'', ''Cancel'')', ...
@@ -24,20 +25,15 @@ if nargin == 0,
                   'String', pwd, ...
                      'HorizontalAlignment', 'left', ...
                         'BackgroundColor', 'w', ...
-                   'Position', [10 220 225  20], ...
+                   'Position', [10 220 195  20], ...
                       'Tag', 'PWDText', ...
                          'ToolTipString', 'Present working directory');
 
-       DirList = dir;
-       DirName = { DirList.name }';
-       finddir = find(cat(1, DirList.isdir));
-       DirName = DirName(finddir);
-
        hlist = uicontrol('Style', 'Listbox', ...
-                         'String', DirName, ...
+                         'String', getdirectories, ...
                        'BackgroundColor', 'w', ...
-                  'Position', [10  40 225 160], ...
-                     'Callback', 'uigetdir(1)', ...
+                  'Position', [10  40 195 160], ...
+                     'Callback', 'uigetdir(''choose'')', ...
                         'Max', 1, ...
                    'ToolTipString', 'History of current directories', ...
                       'Tag', 'DirectoryContentListbox');
@@ -48,35 +44,43 @@ if nargin == 0,
                     'FontWeight', 'bold', ...
                     'Position', [10  10 280 20], ...
                     'Tag', 'ChosenDirectoryText');
-                 
+   
+   hbut = uicontrol('Style','pushbutton',...
+                    'String','New Directory',...
+                    'Callback','uigetdir(''create_dir'')',...
+                    'Position',[215 115 80 25]);
+                
    hbut1 = uicontrol('Style', 'Pushbutton', ...
                     'String', 'Select', ...
-                    'Callback', 'uigetdir(2)', ...
-                    'Position', [245  125  45  45]);
+                    'Callback', 'uigetdir(''select'')', ...
+                    'Position', [215  90  80  25]);
                  
    hbut2 = uicontrol('Style', 'Pushbutton', ...
                     'String', 'Cancel', ...
-                    'Callback', 'uigetdir(3)', ...
-                    'Position', [245  65  45  45]);
-                 
+                    'Callback', 'uigetdir(''cancel'')', ...
+                    'Position', [215  65  80  25]);
+                
+   drawnow;
+                
    waitfor(fig, 'Userdata');
               
        switch get(fig, 'Userdata'),
    case 'OK',
      hlist_val = get(hlist, 'Value');
      hlist_str = get(hlist, 'String');
-     cd([pwd, '\', hlist_str{hlist_val}]);
+     cd([pwd, filesep, hlist_str{hlist_val}]);
+     currdir = pwd;
+     cd(origdir)
    case 'Cancel',
-     cd(origdir);
-       end
-   currdir = pwd;
+     currdir = pwd;
+   end
 
-       delete(fig);
+   delete(fig);
 
 else
    
    switch varargin{1},
-   case 1,
+   case 'choose',
      if strcmp(get(gcf, 'SelectionType'), 'open'),
         hfig  = findobj('Tag', 'GetDirectoryWindow');
         hlist = findobj(hfig, 'Tag', 'DirectoryContentListbox');
@@ -112,10 +116,24 @@ else
         
         set(htxt1, 'String', ['Choice:  ', ChosenDir]);
      end
-   case 2,
+   case 'select',
      set(gcf, 'Userdata', 'OK');
-   case 3,
+   case 'cancel',
      set(gcf, 'Userdata', 'Cancel');
+   case 'create_dir'
+     a = inputdlg('New directory name:','Create Directory',1,{'New Directory'});
+     if ~isempty(a{1})
+         s = mkdir(a{1});
+     end
+     t = findobj(gcf,'tag','DirectoryContentListbox');
+     set(t(1),'String',getdirectories);
    end
 
 end
+
+function dirnames = getdirectories()
+% returns the directories in the current directory
+dirlist = dir;
+dirnames = { dirlist.name }';
+finddir = find(cat(1, dirlist.isdir));
+dirnames = dirnames(finddir);
