@@ -1,51 +1,85 @@
 function [] = CompareVisual(pre, post, bar, time)
 %
 %
-% Compares the average response to visual stimuluation in one or two files
+% Compares the average response to visual stimuluation in one or two files.
+%
+% CompareVisual(prefile, postfile, [bar], [time]
+%
+% bar - the spatial position to use
+% time - the time, in ms, of the spike
 %
 %
 % $Id$
-START = 0.2;
-WIN = [-100:6000];
-YLIM = [-40 15];
+BAR     = 1;
+START   = 0.2;
+WIN     = [-0.01 .501];
+LIGHT   = [0 500];      % time when bar of light is on
 
-A = load(pre)
-B = load(post)
+% check arguments
+error(nargchk(2,4,nargin));
+if nargin < 3
+    bar = BAR;
+elseif isempty(bar)
+    bar = BAR;
+end
+if nargin < 4
+    time = [];
+end
+    
+A = load(pre);
+B = load(post);
+if size(A.data,2) < bar
+    error('Spatial index exceeds number of traces in data')
+end
 
-Ta = find(A.time >= START);
-Ta = Ta(1);
-Tb = find(B.time >= START);
-Tb = Tb(1);
+% synchronize time variables
+A.time  = double(A.time);
+B.time  = double(B.time);
+a_ind   = find(A.time >= (START + WIN(1)) & A.time <= (START + WIN(2)));
+b_ind   = find(B.time >= START + WIN(1) & B.time <= START + WIN(2));
+if length(a_ind) > length(b_ind)
+    a_ind = a_ind(1:length(b_ind));
+else
+    b_ind = b_ind(1:length(a_ind));
+end
+% extract the data
+t       = (A.time(a_ind) - START) * 1000;
+a       = A.data(a_ind, bar);
+b       = B.data(b_ind, bar);
 
-f   = figure;
-set(f,'color',[1 1 1],'units','inches')
-p   = get(f,'position');
-set(f,'position',[p(1) p(2) 2.4 0.77])
-a   = axes;
-hold on;
+% normalize means
+a       = a - mean(a(1:50));
+b       = b - mean(b(1:50));
 
-Da  = A.data(WIN+Ta);
-Db  = B.data(WIN+Tb);
-Da  = Da - mean(Da(1:50));
-Db  = Db - mean(Db(1:50));
+% open the figure
+figure
+set(gcf,'color',[1 1 1])
+ResizeFigure(gcf,[2.4 0.77])
 
+% plot the data
+hold on
+pa  = plot(t,a,'k');
+pb  = plot(t,b,'r');
+axis tight
 
-pa  = plot(A.time(WIN+Ta),Da,'k');
-pb  = plot(B.time(WIN+Tb),Db,'r');
-%vline(START,'k:');
-set(gca,'YLim',YLIM,'Xtick',[],'Ytick',[],'Xcolor',[1 1 1],'YColor',[1 1 1])
-
-% draw scale lines
-h1  = line(START + [0.300 0.380], [-40 -40]);
-h2  = line(START + [0.380 0.380], [-40 -20]);
-set([h1 h2],'color',[0 0 0],'linewidth',2);
-text(START + 0.325,-50,'100 ms')
-text(START + 0.390,-25,'20 pA')
-% 
-% % draw light bar
-% h3  = line([START START+0.5], [10 10]);
-% set(h3,'color',[0 0 0],'linewidth',5)
-
-if nargin > 2
+mx  = max(max([a b]));
+mn  = min(min([a b]));
+set(gca,'YLim',[mn * 1.1, mx * 1.1]);
+% draw spike time, if supplied
+if ~isempty(time)
     vline(time,'k:')
 end
+
+% draw stim bar
+if ~isempty(LIGHT)
+    y   = mx * 1.4;
+    h   = plot(LIGHT,[y y]);
+    set(h,'color','black','linewidth',3)
+    set(gca,'ylim',[mn * 1.1, mx * 1.5])
+end
+
+xtick   = 100;
+ytick   = 0;    % automatic
+AddScaleBar(gca,{'ms','pA'}, [xtick ytick]);
+
+
