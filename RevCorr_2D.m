@@ -94,11 +94,7 @@ case 'record'
 case 'stop'
     if (isvalid(wc.ai))
         stop(wc.ai);
-        set(wc.ai,'SamplesAcquiredAction',{});
-        set(wc.ai,'TimerAction',{});
-        SetUIParam('wholecell','status','String',get(wc.ai,'Running'));        
-        set(wc.ai,'LoggingMode','Memory');
-        set(wc.ai,'LogFileName',NextDataFile);
+        clearDAQ;
     end
     
 otherwise
@@ -124,6 +120,7 @@ global wc;
     p.y_res = cell2struct({'Y Pixels','value',4,cb},f_sb,2);
     p.x_res = cell2struct({'X Pixels','value',4,cb},f_sb,2);
     
+    p.repeat = cell2struct({'Repeats (0=inf)','value',1},f_s,2);
     p.a_frames = cell2struct({'Stimulus Frames','value',1000,cb},f_sb,2);
     p.stim = cell2struct({'Stim File','fixed','',loadStim},f_sb,2);
     p.display = cell2struct({'Display', 'value', 2,cb},f_sb,2);
@@ -175,6 +172,16 @@ start([wc.ai]);
 trigger([wc.ai]);
 timing(1) = cgflip(0);
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function clearDAQ()
+% resets callbacks so we don't get recordings where we don't want'em
+global wc
+set(wc.ai,'SamplesAcquiredAction',{});
+set(wc.ai,'TimerAction',{});
+SetUIParam('wholecell','status','String',get(wc.ai,'Running'));        
+set(wc.ai,'LoggingMode','Memory');
+set(wc.ai,'LogFileName',NextDataFile);
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
 function queueStimulus(varargin)
 % Loads a "movie" in the form of sprites.  Once the sprites are loaded into
@@ -188,7 +195,7 @@ mseqfile = GetParam(me,'stim','value');
 stim = getStimulus(mseqfile);
 % reset display toolkit
 cgshut;
-cgopen(1,8,60,disp);
+cgopen(1,8,0,disp);
 
 % setup colormap:
 colmap = gray(2);
@@ -196,11 +203,11 @@ cgcoltab(0,colmap);
 cgnewpal;
 % load sprites:
 pix = x_res * y_res;
-h = waitbar(0,['Loading movie (0/' num2str(a_frames) ' frames)']);
+h = waitbar(0,['Loading movie ('num2str(a_frames) ' frames)']);
 for i = 1:a_frames
     o = (i - 1) * pix + 1;
     cgloadarray(i,x_res,y_res,stim(o:o+pix-1),colmap,0);
-    waitbar(i/a_frames,h,['Loading movie (' num2str(i) '/' num2str(a_frames) ' frames)']);
+    waitbar(i/a_frames,h);
 end
 close(h);
 
@@ -227,7 +234,6 @@ function nextFrame(obj, event)
 global timing frame gprimd;
 
 if frame < gprimd.NextRASKey
-%     timing(frame) = now;
      cgdrawsprite(frame,0,0, gprimd.PixWidth, gprimd.PixHeight);
      frame = frame + 1;
      timing(frame) = cgflip;
@@ -243,13 +249,6 @@ if length(n) < 1
 end
 stim = getfield(d,n{1});
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function writeStimulus(filename, stimulus, stimrate, analysis_interval)
-% writes stimulus waveform to a mat file for later analysis
-[pn fn ext] = fileparts(filename);
-save([pn filesep fn '.mat'],...
-    'stimulus', 'stimrate', 'analysis_interval');
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function analyze(obj, event)
 % all data has been collected and we have timing data
@@ -258,41 +257,46 @@ function analyze(obj, event)
 global timing
 stop(obj);
 param = GetParam(me);
+
+lfn = get(obj,'LogFileName');
+[pn fn ext] = fileparts(lfn);
 if ~strcmp('memory',lower(get(obj,'LoggingMode')))
-    lfn = get(obj,'LogFileName');
-    [pn fn ext] = fileparts(lfn);
     save(fullfile(pn,fn),'timing','param');
 end
 plotResults(obj,timing);
-startSweep;
-
-
+r = GetParam(me,'repeat','value');
+if r == 0 | r > str2num(fn)
+    startSweep;
+else
+    clearDAQ;
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function plotResults(obj, timing)
 % Plots the results of the reverse correlation
-param = GetParam(me);
 % get data
 [data, time, abstime] = getdata(obj);
 % align the data to the stim times
 stim_start = timing(2) - timing(1);
 i = max(find(time < stim_start)) + 1;
-resp = data(i:end,param.input.value);
+resp = data(i:end,GetParam(me,'input','value'));
 time = time(i:end) - time(i);
-stim_times = timing(2:end) - timing(2);
 % bin the data (rough, ignores variance in timing)
 t_resp = 1000 / get(obj,'SampleRate');
-t_stim = param.t_res.value;
+t_stim = GetParam(me,'t_res','value');
 r = bindata(resp,fix(t_stim/t_resp));
 r = r - mean(r);
+stim_times = timing(2:length(r)+1) - timing(2);
 % reconstruct the stimulus (as an N by X matrix)
 s_frames = length(r);
-stim = getStimulus(param.stim.value);
-pix = param.x_res.value * param.y_res.value * s_frames; % # of pixels
-s = reshape(stim(1:pix),param.x_res.value*param.y_res.value, s_frames);
+stim = getStimulus(GetParam(me,'stim','value'));
+x_res = GetParam(me,'x_res','value');
+y_res = GetParam(me,'y_res','value');
+pix = x_res * y_res * s_frames; % # of pixels
+s = reshape(stim(1:pix),x_res * y_res, s_frames);
 s = permute(s,[2 1]);
 % reverse correlation:
 options.correct = 'no';
 Fs = fix(1000/t_stim);
 hl_est = danlab_revcor(s,r,5,Fs,options);
-Plot2DKernel(hl_est,r,s,stim_times,[param.x_res.value,param.y_res.value],Fs);
+Plot2DKernel(hl_est,r,s,stim_times,[x_res,y_res],Fs);
