@@ -1,4 +1,4 @@
-function [h1_est] = danlab_revcor(u,y,lags,options)
+function [h1_est] = danlab_revcor(u,y,lags,Fs,options)
 
 % DANLAB_REVCOR General Reverse Correlation Algorithm 
 %
@@ -11,6 +11,7 @@ function [h1_est] = danlab_revcor(u,y,lags,options)
 %    y    - neural response, N-by-1 Vector
 %
 %    lags - temporal frame lags included in reverse correlation analysis (Default = 1)
+%    Fs   - sampling rate of response
 %
 %    option 
 %           - options.correct, ['yes' 'no'] correct for correlations in stimulus (Default = 'no')
@@ -156,7 +157,7 @@ h1_est = reshape(h1_est,lags,X);
 if PLOT_RESULT
     
     %%%%%%%%% PLOT RESULTS %%%%%%%%
-    vprintf('Plotting Result... \n')
+    disp('Plotting Result...')
     
     figure('Name','REVCOR Results');
     % Fiugre Parameters %
@@ -180,10 +181,11 @@ if PLOT_RESULT
         colormap(gray)
     else
         % Line Plot %
-        plot(h1_est,'-b','LineWidth',2)
+        t = 0:1000/Fs:1000*(length(h1_est)-1)/Fs;
+        plot(t,h1_est,'-b','LineWidth',2)
         axis square
-        set(gca,'XTick',[],'YTick',[])
-        xlabel('Parameters')
+        set(gca,'YTick',[])
+        xlabel('Time (ms)')
         ylabel('Lags')
     end
     
@@ -191,16 +193,18 @@ if PLOT_RESULT
     subplot(1,2,2)
     y_est = Stim * h1_vec;
     r = corrcoef(y_est,y);
-    plot(y,'-b')
+    y_est = y_est * max(y)/max(y_est);
+    t = 0:1000/Fs:1000*(length(y)-1)/Fs;
+    plot(t,y,'-b')
     hold on
-    plot(y_est,'--r')
+    plot(t,y_est,'-r')
     axis square
     if FRAMES > 100
         mx = max(abs(y));
-        axis([1 100 -mx mx])
+        axis([0 1e5/Fs -mx mx])
     end
     set(gca,'XTick',[],'YTick',[])
-    xlabel('Frames')
+    xlabel('Time')
     ylabel('Response')
     title(['Corr Coef: ' num2str(r(1,2))])
     
