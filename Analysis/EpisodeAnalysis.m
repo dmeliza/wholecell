@@ -120,8 +120,7 @@ h = InitUIControl(me, 'status', 'style', 'text', 'backgroundcolor', BG,...
     'position', [255 0 480 20],'String','(status)');
 % Menus
 file = uimenu(gcf, 'Label', '&File');
-m    = uimenu(file, 'Label', '&Open Response...','Callback',cb.menu, 'tag', 'm_resp');
-m    = uimenu(file, 'Label', 'Open &Parameters...','Callback',cb.menu,'tag','m_param');
+m    = uimenu(file, 'Label', '&Open File...','Callback',cb.menu, 'tag', 'm_open');
 m    = uimenu(file, 'Label', 'Save &Response...','Callback',cb.menu,'tag','m_saveresp');
 m    = uimenu(file, 'Label', 'Save &Traces...','Callback',cb.menu,'tag','m_savetrace');
 m    = uimenu(file, 'Label', '&Save Parameters...', 'Callback', cb.menu,'tag','m_save');
@@ -142,7 +141,7 @@ m    = uimenu(op, 'Label', '&Trace Properties...', 'Callback', cb.menu, 'tag', '
 z   = load('gui_icons');
 f   = {'ClickedCallback','ToolTip','CData','Tag'};
 
-p   = cell2struct({cb.menu,'Open Response',z.opendoc,'m_resp'},f,2);
+p   = cell2struct({cb.menu,'Open File',z.opendoc,'m_open'},f,2);
 u   = InitUIObject(me,'m_resp','uipushtool',p);
 p   = cell2struct({cb.menu,'Close Response',z.closedoc,'m_close'},f,2);
 u   = InitUIObject(me,'m_close','uipushtool',p);
@@ -344,19 +343,38 @@ function [] = menu(obj, event)
 % handles menu callbacks
 tag = get(obj, 'tag');
 switch lower(tag)
-case 'm_resp'
-    % load responses (r0 files)
+case 'm_open'
+    % load responses (r0 files) or parameters (p0 files)
     path    = getappdata(gcf, 'dir');
-    [fn pn] = uigetfile([path filesep '*.r0'],'Load Traces (r0)');
+    p       = cd(path);
+    [fn pn] = uigetfile({'*.r0;*.p0',...
+        'Traces (r0) and Parameters (p0)'},'Load File');
+    cd(p)
     if ~isnumeric(fn)
-        [r0 str] = LoadResponseFile(fullfile(pn,fn));
-        if isstruct(r0)
-            storeData(r0, fn);
-            updateFields;
-            plotTraces;
+        [p f ext] = fileparts(fullfile(pn,fn));
+        switch lower(ext)
+        case '.r0'
+            [r0 str] = LoadResponseFile(fullfile(pn,fn));
+            if isstruct(r0)
+                storeData(r0, fn);
+                updateFields;
+                plotTraces;
+            end
+            setappdata(gcf,'dir',pn);
+            SetUIparam(me,'status','String',str);
+        case '.p0'
+            d       = load('-mat',fullfile(pn,fn));
+            if isfield(d,'params')
+                setappdata(gcf,'parameters',d.params);
+                SetUIParam(me,'parameters','String',{d.params.name});
+                updateParameters
+                SetUIParam(me,'status','String',sprintf('Loaded %d parameters from %s',...
+                    length(d.params),fn));
+                setappdata(gcf,'dir',pn);
+            else
+                SetUIParam(me,'status','String','Unable to load parameters from file');
+            end
         end
-        setappdata(gcf,'dir',pn);
-        SetUIparam(me,'status','String',str);
     end
 case 'm_close'
     % close the currently selected responses (remove from list and backing store)
@@ -433,23 +451,7 @@ case 'm_save'
         SetUIParam(me,'status','String',sprintf('Wrote %d parameters to %s',length(params),fn));
         setappdata(gcf,'dir',pn);
     end
-case 'm_param'
-    % load parameters
-    path    = getappdata(gcf,'dir');
-    [fn pn] = uigetfile([path filesep '*.p0'],'Load Parameters (p0)');
-    if ~isnumeric(fn)
-        d       = load('-mat',fullfile(pn,fn));
-        if isfield(d,'params')
-            setappdata(gcf,'parameters',d.params);
-            SetUIParam(me,'parameters','String',{d.params.name});
-            updateParameters
-            SetUIParam(me,'status','String',sprintf('Loaded %d parameters from %s',...
-                length(d.params),fn));
-            setappdata(gcf,'dir',pn);
-        else
-            SetUIParam(me,'status','String','Unable to load parameters from file');
-        end
-    end
+
 case 'm_export'
     % compute results of all parameters, then let the user save it in a .mat or .csv file
     p   = getappdata(gcf,'parameters');
@@ -547,19 +549,15 @@ case 'm_combine'
     % The old datasets are kept so that the user can go back if the combination fails
     fls = GetUIParam(me,'files','String');
     v   = GetUIParam(me,'files','Value');
-    if length(v) < 2 | length(fls) < 2
-        SetUIParam(me,'status','Error: Select more than 1 dataset');
-    else    
+    ds  = getSelected;
+    if isempty(ds)    
+        SetUIParam(me,'status','String','Error: No traces selected');
+    else
         a   = inputdlg({'New Dataset Name'},'Combine dataset...',1,{'Combined.r0'});
         if ~isempty(a)
-            ds  = getSelected;
-            if isempty(ds)
-                SetUIParam(me,'status','Error: No traces selected');
-            else
-                r0  = combineDataSets(ds);
-                storeData(r0, a{1});
-                SetUIParam(me,'status','String','Traces combined.');
-            end
+            r0  = combineDataSets(ds);
+            storeData(r0, a{1});
+            SetUIParam(me,'status','String','Traces combined.');
         end
     end
     
@@ -924,11 +922,14 @@ if ~isempty(ds)
         p       = scatter(res(i).abstime, res(i).value, 10, res(i).color);
         X       = [res(i).abstime(1) res(i).abstime(end)];
         m      = mean(res(i).value);
-        [z, s]  = polyfit(res(i).abstime, res(i).value,1);
-        %h(i)    = line(X,polyval(z,X));
         h(i)   = line([res(i).abstime(1) res(i).abstime(end)],[m m]);
-        %str{i} = sprintf('%4.3f %s', m, res(i).units);
-        str{i}  = sprintf('%4.3f %s (%3.2f%%)', m, res(i).units, z(1) * 100);
+        if length(res(i).abstime) > 1
+            [z, s]  = polyfit(res(i).abstime, res(i).value,1);
+            %h(i)    = line(X,polyval(z,X));
+            str{i}  = sprintf('%4.3f %s (%3.2f%%)', m, res(i).units, z(1) * 100);
+        else
+            str{i} = sprintf('%4.3f %s', m, res(i).units);
+        end
         set(h(i),'Color',res(i).color,'LineStyle',':')
         
     end
