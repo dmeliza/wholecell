@@ -18,7 +18,11 @@ function varargout = SealTest(varargin)
 global wc
 
 error(nargchk(1,Inf,nargin));
-
+if isobject(varargin{1})
+    feval(varargin{3},varargin{1:2});
+    return;
+end
+action = lower(varargin{1});
 switch lower(action)
     
 case 'standalone'
@@ -46,11 +50,6 @@ case 'init'
     SetUIParam(me,'pulseLengthUnits','String','ms');
     SetUIParam(me,'pulse_length','String',num2str(1000 .* wc.sealtest.pulse_length));
     SetUIParam(me,'scaling_0','Value',1);
-    
-case 'sweep' % plot the data
-    data = varargin{2};
-    time = varargin{3};
-    plotData(time, data);
     
 % these callbacks are associated with buttons in the GUI.  See SealTest.fig to change
 case 'sweeps_callback'
@@ -161,12 +160,13 @@ function setupSweep(fcn)
 % each sweep is twice as long as the pulse.  we have to convert between
 % samples and time rather too often.
 global wc
+acq     = @analyze;
 [start, finish, sweeplen]        = pulseTimes;
 numouts          = length(wc.ao.Channel);
 wc.control.pulse = zeros(sweeplen,numouts);
 wc.control.pulse(start:finish,1) = wc.sealtest.pulse;  % here we assume the first channel is the command
 set(wc.ai,'SamplesPerTrigger',inf);
-set(wc.ai,'SamplesAcquiredAction',{'SweepAcquired',me});
+set(wc.ai,'SamplesAcquiredAction',{me, acq})
 set(wc.ai,'SamplesAcquiredActionCount',length(wc.control.pulse));
 sr               = get(wc.ai,'SampleRate');
 set(wc.ao,'SampleRate',sr);
@@ -185,8 +185,16 @@ total   = 2 .* len;
 start   = fix(.3 .* len);
 finish  = start + len;
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [] = analyze(obj, event)
+% This function gets called as a result of the SamplesAcquiredAction.  It
+% retrieves the data from the DAQ engine and passes it to plotData()
+samples         = get(obj,'UserData');
+[data, time]    = getdata(obj, samples);
+plotData(time,data)
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function plotData(time, data)
+function [] = plotData(time, data)
 % plots data on the graph and displays resistance values
 % no averaging occurs on sweep display, but the user can set how many sweeps
 % to use for resistance averaging
