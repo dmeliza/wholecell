@@ -83,14 +83,20 @@ else
         printresult(fid,'IR:',cat(1,pst.ir));
         fprintf(fid,'\n');
         printresult(fid,'SR:',cat(1,pst.ir));
+        fprintf(fid,'\n');
+        printresult(fid,'LK:',cat(1,pst.leak));        
     elseif isempty(pst)
         printresult(fid,'IR:',cat(1,pre.ir));
         fprintf(fid,'\n');
         printresult(fid,'SR:',cat(1,pre.ir));
+        fprintf(fid,'\n');
+        printresult(fid,'LK:',cat(1,pre.leak));        
     else
         printdifference(fid,'IR:',cat(1,pre.ir),cat(1,pst.ir),'');
         fprintf(fid,'\n');
         printdifference(fid,'SR:',cat(1,pre.sr),cat(1,pst.sr),'');
+        fprintf(fid,'\n');
+        printdifference(fid,'LK:',cat(1,pre.leak),cat(1,pst.leak),'');
     end
     fprintf(fid,'\n');
 end
@@ -152,7 +158,7 @@ end
 
 function [results] = analyzedirectory(fid, times);
 % wrapper function loops through all r0 files in the directory
-empty = struct('resp',[],'ir',[],'sr',[],'time',[],'units',[],...
+empty = struct('resp',[],'ir',[],'sr',[],'leak',[],'time',[],'units',[],...
     'start',[],'trace',[],'time_trace',[],'t_peak',[],'t_onset',[],'t_sr',[],...
     't_ir',[],'stim_electrical',[],'stim_start',[],...
     'mode_currentclamp',[]);
@@ -250,8 +256,9 @@ if ~isempty(t_onset) & ~isempty(t_peak)
         sel_baseline= sel_baseline & ~sel_artifact;
     end
     sel_response    = time>=(t_peak-WINDOW_PEAK) & time<=(t_peak+WINDOW_PEAK);
-    baseline        = mean(resp(sel_baseline,:),1);
-    response        = (mean(resp(sel_response,:),1) - baseline)';
+    leak            = mean(resp(sel_baseline,:),1);
+    response        = (mean(resp(sel_response,:),1) - leak)';
+    leak            = leak';
     if ~isCC
         response    = -response;
     end
@@ -264,6 +271,7 @@ if ~isempty(t_onset) & ~isempty(t_peak)
     trace           = filtavg(sel_trace) - mean(filtavg(sel_trace_bl));
     time_trace      = time(sel_trace);
 else
+    leak        = [];
     response    = [];
     trace       = [];
     time_trace  = [];
@@ -277,7 +285,7 @@ warning on MATLAB:divideByZero
 units   = R.y_unit{1};
 % package in a structure
 at              = R.abstime(:);
-results = struct('resp',response,'ir',ir,'sr',sr,'time',at,'units',units,...
+results = struct('resp',response,'ir',ir,'sr',sr,'leak',leak,'time',at,'units',units,...
     'start',R.start_time,'trace',trace,'time_trace',time_trace,...
     't_peak',num2cell(t_peak),'t_onset',num2cell(t_onset),'t_sr',t_sr,...
     't_ir',t_ir,'stim_electrical',iselectrical,'stim_start',-time(1),...
