@@ -81,6 +81,10 @@ case 'record'
     s = mkdir(dir, newdir);
     set(wc.ai,'LogFileName',fullfile(dir,newdir, '0000.daq'));    
     set(wc.ai,{'LoggingMode','LogToDiskMode'}, {'Disk&Memory','Overwrite'});
+    % open a file to store parameter sequence
+    fid = fopen(fullfile(dir,newdir,'sequence.txt'),'at');
+    setUIParam('protocolcontrol','status','UserData',fid);
+    
     setupHardware;
     startSweep;
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
@@ -88,6 +92,7 @@ case 'record'
 case 'stop'
     ClearAO(wc.ao)
     ClearAI(wc.ai)
+    closeLog;
     
 otherwise
     disp(['Action ' action ' is unsupported by ' me]);
@@ -161,6 +166,15 @@ SetUIParam('protocolcontrol','status','String',get(wc.ai,'logfilename'));
 [seq, fnum] = setupVisual;
 % Store fnum in wc.ai's UserData so it can be extracted from the file later. Brilliant, huh?
 set(wc.ai, 'UserData', fnum);
+% except it doesn't work, so we have to append shit to a log
+mod     = get(wc.ai,'LoggingMode');
+if ~strcmpi(mod,'Memory')
+    fid = GetUIParam('protocolcontrol','status','UserData');
+    fn  = fopen(fid);
+    if ~isempty(fn)
+        fprintf(fid,'%d\n', fnum - 1);
+    end
+end
 queueStimulus(fnum);
 start([wc.ai wc.ao]);
 playFrames(seq);
@@ -304,6 +318,7 @@ if ~isempty(a)
     startSweep;
 else
     ClearAI(obj);
+    closeLog;
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function plotData(data, time, abstime, fnum)
@@ -364,3 +379,12 @@ otherwise
     end
     a       = subplot(num,1,arg);
 end
+
+%%%%%%%%%%55
+function [] = closeLog()
+fid = GetUIParam('wholecell','status','UserData');
+fn  = fopen(fid);
+if ~isempty(fn)
+    fclose(fid);
+end
+SetUIParam('wholecell','status','UserData',[]);
