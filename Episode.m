@@ -97,7 +97,9 @@ p.inj_length = cell2struct({'Inj Length','value',6,'ms'},f,2);
 p.inj_delay = cell2struct({'Inj Delay','value',200,'ms'},f,2);
 p.inj_gain = cell2struct({'Inj Gain','value',1},f_s,2);
 p.inj_channel = cell2struct({'Command','list',1,GetChannelList(wc.ao)},f_l,2);
-p.stim_delay = cell2struct({'Stim Delay','value',0,'ms'},f,2);
+p.stim_len = cell2struct({'Stim Length','value', 300, 'ms'},f,2);
+p.stim_delay = cell2struct({'Stim Delay','value',200,'ms'},f,2);
+p.stim_gain = cell2struct({'Stim Gain','value',10,'(V)'},f,2);
 p.frequency = cell2struct({'Ep. Freq','value',0.2,'Hz'},f,2);
 p.ep_length = cell2struct({'Ep. Length','value',1000,'ms'},f,2);
 p.stim_channel = cell2struct({'Stimulator','list',1,GetChannelList(wc.ao)},f_l,2);
@@ -130,8 +132,8 @@ p = zeros(len, length(wc.ao.Channel));
 % stimulator
 ch = GetParam(me,'stim_channel','value');
 del = GetParam(me,'stim_delay','value') / dt;
-i = del+1:del+0.3*len;
-p(i,ch) = 10;
+i = del+1:(del+ GetParam(me,'stim_len','value'));
+p(i,ch) = GetParam(me,'stim_gain','value');
 % injection
 ch = GetParam(me,'inj_channel','value');
 del = GetParam(me,'inj_delay','value') / dt;
