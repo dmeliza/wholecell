@@ -105,8 +105,10 @@ else
     induced = 0;                % electrical
 end
 
-fprintf(fid, 'Pre: %s\n', dd{1});
-fprintf(fid, 'Induced: %s', dd{2});
+n   = dir(fullfile(dd{1},'*.daq'));
+fprintf(fid, 'Pre: %s (%d files)\n', dd{1}, length(n));
+n   = dir(fullfile(dd{2},'*.daq'));
+fprintf(fid, 'Induced: %s (%d files)', dd{2}, length(n));
 switch induced
     case -1
         fprintf(fid,' (unknown induction bar)\n');
@@ -115,7 +117,8 @@ switch induced
     otherwise
         fprintf(fid,' (%d)\n', induced);
 end
-fprintf(fid, 'Post: %s\n', dd{3});
+n   = dir(fullfile(dd{2},'*.daq'));
+fprintf(fid, 'Post: %s (%d files)\n', dd{3}, length(n));
 fprintf(fid, '----\n');
 % run the analysis script, first in the pre/post directories, then in the
 % induction directory
@@ -168,20 +171,24 @@ pst.time= pst.time + offset;
 % some serious subplot-fu here
 ax      = subplot(4,3,[1 2 4 5]);
 plotTimeCourse(ax,pre.time,pre.resp,pst.time,pst.resp);
-set(ax,'XTickLabel',[])
 xlim    = get(ax,'Xlim');
 ylabel(sprintf('Response (%s)',pre.units));
 title('Time Course');
 
-ax      = subplot(4,3,[7 8]);
-plotTimeCourse(ax,pre.time,pre.ir,pst.time,pst.ir,BINSIZE);
-set(ax,'XTickLabel',[],'Xlim',xlim)
-ylabel('IR')
-
-ax      = subplot(4,3,[10 11]);
-plotTimeCourse(ax,pre.time,pre.sr,pst.time,pst.sr,BINSIZE);
-set(ax,'Xlim',xlim)
-ylabel('SR')
+if ~isempty(pre.ir)
+    set(ax,'XTickLabel',[])
+    ax      = subplot(4,3,[7 8]);
+    plotTimeCourse(ax,pre.time,pre.ir,pst.time,pst.ir,BINSIZE);
+    set('Xlim',xlim)
+    ylabel('IR')
+end
+if ~isempty(pre.sr)
+    set(ax,'XTickLabel',[])
+    ax      = subplot(4,3,[10 11]);
+    plotTimeCourse(ax,pre.time,pre.sr,pst.time,pst.sr,BINSIZE);
+    set(ax,'Xlim',xlim)
+    ylabel('SR')
+end
 xlabel('Time (min)')
 
 % plot the two average responses and their difference

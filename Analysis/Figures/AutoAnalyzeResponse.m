@@ -23,6 +23,8 @@ error(nargchk(1,5,nargin));
 if nargin < 3
     fid = 1;
 end
+pre = [];
+pst = [];
 
 % analyze first directory
 curdir  = pwd;
@@ -82,10 +84,14 @@ fprintf(fid,'----\n');
 if nargin > 2
     pst_ir  = cat(1,pst.ir);
     pst_sr  = cat(1,pst.sr);
-    printdifference(fid, 'IR:', pre_ir, pst_ir, pre(1).units);
-    fprintf('\n');
-    printdifference(fid, 'SR:', pre_sr, pst_sr, pre(1).units);    
-    fprintf('\n');
+    if ~isempty(pst_ir)
+        printdifference(fid, 'IR:', pre_ir, pst_ir, pre(1).units);
+        fprintf('\n');
+    end
+    if ~isempty(pst_sr)
+        printdifference(fid, 'SR:', pre_sr, pst_sr, pre(1).units);    
+        fprintf('\n');
+    end
 else
     fprintf(fid,'IR: %3.2f +/- %3.2f %s\n',...
         mean(pre_ir), std(pre_ir)/n, pre(1).units);
@@ -220,6 +226,7 @@ for ifile = 1:length(dd)
         % to count.
         if isempty(above)
             fprintf(fid, 'Err: Unable to detect event onset\n');
+            results = [];
             return
         end
         diffabove       = diff(above);
@@ -277,7 +284,7 @@ for ifile = 1:length(dd)
     % we need to use unfiltered, unaligned data to ensure the transients
     % line up
     resp            = double(R.data(ind_resist,:));
-    time            = time(ind_resist);
+    time            = double(R.time(ind_resist));
 %    time            = double(R.time(ind_resist));
     avg             = mean(resp,2);
     % with a relatively low cutoff the amplitude of the transient should be
@@ -305,23 +312,26 @@ for ifile = 1:length(dd)
         t_sr{ifile}         = time(median(ind_trans));
         t_ir{ifile}         = time([ind_baseline(1) ind_baseline(end) ind_ir(1) ind_ir(end)]);
         vline(t_ir{ifile});
-        if WRITE_FIGURES
-            [pn,fn,ext]     = fileparts(dd{ifile});
-            fn              = fullfile(pwd,[fn '.fig']);
-            set(fig,'visible','on')
-            saveas(fig,fn,'fig')
-            set(fig,'visible','off')
-        end
-        if ~DEBUG_LOC
-            delete(fig)
-        else
-            set(fig,'visible','on')
-        end        
+      
     else
         % to do: write analysis for current clamp
         ir{ifile}  = [];
         sr{ifile}  = [];
+        t_sr       = [];
+        t_ir       = [];
     end
+    if WRITE_FIGURES
+        [pn,fn,ext]     = fileparts(dd{ifile});
+        fn              = fullfile(pwd,[fn '.fig']);
+        set(fig,'visible','on')
+        saveas(fig,fn,'fig')
+        set(fig,'visible','off')
+    end
+    if ~DEBUG_LOC
+        delete(fig)
+    else
+        set(fig,'visible','on')
+    end     
     warning on MATLAB:divideByZero
     units   = R.y_unit{1};
     % package in a structure (which turns the cell arrays into elements of

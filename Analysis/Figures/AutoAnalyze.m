@@ -36,20 +36,25 @@ dd1     = GetSubdirectories(RAT_SELECT);
 fprintf(fid,'AutoAnalyze.m $Revision$\n');
 fprintf(fid,'Begin analysis run in %s at %s\n', rootdir, datestr(now));
 
-for i = 1:length(dd1)
-    ratdir  = dd1{i};
-    cd(rootdir);
-    cd(ratdir);
-    dd2 = GetSubdirectories(CELL_SELECT);
-    
-    % cycle through all the cell directories in each rat dir
-    for j = 1:length(dd2)
-        celdir  = dd2{j};
-        cd(celdir);
-        fprintf(fid, '-----------------------------');
-        fprintf(fid, '\nCell: %s/%s\n', ratdir, celdir);
-        feval(ANALYSIS_FN, fid);
-        cd(fullfile(rootdir,ratdir));
+try
+    for i = 1:length(dd1)
+        ratdir  = dd1{i};
+        cd(rootdir);
+        cd(ratdir);
+        dd2 = GetSubdirectories(CELL_SELECT);
+        
+        % cycle through all the cell directories in each rat dir
+        for j = 1:length(dd2)
+            celdir  = dd2{j};
+            cd(celdir);
+            fprintf(fid, '-----------------------------');
+            fprintf(fid, '\nCell: %s/%s\n', ratdir, celdir);
+            feval(ANALYSIS_FN, fid);
+            cd(fullfile(rootdir,ratdir));
+        end
     end
+    
+catch
+    close(fid)
+    error(lasterr)
 end
-
