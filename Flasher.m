@@ -224,8 +224,8 @@ dt          = 1000 / get(wc.ao,'SampleRate');                   %ms/sample
 p           = zeros(len / dt, length(wc.ao.Channel));
 
 frames      = GetParam(me,'inj_frames','value');
-ind         = find(frames==fnum);
-if isempty(frames) | ~isempty(ind)
+ind         = find(frames==(fnum-1));
+if frames==0 | ~isempty(ind)
     % injection
     ch          = GetParam(me,'inj_channel','value'); 
     del         = GetParam(me,'inj_delay','value') / dt; %samples
@@ -358,7 +358,7 @@ case 'init'
     for i = 1:arg
         a = subplot(arg,1,i);
         set(a,'NextPlot','ReplaceChildren')
-        set(a,'XTickMode','Auto','XGrid','On','YGrid','On','YLim',[-5 5])
+        set(a,'XTickMode','Auto','XGrid','On','YGrid','On')%,'YLim',[-5 5])
         ylabel(num2str(i))
     end
     xlabel('Time (ms)')
@@ -382,9 +382,11 @@ end
 
 %%%%%%%%%%55
 function [] = closeLog()
-fid = GetUIParam('wholecell','status','UserData');
-fn  = fopen(fid);
-if ~isempty(fn)
-    fclose(fid);
+fid = GetUIParam('protocolcontrol','status','UserData');
+if isnumeric(fid)
+    fn  = fopen(fid);
+    if ~isempty(fn)
+        fclose(fid);
+    end
 end
 SetUIParam('wholecell','status','UserData',[]);
