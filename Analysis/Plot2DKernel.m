@@ -42,7 +42,7 @@ subplot(1,3,2)
     set(gca,'XTick',[],'YTick',[])
 subplot(1,3,3)
     s = size(hl_est);
-    y_est = Stim(stim,s(1)) * reshape(hl_est,s(1)*s(2),1);
+    y_est = StimulusMatrix(stim,s(1)) * reshape(hl_est,s(1)*s(2),1);
     r = corrcoef(y_est,resp);
     y_est = y_est * max(resp)/max(y_est);
     t = 0:1000/Fs:1000*(length(resp)-1)/Fs;
@@ -54,14 +54,3 @@ subplot(1,3,3)
     xlabel('Time (ms)')
     ylabel('Response')
     title(['Corr Coef: ' num2str(r(1,2))])
-
-function S = Stim(stim,lags)
-% reconditions the stimulus for convolution
-[FRAMES X pages] = size(stim);
-DIMS = X * lags;
-S = zeros(FRAMES,DIMS);
-lag_index = 0:(lags-1);
-for t = lags:FRAMES
-    time_step = stim(t-lag_index,:);
-    S(t,:) = reshape(time_step,1,lags*X);
-end
