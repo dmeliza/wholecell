@@ -437,7 +437,8 @@ case 'm_savetrace'
         data(:,i)   = mean(ds(i).data(:,:,1),2);
     end
     time            = ds(end).time;
-    save(fullfile(pn,fn),'fname','data','time')
+    units           = ds(end).units{1};
+    save(fullfile(pn,fn),'fname','data','time','units')
     SetUIParam(me,'status','String',['Traces saved to ' fn]);
     setappdata(gcf,'dir',pn);
     
