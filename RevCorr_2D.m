@@ -130,7 +130,7 @@ function p = defaultParams()
 global wc;
 
     cb = @setLoadFlag;
-    loadStim = @loadStimulus;
+    loadStim = @pickStimulus;
 
     f = {'description','fieldtype','value','units'};
     f_sb = {'description','fieldtype','value','callback'};
@@ -199,6 +199,11 @@ p = GetParam(me,'load_me','value');
 if p
     queueStimulus;
 end
+stim = GetUIParam('scope','status','UserData');
+if ~strcmp(lower(get(wc.ai,'LoggingMode')),'memory')
+    [pn fn ext] = fileparts(get(wc.ai,'logfilename'));
+    WriteStructure([pn filesep fn '-stim.mat'],stim);
+end
 start([wc.ai]);
 cogstd('spriority','high');
 playStimulus;
@@ -237,11 +242,12 @@ p1 = GetParam(me,'p1','value');
 
 movfile = GetParam(me,'stim','value');
 stim = LoadMovie(movfile, x_res, y_res, a_frames, p1);
+SetUIParam('scope','status','UserData',stim);
 CgQueueMovie(stim);
 SetParam(me,'load_me',0);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function loadStimulus(varargin)
+function pickStimulus(varargin)
 % callback for the stimulus field, allows user to select
 % a .mat or .m file that describes the stimulus
 mod = varargin{3};
@@ -286,7 +292,7 @@ param = GetParam(me);
 lfn = get(obj,'LogFileName');
 [pn fn ext] = fileparts(lfn);
 if ~strcmp('memory',lower(get(obj,'LoggingMode')))
-    save(fullfile(pn,fn),'timing','param');
+    save(fullfile(pn,[fn '-timing']),'timing','param');
 end
 plotResults(obj,timing);
 r = GetParam(me,'repeat','value');
