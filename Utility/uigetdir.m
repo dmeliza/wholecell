@@ -46,6 +46,17 @@ if nargin == 0,
                     'Tag', 'ChosenDirectoryText');
    
    hbut = uicontrol('Style','pushbutton',...
+                    'String','New FP',...
+                    'Callback','uigetdir(''create_dir'',''fp'')',...
+                    'Position',[215 165 80 25]);
+
+   hbut = uicontrol('Style','pushbutton',...
+                    'String','New Cell',...
+                    'Callback','uigetdir(''create_dir'',''cell'')',...
+                    'Position',[215 140 80 25]);
+                
+                
+   hbut = uicontrol('Style','pushbutton',...
                     'String','New Directory',...
                     'Callback','uigetdir(''create_dir'')',...
                     'Position',[215 115 80 25]);
@@ -121,12 +132,33 @@ else
    case 'cancel',
      set(gcf, 'Userdata', 'Cancel');
    case 'create_dir'
-     a = inputdlg('New directory name:','Create Directory',1,{'New Directory'});
-     if ~isempty(a{1})
-         s = mkdir(a{1});
-     end
-     t = findobj(gcf,'tag','DirectoryContentListbox');
-     set(t(1),'String',getdirectories);
+       if nargin > 1
+           pref = varargin{2};
+           dirnames = getdirectories;
+           m    = strmatch(pref, dirnames);
+           if isempty(m)
+               pref = [pref '1'];
+           else
+               last = dirnames{m(end)};
+               num  = sscanf(last,[pref '%d']);
+               if isempty(num)
+                   disp('Couldn''t parse directory');
+                   return
+               else
+                   pref = [pref num2str(num+1)];
+               end
+           end
+           if ~isempty(pref)
+               s    = mkdir(pref);
+           end
+       else
+           a = inputdlg('New directory name:','Create Directory',1,{'New Directory'});
+           if ~isempty(a{1})
+               s = mkdir(a{1});
+           end
+       end
+       t = findobj(gcf,'tag','DirectoryContentListbox');
+       set(t(1),'String',getdirectories);
    end
 
 end
