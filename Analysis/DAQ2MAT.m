@@ -8,7 +8,6 @@ function varargout = daq2mat(varargin)
 % void daq2mat([directory])
 % void daq2mat({directories})
 % $Id$
-samples = [1 9000];
 
 oldpn = pwd;
 if (nargin > 0)
@@ -29,13 +28,15 @@ names = {d.name};
 % allow packing data into a matrix
 data = [];
 abstime = [];
+time = [];
 for i = 1:length(names);
     fn = names{i};
     if (exist(fn) > 0)
-        [dat, time, at] = daqread(fn,'Channels',1,'Samples',[1 9000]);
-        if (length(time) < samples(2))
+        [dat, t, at] = daqread(fn,'Channels',1);
+        if (length(t) < length(time))
             disp(['Data file ' fn ' too short; ignored.']);
         else
+            time = t;
             data = [data,dat];
             abstime = [abstime;at];
             disp(['Loaded trace from ' fn]);
