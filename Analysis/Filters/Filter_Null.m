@@ -8,6 +8,9 @@ function out = Filter_Null(action, data, parameters)
 %       filter.  Returns a parameter structure which can be used to invoke the filter.
 % out = Filter_Null('describe',parameters)
 %       Returns a string description of the filter's actions (given the parameters)
+% out = Filter_Null('view', parameters)
+%       Pops up a window with the frequency amplitude and phase response of the filter
+%       Or something else if that's more appropriate.
 % out = Filter_Null('filter',data, parameter)
 %       Filters the data supplied in the second argument given the parameters
 %       supplied in the third argument.  If for some reason the parameters are
@@ -18,6 +21,7 @@ function out = Filter_Null(action, data, parameters)
 % $Id$
 
 error(nargchk(1,3,nargin))
+out = [];
 
 switch lower(action)
 case 'params'
@@ -29,9 +33,13 @@ case 'params'
     end
     title = 'Values for Null Filter (ignored)';
     answer = inputdlg(prompt,title,1,def);
-    out = struct('param1',str2num(answer{1}));
+    if ~isempty(answer)
+        out = struct('param1',str2num(answer{1}));
+    end
 case 'describe'
     out = sprintf('Null Filter (%d)', data.param1);
+case 'view'
+    figure,freqz(1,1);
 case 'filter'
     out = data;
 otherwise

@@ -21,9 +21,22 @@ case 'params'
     end
     title   = 'Values for HighPass Filter (ignored)';
     answer  = inputdlg(prompt,title,1,def);
-    data    = struct('pass',abs(str2num(answer{1})),'order',abs(fix(str2num(answer{2}))));
+    if isempty(answer)
+        data = [];
+    else
+        data    = struct('pass',abs(str2num(answer{1})),'order',abs(fix(str2num(answer{2}))));
+    end
 case 'describe'
+    % test for stability
+    [b,a]   = makefilter(data, 10000);
+    stable  = StabilityCheck(a);    
     data    = sprintf('HighPass Filter (%d Hz, order %d)', data.pass, data.order);
+    if ~stable
+        data = sprintf('%s. Not Stable.',data);
+    end
+case 'view'
+    [b,a]   = makefilter(data, 10000);
+    figure,freqz(b,a);
 case 'filter'
     if isstruct(data)
         if ~isfield(parameters,'order')
@@ -31,11 +44,14 @@ case 'filter'
         end
         for i = 1:length(data);
             Fs      = data(i).t_rate;
-            Wn      = parameters.pass/(Fs/2);
-            [b,a]   = butter(parameters.order,Wn,'high');
+            [b,a]   = makefilter(parameters,Fs);
             data(i).data = filtfilt(b,a,data(i).data);  % modify data in place
         end
     end
 otherwise
     error(['Action ' action ' is not supported.']);
 end
+
+function [b,a] = makefilter(parameters, Fs)
+Wn      = parameters.pass/(Fs/2);
+[b,a]   = butter(parameters.order,Wn,'high');

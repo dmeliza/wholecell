@@ -22,11 +22,24 @@ case 'params'
     end
     title   = 'Values for BandPass Filter (ignored)';
     answer  = inputdlg(prompt,title,1,def);
-    data    = struct('passmin',abs(str2num(answer{1})),'passmax',abs(str2num(answer{2})),...
-              'order',abs(fix(str2num(answer{3}))));
+    if isempty(answer)
+        data = [];
+    else
+        data    = struct('passmin',abs(str2num(answer{1})),'passmax',abs(str2num(answer{2})),...
+                  'order',abs(fix(str2num(answer{3}))));
+    end
 case 'describe'
+    % test for stability
+    [b,a]   = makefilter(data, 10000);
+    stable  = StabilityCheck(a);
     data    = sprintf('BandPass Filter (%d - %d Hz, order %d)',...
-              data.passmin, data.passmax, data.order);
+        data.passmin, data.passmax, data.order);
+    if ~stable
+        data = sprintf('%s. Not Stable.',data);
+    end
+case 'view'
+    [b,a]   = makefilter(data, 10000);
+    figure,freqz(b,a);    
 case 'filter'
     if isstruct(data)
         if ~isfield(parameters,'order')
@@ -34,11 +47,14 @@ case 'filter'
         end
         for i = 1:length(data);
             Fs      = data(i).t_rate;
-            Wn      = [parameters.passmin/(Fs/2), parameters.passmax/(Fs/2)];
-            [b,a]   = butter(parameters.order,Wn);
+            [b,a]   = makefilter(parameters, Fs);
             data(i).data = filtfilt(b,a,data(i).data);  % modify data in place
         end
     end
 otherwise
     error(['Action ' action ' is not supported.']);
 end
+
+function [b,a] = makefilter(parameters, Fs)
+Wn      = [parameters.passmin/(Fs/2), parameters.passmax/(Fs/2)];
+[b,a]   = butter(parameters.order,Wn);
