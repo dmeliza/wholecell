@@ -55,6 +55,8 @@ if exist(LOCAL_CONTROL) ~= 0
     fprintf(fid, '[%s] - loaded control file\n', LOCAL_CONTROL);
     if isfield(control,'comment')
         fprintf(fid,'[%s] - %s\n', LOCAL_CONTROL, control.comment);
+    else
+        control.comment = '';
     end
 else
     control     = struct([]);
@@ -180,7 +182,7 @@ end
 fprintf(fid, '----\n');
 if isfield(control,'t_spike')
     t_spike                         = control.t_spike;
-    fprintf(fid,'[%s] - spike timing %3.1f', LOCAL_CONTROL, t_spike * 1000);
+    fprintf(fid,'[%s] - spike timing %3.1f\n', LOCAL_CONTROL, t_spike * 1000);
     [var, n, spikes]               = deal([]);
 elseif induced ~= -1
     [t_spike, var, n, spikes]       = feval(ANALYSIS_FN_SPIKE,dd{2}, fid);
@@ -242,7 +244,8 @@ if nargout > 0
                      'stim_electrical',stim_electrical(1),...
                      'skip_ir',control.skip_ir,...
                      'skip_sr',control.skip_sr,...
-                     'skip_slope',control.skip_slope);
+                     'skip_slope',control.skip_slope,...
+                     'comment',control.comment);
 end
 
 function figh   = plotdata(pre, pst, t_spike, PLOT_FIELD)
