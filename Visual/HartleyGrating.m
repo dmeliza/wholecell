@@ -1,4 +1,4 @@
-function img = hartleygrating(dim, k)
+function Z = hartleygrating(dim, k)
 %
 % Generates a 2D grating using the Hartley basis set.  See Ringach et al 1997.
 % H(kx,ky) = cas(2*pi*(kx*l + ky*m)/M), where M is the size of the image, and
@@ -8,33 +8,33 @@ function img = hartleygrating(dim, k)
 % USAGE:
 % Z = hartleygrating(dim, k)
 %
-% k     - [X,Y] spatial frequency (wave number)
+% k     - [X,Y] spatial frequency (integral wave number)
 % dim   - size of the resulting image (scalar)
 %
-% implemented as H(k) = cas(2*pi*<k,r>/M), where <k,r> is the inner product
-% of the vectors k = (kx,ky) and r = (l,m) (in Cartesian coordinates).  There
-% are undoubtedly faster ways to implement this.
+% implemented using the Bracewell (1984 Proc IEEE) fast Hartley transform, which
+% defines H(t) as real(fft(t)) - imag(fft(t)).  This is roughly 3 times as fast
+% as using the canonical cas() formula.  One consequence of this is that only
+% integral wavenumbers can be used.
 %
-% Values are quantized to 254 discrete CLUT values.  These constants are hardcoded
-% for speed
+% Values are quantized to 254 discrete CLUT values.  Unfortunately this is also
+% a computational annoyance because the amplitude of the hartley transform is
+% not constant.  We can afford to be fudgy as the display doesn't have a very linear
+% luminance curve anyway, but the fix() operation takes almost as long as the fftn()...
 %
 % $Id$
 
 error(nargchk(2,2,nargin))
 
 MINCOL  = 1;
-MAXCOL  = 254 - 1;
+MAXCOL  = 254-1;
 
-sz    = dim.*dim;
-l     = 0:dim-1;
-[L M] = meshgrid(l,l);                      % r(l) and r(m) vectors
-R     = [reshape(L,sz,1),reshape(M,sz,1)];  % R matrix
-
-Z     = R * k' * 2 * pi / dim;         % inner product
-img   = sin(Z) + cos(Z);               % P2P tends to be around 1.4
-img   = round(img * MAXCOL/2/(-min(img)) + MAXCOL/2 + MINCOL);
-%img   = img * 90.7 + 128;              % img * MAXCOL/2/-min(img) + MAXCOL/2 + MINCOL;
-% img   = img - min(img);
-% img   = round(img * (MAXCOL - MINCOL) / max(img) + MINCOL);
-img   = reshape(img,dim,dim);
-
+% implementation using the Bracewell FHT
+dd                = dim*dim;
+Y                 = zeros(dim,dim);                       % hartley space
+ind               = (k < 0).*(dim+k+1) + (k >= 0).*(k+1); % fix negative wavenumbers
+Y(ind(1),ind(2))  = 5;                                    % all power at supplied k
+Z                 = fftn(Y);
+Z                 = (real(Z) - imag(Z))/dd;
+m                 = -min(min(Z));
+Z                 = (Z + m) * MAXCOL/m/2 + MINCOL;
+Z                 = double(uint8(Z));                     % 3x as fast as fix()
