@@ -5,9 +5,11 @@ function [rp, t] = JitterPlot(daqfile, thresh)
 %
 % $Id$
 SZ  = [2.7    6.5];
-BR  = 50;
+SCL = [100 10];
+BR  = 100;
 THRESH = 1.5;
 NORM    = [];
+TRIM    = 1;
 WIN     = 1000:8000;
 
 z   = load('-mat',daqfile);
@@ -28,19 +30,26 @@ end
 t   = bindata(z.r0.time(1000:8000),BR,1) * 1000 - 200;
 
 subplot(3,1,1)
+if TRIM
+    mx  = max(abs(d));
+    d   = d(:,abs(zscore(mx))<4);
+    fprintf('Excluded: %d\n',length(find(abs(zscore(mx))>=3)));
+end
 mtrialplot(t,d);
 set(gca,'xtick',[],'ytick',[],'xcolor',[1 1 1],'ycolor',[1 1 1])
 mx  = max(max(d));
 mn  = min(min(d));
 h   = plot([000 500],[mx + 10, mx + 10],'k');
-set(h,'linewidth',5)
-h1  = plot([300 400],[mn mn],'k');
-h2  = plot([400 400],[mn mn+10],'k');
-text(305, mn - 5, '100 ms');
-text(410, mn + 5, '10 pA');
-set([h1 h2],'linewidth',2)
+set(h,'linewidth',3)
 axis tight
 xlim    = get(gca,'XLim');
+xx      = xlim(1) + diff(xlim) * 0.7;
+h1  = plot([xx xx+SCL(1)],[mn mn],'k');
+h2  = plot([xx+SCL(1) xx+SCL(1)],[mn mn+SCL(2)],'k');
+text(xx+5, mn - 10, sprintf('%d ms',SCL(1)));
+text(xx+SCL(1)+10, mn + SCL(2)/2, sprintf('%d pA',SCL(2)));
+set([h1 h2],'linewidth',2)
+%set(gca,'YLim',[-160 30]);
 
 subplot(3,1,2);
 rp      = -Rasterify(d,THRESH);
