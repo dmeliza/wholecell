@@ -256,6 +256,7 @@ WINDOW_PEAK     = 0.001;    % amount of time on either side of the peak to use
 ARTIFACT_WIDTH  = 0.0015;   % width of the artifact to cut out for certain analyses
 SLOPE_PT        = 0.003;    % point at which to take the slope
 DEBUG_LOC       = 0;    
+TRACE_WINDOW    = [-0.1 0.7];
 
 % load the r0 file, using the accompanying selector file if needed
 [R, str]    = LoadResponseFile(dd);
@@ -309,6 +310,21 @@ h       = plot(time,avg,'b');
 [t_onset, t_peak, filtavg] = findEvents(avg, time, R.t_rate, times,...
     isCC, iselectrical, WINDOW_RESP);
 
+% the mean event is packaged up for later fun, though setting the
+% number of points to extract is tricksy...
+%sel_trace       = time>(t_onset(ifile)-WINDOW_BASELN) & time < STIM_VISUAL;
+sel_trace       = time >= TRACE_WINDOW(1) & time <= TRACE_WINDOW(2);
+if ~isempty(t_onset)
+    sel_trace_bl    = time>(t_onset-WINDOW_BASELN) & time < t_onset;
+else
+    % if no onset could be detected, we use the first WINDOW_BASELN pts for
+    % the baseline
+    sel_trace_bl    = time > 0 & time < WINDOW_BASELN;
+end
+trace           = avg(sel_trace) - mean(avg(sel_trace_bl));
+filttrace       = filtavg(sel_trace) - mean(filtavg(sel_trace_bl));
+time_trace      = time(sel_trace);
+
 if ~isempty(t_onset) & ~isempty(t_peak)
     % draw the onset and peak times
     vline(t_onset,'k:')
@@ -338,21 +354,10 @@ if ~isempty(t_onset) & ~isempty(t_peak)
         slope       = -slope;
     end
     
-    % the mean event is packaged up for later fun, though setting the
-    % number of points to extract is tricksy...
-    %sel_trace       = time>(t_onset(ifile)-WINDOW_BASELN) & time < STIM_VISUAL;
-    sel_trace       = time >= -0.1 & time <= 0.5;
-    sel_trace_bl    = time>(t_onset-WINDOW_BASELN) & time < t_onset;
-    trace           = avg(sel_trace) - mean(avg(sel_trace_bl));
-    filttrace       = filtavg(sel_trace) - mean(filtavg(sel_trace_bl));
-    time_trace      = time(sel_trace);
 else
     leak        = [];
     response    = [];
     slope       = [];
-    trace       = [];
-    filttrace   = [];
-    time_trace  = [];
 end
 
 %%% now calculate IR and SR
@@ -366,7 +371,7 @@ at              = R.abstime(:);
 results = struct('ampl',response,'slope',slope,'ir',ir,'sr',sr,'leak',leak,...
     'time',at,'ampl_units',units,'slope_units',[units '/ms'],...
     'start',R.start_time,'trace',trace,'filttrace',filttrace,'time_trace',time_trace,...
-    't_peak',num2cell(t_peak),'t_onset',num2cell(t_onset),'t_sr',t_sr,...
+    't_peak',t_peak,'t_onset',t_onset,'t_sr',t_sr,...
     't_ir',t_ir,'stim_electrical',iselectrical,'stim_start',-time(1),...
     'mode_currentclamp',isCC);
 
