@@ -13,7 +13,6 @@ function [d, t] = CombineEventHistograms(control, control2)
 %
 % $Id$
 
-% $Id$
 
 WINDOW = 150;       % ms
 SZ      = [3.5 2.9];
@@ -78,8 +77,8 @@ if nargout == 0
     set(f,'Position',[p(1) p(2) SZ(1) SZ(2)]);
     h   = plot(t,d,'k');
     hold on
-    plot(Xd,myfun(beta_d,Xd));
-    plot(Xp,myfun(beta_p,Xp));
+    %plot(Xd,myfun(beta_d,Xd));
+    %plot(Xp,myfun(beta_p,Xp));
     xlabel('Time from spike (ms)')
     ylabel('Change in Event Amplitude')
     hline(0)
