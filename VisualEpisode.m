@@ -125,6 +125,7 @@ global wc;
     
     p.stim          = cell2struct({'Stim File','fixed','',loadStim},f_cb,2);
     p.display       = cell2struct({'Display', 'value', 2},f_s,2);
+    p.contrast      = cell2struct({'Contrast (0-1)', 'value', 1},f_s,2);
     p.frequency     = cell2struct({'Ep. Freq','value',0.2,'Hz'},f,2);
     p.ep_length     = cell2struct({'Ep. Length','value',2000,'ms'},f,2);
     ic              = get(wc.control.amplifier,'Index');
@@ -165,6 +166,9 @@ stimfile = GetParam(me,'stim','value');
 if isempty(s)
     error(st)
 else
+    con     = GetParam(me,'contrast','value');    % equals the range of the colormap
+    cmap    = s.colmap .* con;
+    cmap    = cmap - mean(mean(cmap) + 0.5;       % reset mean to gray
     for i = 1:size(s.stimulus,3)
         stim  = s.stimulus(:,:,i);
         dim   = size(stim);
