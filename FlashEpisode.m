@@ -193,12 +193,12 @@ function setupVisual()
 % visual output: loads a .s0 file into video memory
 stimfile = GetParam(me,'vis_image','value');
 [s st]   = LoadStimulusFile(stimfile);
-if isempty(st)
+if isempty(s)
     error(st)
 end
-cgcoltab(0,s.colmap);
-cgnewpal;
-cgloadarray(1,s.xres,s.yres,s.stim,s.colmap,0);
+% cgcoltab(0,s.colmap);
+% cgnewpal;
+cgloadarray(1,s.xres,s.yres,s.stim,s.colmap);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function queueStimulus()
@@ -230,7 +230,7 @@ putdata(wc.ao,p);
 stim_off    = @imageOff;
 [x y pw ph] = CGDisplay_Position;
 cgdrawsprite(1, x, y, pw, ph)
-cgrect(-320,-240,100,100,1)
+cgrect(-320,-240,100,100,[1,1,1])
 % code like this would be used if we wanted to use the DAQ timer instead
 % of pause().  This is not as reliable as it might sound, because
 % there is no guarantee of the TimerAction actually being called.
@@ -272,11 +272,11 @@ function imageOn()
 % gets called for each episode. waits delay and flips
 % display for duration (which is what triggers acquisition)
 del = GetParam(me,'vis_delay','value'); % ms
-dur = GetParam(me,'vis_len','value') / 1000
+dur = GetParam(me,'vis_len','value') / 1000;
 pause(del/1000)
-cgflip(0)
+cgflip(0,0,0)
 pause(dur)
-cgflip(0)
+cgflip(0,0,0)
 
 function imageOff(obj,event)
 % turns off stimulus
