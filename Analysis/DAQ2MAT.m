@@ -41,7 +41,9 @@ amp = info.channels(info.amp);
 switch lower(runmode)
 case 'stack'
     
-    out = DAQ2R0(names,channels);
+    r0 = DAQ2R0(names,channels);
+    save('daqdata.r0','r0','-mat');
+    out = r0;
 
 case 'cat'
     data = cell(1,length(names));
@@ -80,7 +82,9 @@ case 'cat'
     
 case 'indiv'
     
-    out = DAQ2R1(names, channels(1), channels(2));
+    r1 = DAQ2R1(names, channels(1), channels(2));
+    save('daqdata.r1','r1','-mat');
+    out = r1;
     
 otherwise
     disp([runmode ' not supported.']);
