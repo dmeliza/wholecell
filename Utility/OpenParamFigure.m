@@ -186,7 +186,7 @@ case 'list'
     end
 otherwise
     v = num2str(struct.value);
-    set(handle,'String',v);
+    set(handle,'String',v,'tooltipstring',v);
 end
 
 
