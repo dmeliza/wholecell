@@ -1,4 +1,4 @@
-function out = Parameterize(u, y, p)
+function [out, v] = Parameterize(u, y, p)
 %
 % A general-purpose algorhythm that sorts and averages a matrix of
 % response vectors along a single parameter.  It's useful in analyzing
@@ -6,7 +6,7 @@ function out = Parameterize(u, y, p)
 % are non-additive, making reverse correlation impossible.
 %
 %
-%  out = Parameterize(u,y,[p])
+%  [out, var] = Parameterize(u,y,[p])
 %
 %  INPUT
 %    u    - stimulus parameter, N-by-1 vector
@@ -21,9 +21,12 @@ function out = Parameterize(u, y, p)
 %    out  - I-by-J parameterized response matrix
 %           I is the number of parameter values
 %           J is equal to M (length of each frame)
+%    var  - returns the variance of the response (I by J matrix)
+%
 %    out  - if argument p is supplied, a K-by-J response matrix
 %           K are the number of times the parameter occurs
 %           J is equal to M
+%    var  - returns the variance for each column (row vector with J elements)
 %
 %  $Id$
 
@@ -44,14 +47,17 @@ end
 params      = unique(u);                   % unique parameter values
 if nargin < 3
     out  = zeros(length(params),cols);     % allocate output matrix
+    v    = zeros(length(params),cols);     % variance values
     for i = 1:length(params)
         j        = params(i);              % parameter value is an index
         ind      = find(u==j);             % which identifies frames assoc. with it
         out(i,:) = mean(y(ind,:),1);       % result is the mean of all frames assoc with param
+        v(i,:)   = var(y(ind,:));
     end
 else
     % Look up individual parameter
     j   = params(p);
     ind = find(u==j);
     out = y(ind,:);
+    v   = var(out);
 end
