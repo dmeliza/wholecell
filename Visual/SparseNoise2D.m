@@ -1,4 +1,4 @@
-function stim = SparseNoise2D(xres,yres,pixsize,frames)
+function stim = SparseNoise2D(xres,yres,frames,pixsize)
 % Dynamically generates 2D sparse noise (using rand).
 % Because sparse noise only consists of one pixel per frame, we do not
 % have to respect pixel boundaries in the way that we do in white noise.
