@@ -85,6 +85,7 @@ if nargin > 2
     printdifference(fid, 'IR:', pre_ir, pst_ir, pre(1).units);
     fprintf('\n');
     printdifference(fid, 'SR:', pre_sr, pst_sr, pre(1).units);    
+    fprintf('\n');
 else
     fprintf(fid,'IR: %3.2f +/- %3.2f %s\n',...
         mean(pre_ir), std(pre_ir)/n, pre(1).units);
@@ -167,10 +168,11 @@ for ifile = 1:length(dd)
     if DO_FILTER
         resp    = filterresponse(resp,FILTER_LP,FILTER_ORDER,R.t_rate);
     end
-    if isempty(times)
-        f       = figure;
-        set(f,'name',pwd,'visible','off'),hold on
-        h       = plot(time,avg,'b');
+    % start the plot
+    fig     = figure;
+    set(fig,'name',pwd,'visible','off'),hold on
+    h       = plot(time,avg,'b');
+    
         % first we try to locate the event using the statistics of the average
         % response.
         ind_baseline        = find(time<-0.005 & time>-0.08);
@@ -196,7 +198,9 @@ for ifile = 1:length(dd)
             filtavg     = filterresponse(in,fp,FILTER_ORDER,R.t_rate);
         end
         h               = plot(time,filtavg,'k:');
-        legend('Response',sprintf('Filtered (%4.0f Hz)',fp));        
+        legend('Response',sprintf('Filtered (%4.0f Hz)',fp));
+    if isempty(times)
+        
         if iscurrentclamp
             ind             = find(filtavg > (mu + sigma * THRESH_ONSET) & t_sel);
             hline(mu + sigma * THRESH_ONSET,'r:');
@@ -228,12 +232,12 @@ for ifile = 1:length(dd)
         t_sel           = time>=t_onset(ifile) & time<=WINDOW_RESP;
         ind             = find(diff(filtavg) >= 0 & t_sel(2:end));
         t_peak(ifile)   = time(ind(1));
-        vline(t_onset(ifile),'k:')
-        vline(t_peak(ifile),'k')
     else
         t_onset         = times(:,1);
         t_peak          = times(:,2);
     end
+    vline(t_onset(ifile),'k:')
+    vline(t_peak(ifile),'k')    
     % and now we can actually compute the response
     sel_baseline    = time<t_onset(ifile) & time>(t_onset(ifile)-WINDOW_BASELN);
     if iselectrical
@@ -247,6 +251,12 @@ for ifile = 1:length(dd)
         response{ifile}  = -response{ifile};
     end
     at{ifile}       = R.abstime(:);
+    % the mean event is packaged up for later fun, though setting the
+    % number of points to extract is tricksy...
+    sel_trace       = time>(t_onset(ifile)-WINDOW_BASELN) & time < STIM_VISUAL;
+    trace           = filtavg(sel_trace);
+    time_trace      = time(sel_trace);
+    
     % now calculate IR and SR
     % we need to use unfiltered, unaligned data to ensure the transients
     % line up
@@ -282,14 +292,14 @@ for ifile = 1:length(dd)
         if WRITE_FIGURES
             [pn,fn,ext]     = fileparts(dd{ifile});
             fn              = fullfile(pwd,[fn '.fig']);
-            set(f,'visible','on')
-            saveas(f,fn,'fig')
-            set(f,'visible','off')
+            set(fig,'visible','on')
+            saveas(fig,fn,'fig')
+            set(fig,'visible','off')
         end
         if ~DEBUG_LOC
-            delete(f)
+            delete(fig)
         else
-            set(f,'visible','on')
+            set(fig,'visible','on')
         end        
     else
         % to do: write analysis for current clamp
@@ -301,6 +311,7 @@ for ifile = 1:length(dd)
     % package in a structure (which turns the cell arrays into elements of
     % a structure array)
     results = struct('resp',response,'ir',ir,'sr',sr,'time',at,'units',units,...
+        'start',R.start_time,'trace',trace,'time_trace',time_trace,...
         't_peak',num2cell(t_peak),'t_onset',num2cell(t_onset),'t_sr',t_sr,...
         't_ir',t_ir);
 end
