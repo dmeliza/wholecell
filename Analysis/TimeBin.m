@@ -41,7 +41,7 @@ if nargin == 3
     for i = 1:nbin
         ind     = time >= XI(i) & time < XI(i+1);
         d       = data(ind);
-        YI(i)   = mean(d);      % gives NaN for empty ind
+        YI(i)   = nanmean(d);      % gives NaN for empty ind
         n(i)    = length(d);
         v(i)    = std(d);
     end
