@@ -1,14 +1,24 @@
-function out = EpisodeParameter(param, ds)
+function out = EpisodeParameter(param, ds, bs)
 %
 % An internal function used to calculate the values of
 % some measured parameter in an episodic acquisition (e.g. input resistance)
 %
 % Usage:
 %
-%       res = EpisodeParameter(paramstruct,r0)
+%       res = EpisodeParameter(paramstruct,r0,[binsize])
 %           - calculates the value of the parameter. r0 is a structure
 %             that must contain the fields 'data' and 'time'
+%           - binsize in minutes
 %
+% res (example): 
+% 
+%          fn: 'daqdata-1.r0'
+%     channel: 'amplifier'
+%       start: [2004 4 1 16 11 25.8765]
+%       units: 'mV'
+%       color: [0.3077 1 0.7692]
+%     abstime: [1x51 double]
+%       value: [1x51 double]
 %
 % $Id$
 if nargin < 2
@@ -36,6 +46,11 @@ for i = 1:length(ds)
         out(ct) = struct('fn',ds(i).fn,'channel',ds(i).channels{c},...
                          'start',ds(i).start,'units',units,'color',ds(i).color(c,:),...
                          'abstime',ds(i).abstime,'value',res);
+    end
+end
+if nargin > 2
+    if bs ~= 0
+        out = bin(out, bs);
     end
 end
 out = fixAbstime(out);
@@ -72,6 +87,12 @@ case {'amplitude','difference','slope'}
         out     = out / dt / 1000;
         units   = sprintf('%s/%s',units,'ms');
     end
+end
+
+function res = bin(res, bs)
+% Rebins a dataset into bins of bs width (units of abstime)
+for i = 1:length(res)
+    [res(i).abstime, res(i).value] = TimeBin(res(i).abstime, res(i).value, bs);
 end
 
 function res = fixAbstime(res)
