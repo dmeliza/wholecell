@@ -17,8 +17,8 @@ function CgQueueMovie(movie, a_frames)
 % $Id$
 
 % setup colormap:
-if size(movie.colmap,1) > 254
-    movie.colmap = movie.colmap(:,1:254);
+if size(movie.colmap,1) > 255
+    movie.colmap = movie.colmap(:,1:255);
 end
 cgcoltab(1,movie.colmap);
 cgnewpal;
