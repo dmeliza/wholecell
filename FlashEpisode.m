@@ -174,12 +174,9 @@ gain = GetParam(me,'inj_gain','value');
 i = del+1:del+dur;
 p(i,ch) = gain;
 putdata(wc.ao,p);
-% visual
+% visual: setup event callback and load the flash frame into video memory
 flip = @imageOn;
-del = GetParam(me,'vis_delay','value'); % ms
-dur = GetParam(me,'vis_len','value'); % ms
-set(wc.ai,'TimerPeriod',del/1000);
-set(wc.ai,'TimerAction',{me,flip,dur});
+set(wc.ai,'TriggerAction',{me,flip});
 gprimd = cggetdata('gpd');
 cgdrawsprite(1,0,0, gprimd.PixWidth, gprimd.PixHeight)
 
@@ -211,18 +208,13 @@ stim = getfield(d,n{1});
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function imageOn(obj,event)
-% flashes the image for a fixed time period
-% use pause?
-flip = @imageOff;
-duration = GetParam(me,'vis_len','value');
-% set(obj,'timerperiod',duration);
-% set(obj,'timeraction',{me,flip});
+% gets called on each episode trigger. waits duration and flips
+% display for delay
+del = GetParam(me,'vis_delay','value'); % ms
+dur = GetParam(me,'vis_len','value'); % ms
+pause(del/1000);
 cgflip(0);
-pause(duration/1000);
-imageOff(obj,event);
-
-function imageOff(obj,event)
-% removes the image
+pause(dur/1000);
 cgflip(0);
 set(obj,'timeraction',{});
 
