@@ -74,7 +74,8 @@ for i = 1:paramCount
     name = paramNames{i};
     s = getfield(params, name);
     InitParam(module, name, s);
-    u = uicontrol(fig,'style','edit','String',s.description,'enable','inactive',...
+    u = uicontrol(fig,'style','edit','String',s.description,'tooltipstring',name,...
+        'enable','inactive',...
         'position',[x_pad, y, w_fn, h]);
     p = [w_fn + x_pad, y, w_f, h];
     if isfield(s, 'units')
