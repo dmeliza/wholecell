@@ -55,11 +55,8 @@ for i = 1:length(data)
     w = window;
 
     % convert continuous sync data into timing indices
-    sq = zeros(size(sync));
-    on = find(sync > sync(1));
-    sq(on) = 1;                     % square wave representing on and off states
-    timing = find(diff(sq));       % timing of transitions between on and off
-    clear('sync','sq');
+    timing = Sync2Timing(sync);
+    clear('sync');
     
     % frame shift response
     fprintf('Conditioning response... ');
