@@ -3,6 +3,9 @@ function WriteStructure(filename, structure)
 % are stored individually in the file, so that the command
 % str = load(filename) will reconstruct the structure
 %
+% Usage:
+% WriteStructure(filename, structure)
+%
 % $Id$
 error(nargchk(2,2,nargin));
 if ~isa(structure,'struct')
