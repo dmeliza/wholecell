@@ -41,7 +41,7 @@ end
 % Furthermore, it may take too many cycles to do this computation
 % every sweep, in which case...
 
-if (isfield(wc.control.telegraph,'gain'))
+if (~isempty(wc.control.telegraph.gain))
     gainChannel = wc.control.telegraph.gain;
     gainVoltage = mean(data(:,gainChannel));
     gain = gain(gainVoltage);
@@ -49,7 +49,7 @@ if (isfield(wc.control.telegraph,'gain'))
     SetUIParam('wholecell','ampgain','String',num2str(gain));
 end
 
-if (isfield(wc.control.telegraph,'mode'))
+if (~isempty(wc.control.telegraph.mode))
     modeChannel = wc.control.telegraph.mode;
     modeVoltage = mean(data(:,modeVoltage));
     mode = mode(modeVoltage);
