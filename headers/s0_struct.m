@@ -18,5 +18,5 @@ function [s, fields] = s0_struct()
 % $Id$
 
 fields = {'type','colmap','stimulus','x_res','y_res','parameters'};
-C      = {'s1',[],[],[],[],[]};
+C      = {'s0',[],[],[],[],[]};
 s      = cell2struct(C, fields, 2);
