@@ -67,7 +67,7 @@ h = InitUiControl(me, 'xcorrresponse', 'style', 'pushbutton',...
     'position', [320 415 60 20], 'String', 'XCorr');
 h = InitUIControl(me, 'combineresponse','style','pushbutton',...
     'callback',cb.combineresponse,...
-    'position', [390 415 60 20], 'String', 'Save');
+    'position', [390 415 60 20], 'String', 'Edit');
 % Frame 2: stimulus operations
 h  = InitUIObject(me, 'stimulusaxes', 'axes', 'units','pixels','position',[30 40 340 340],...
     'nextplot','replacechildren','XTick',[],'Ytick',[],'Box','On');
@@ -120,9 +120,9 @@ h = InitUIControl(me,'method','style','popup','backgroundcolor',BG,...
 h = InitUIControl(me,'analyze','style','pushbutton','String','Analyze',...
     'Position',[530 100 100 20],...
     'Callback',cb.analyze);
-% h = InitUIControl(me,'analyze_save','style','pushbutton','String','Analyze & Save',...
-%     'Position',[530 70 100 20],...
-%     'Callback',cb.analyze_save);
+h = InitUIControl(me,'analyze_save','style','pushbutton','String','Save',...
+    'Position',[530 70 100 20],...
+    'Callback',cb.analyze_save);
 % Status bar
 h  = InitUIControl(me,'Status','style','text','backgroundcolor',BG,...
     'horizontalalignment','center','position',[1 1 690 20]);
@@ -173,11 +173,23 @@ if length(resp) == 1
     setstatus('Data does not contain any repeats');
     return
 end
-r      = struct2array(resp,'data','drop');
-time   = struct2array(resp,'timing','drop');
-frate  = fix(mean(mean(diff(time))));
-data   = bindata(r,frate,1);
+for i = 1:length(resp)
+    X(i).data   = FrameBinData(resp(i).data,resp(i).timing);
+end
+data = struct2array(X,'data','clip');
+% r      = struct2array(resp,'data','clip');
+% time   = struct2array(resp,'timing','clip');
+% use FrameShift to bin data according to timings
+
+% frate  = fix(mean(mean(diff(time))));
+% data   = bindata(r,frate,1);
+% % data   = bindata(r,frate,1);
+% for i = 1:size(r,2)
+%     d = frameshift(r(:,i),time(:,i),frate);
+%     data(:,i) = mean(d,2);
+% end
 corr_repeats(data);
+
 
 function [] = xcorrtiming(obj,event)
 resp   = loadResponse;
@@ -190,13 +202,9 @@ corr_repeats(diff(time));
 
     
 function [] = combineresponse(obj, event)
-[fn pn] = uiputfile('*.r1');
-if isa(fn,'char')
-    r1      = loadResponse;
-    WriteStructure(fullfile(pn,fn),r1);
-    setstatus(['Saved response as ' fullfile(pn,fn)]);
-    updateLists;
-end
+% combines the responses and passes them to ProcessResponse
+r1      = loadResponse;
+processresponse(r1);
     
 function [] = pickstimulus(obj, event)
 % double click: change directory
@@ -253,7 +261,7 @@ elseif strcmpi(button,'alt')
     drawLines(obj);
 end
 
-function [] = analyze(obj,event)
+function [a1] = analyze(obj,event)
 % this function takes responsibility for conditioning the data for the analysis fxns
 % the "adaptor" GUIs are responsible for displaying the data in a useful format.
 stim    = GetUIParam(me,'stimulus','UserData');
@@ -279,22 +287,30 @@ elseif isempty(resp)
 else
     switch lower(m)
     case 'sparse'
-        if ~isfield(stim,'parameters')
+        if ~isfield(stim,'param')
             setstatus('Analysis failed: Sparse Analysis requires parameterized stimulus');
         else
-            SparseAnalysis(stim,resp, fix(lags * frate), fix(bin * frate));
+            if nargout == 0
+                SparseAnalysis(stim,resp, fix(lags * frate), fix(bin * frate));
+            else
+                a1 = SparseAnalysis(stim,resp, fix(lags * frate), fix(bin * frate));
+            end
         end
     case 'pca'
         stim = stimuluswindow(stim,win);
-        PCA_2D(stim, resp, lags);
+        a1 = PCA_2D(stim, resp, lags);
     case 'xcorr'
         stim = stimuluswindow(stim,win);
-        PCA_2D(stim, resp, lags,'xcorr');
+        a1 = PCA_2D(stim, resp, lags,'xcorr');
     case 'gratings'
         if ~strcmpi(stim.type,'s1')
             setstatus('Analysis failed: Grating Analysis requires parameterized stimulus');
         else
-            S1Analysis(stim, resp, fix(lags * frate), fix(bin * frate));
+            if nargout == 0
+                S1Analysis(stim, resp, fix(lags * frate), fix(bin * frate));
+            else
+                a1 = S1Analysis(stim, resp, fix(lags * frate), fix(bin * frate));
+            end
         end
     otherwise
         setstatus('Analysis failed: adaptor has not been written for this analysis method.');
@@ -302,18 +318,25 @@ else
 end
 
 function [] = analyze_save(obj, event)
-% % calls analyze() and saves the results
-% a1 = analyze(obj,event);
-% if ~isempty(a1)
-%     [fn pn] = uiputfile('*.a1');
-%     if ~isnumeric(fn)
-%         WriteStructure(fullfile(pn,[fn '.a1']), a1);
-%         setstatus(['Wrote analysis to ' fn '.a1']);
-%     end
-% end
+% calls analyze() and saves the results. Note that in most cases
+% this means the results will not be displayed.
+a1 = analyze(obj,event);
+if ~isempty(a1)
+    [fn pn] = uiputfile('*.a1');
+    if ~isnumeric(fn)
+        WriteStructure(fullfile(pn,[fn '.a1']), a1);
+        setstatus(['Wrote analysis to ' fn '.a1']);s
+    end
+end
 
 function s = stimuluswindow(s,window)
-s.stimulus = s.stimulus(window(2,1):window(2,2),window(1,1):window(1,2),:);
+% window is ignored for single parameters
+dim        = size(s.stimulus);
+if dim(1) == 1 & dim(2) == 1
+    return
+else
+    s.stimulus = s.stimulus(window(2,1):window(2,2),window(1,1):window(1,2),:);
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Internal functions
@@ -382,20 +405,33 @@ function [] = plotStimulus(stim)
     set(a,'xlimmode','auto','ylimmode','auto');
     switch lower(stim.type)
     case 's1'                                       % generate first frame for s1
-        stim.stimulus = feval(stim.mfile,stim.static{:},stim.param(1,:));
+        s = feval(stim.mfile,stim.static{:},stim.param(1,:));
+    otherwise
+        s = stim.stimulus;
     end
-    S       = permute(stim.stimulus(:,:,1),[2 1]);  % rotate by 90 for proper display
-    [X Y]   = size(S);
-    h = image(S,'parent',a);
-    set(a,'xlim',[0 X+1],'ylim',[0 Y+1]);
-    axis(a,'ij')
-    set(h,'buttondownfcn',cb);
-    drawLines(h);
-    a = GetUIHandle(me,'clut');
-    imagesc(stim.colmap,'parent',a);
-    axis(a,'tight');
-    box(a,'off');
-    colormap(stim.colmap);  % replace me with user-selectable LUT?
+    dim     = size(s);
+    if dim(1) == 1 & dim(2) == 1
+        axes(a)
+        cla
+        text(0.25,0.5,sprintf('Single Parameter, %d frames',dim(3)));
+        %keyboard
+        axes(GetUIHandle(me,'clut'))
+        cla
+        %h   = plot(squeeze(s),'parent',a);
+    else
+        S       = permute(s(:,:,1),[2 1]);  % rotate by 90 for proper display
+        [X Y]   = size(S);
+        h = image(S,'parent',a);
+        set(a,'xlim',[0 X+1],'ylim',[0 Y+1]);
+        axis(a,'ij')
+        set(h,'buttondownfcn',cb);
+        drawLines(h);
+        a = GetUIHandle(me,'clut');
+        imagesc(stim.colmap,'parent',a);
+        axis(a,'tight');
+        box(a,'off');
+        colormap(stim.colmap);  % replace me with user-selectable LUT?
+    end
 
 function [] = drawLines(obj, bounds)
 % Draws lines on the image to indicate which parameters will be analyzed
