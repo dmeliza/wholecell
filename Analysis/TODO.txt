@@ -1,5 +1,5 @@
 
-To do:
+To do/Changes:
 
 $Revision$
 
@@ -15,7 +15,8 @@ hide and show marks -done
 smoothed statistics and average -done (needs spline toolbox now...)
 
 a dialog to rescale the data - done
-export figure
 remove selected from analysis -done
 remove outliers - done
 ABF import function - done
+
+export figure - more generalized analysis functionality using modules

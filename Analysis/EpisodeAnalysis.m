@@ -38,14 +38,11 @@ case 'init'
     setupFigure;
     
 case 'trace_axes_callback'
-    %keyboard;
     updateSliders;
     
 case 'trace_click_callback'
     % captures clicks on traces
-    % left-button highlights the trace and associated values (listbox etc)
-    % right button opens a trace context menu that allows deletion or more
-    % complicated labelling
+    % left-button highlights the trace and associated values
     v = GetUIParam(me,'select_button','Value');
     if (v > 0)
         highlightTrace(gcbo);
@@ -63,53 +60,32 @@ case 'mark_click_callback'
         handler = GetUIParam(me,'trace_axes','ButtonDownFcn');
         eval(handler);
     end
-
-case 'stats_click_callback'
-    % figure out the index of the patch clicked, then highlight
-    patch = gcbo;
-    t = get(patch,'XData');
-    abstime = GetUIParam(me,'psp_traces','UserData');
-    traceindex = find(abstime==t);
-    highlightTrace(traceindex);
     
 case 'load_traces_callback'
     % loads traces from a .mat file and stores them in the figure
     pnfn = GetUIParam(me,'filename','String');
     path = fileparts(pnfn);
-    [fn pn] = uigetfile([path filesep '*.mat']);
+    [fn pn] = uigetfile([path filesep '*.mat'],...
+        'Load traces from MAT file...');
     if (fn ~= 0)
         wait('Loading data...');
         SetUIParam(me,'filename','String',fullfile(pn,fn));
         d = load(fullfile(pn,fn));
-        if ~isfield(d,'abstime')
+        s = loadData(d);
+        if boolean(s)
             wait('Invalid .mat file');
-            return;
+        else
+            wait(['Loaded data from ' fn]);
         end
-        SetUIParam(me,'filename','UserData',d);
-        SetUIParam(me,'last_trace','StringVal',length(d.abstime));
-        SetUIParam(me,'lp_factor','StringVal',d.info.t_rate);
-        SetUIParam(me,'lp_factor','UserData',d.info.t_rate);
-        if (isfield(d.info,'binfactor'))
-            SetUIParam(me,'bin_factor','StringVal',d.info.binfactor);
-        end
-        updateDisplay;
-        if (isfield(d,'times'))
-            setTimes(d.times);
-        end
-        wait(['Loaded data from ' fn]);
     end
     
     
-case 'daq_converter_callback'
-    % runs DAQ2MAT
-    [fn pn] = uigetfile('*.daq');
-    if (fn ~= 0)
-        [d.data, d.time, d.abstime, d.info] = DAQ2MAT(pn);
-        SetUIParam(me,'filename','UserData',d);
-        SetUIParam(me,'status','String',['Loaded data from daq files']);
-        updateDisplay;
-    end
-    
+case 'import_traces_callback'
+    % runs the import tool
+    pnfn = GetUIParam(me,'filename','String');
+    path = fileparts(pnfn);
+    d = ImportTool(path);
+    s = loadData(d);    
     
 case 'trace_list_callback'
     % handles user selections from the trace list
@@ -138,7 +114,8 @@ case 'save_trace_callback'
     % saves the selected traces to a new file
     pnfn = GetUIParam(me,'filename','String');
     path = fileparts(pnfn);  
-    [fn pn] = uiputfile([path filesep '*.mat']);
+    [fn pn] = uiputfile([path filesep '*.mat'],...
+        'Export traces to MAT file...');
     if (fn ~= 0)
         traces = str2num(GetUIParam(me,'trace_list','Selected'));
         saveData(fullfile(pn,fn), traces);
@@ -184,7 +161,6 @@ case 'xslider_callback'
 case 'adjust_baseline_callback'
     % Adjusts the baseline of the loaded traces using values in
     % adjust_baseline.UserData
-    % adjustBaseline(GetUIParam(me,'adjust_baseline','UserData'));
     times = getTimes;
     if times.pspbs > 0 & times.pspbe > times.pspbs
         adjustBaseline([times.pspbs, times.pspbe]);
@@ -196,24 +172,19 @@ case 'kill_outliers_callback'
     % deletes outliers from the backing data store
     deleteOutliers;
     
-case 'set_baseline_limits_callback'
-    lim = GetUIParam(me,'adjust_baseline','UserData');
-    % fix this later
-    
 case 'time_changed_callback'
     f = gcbo;
     m = get(f,'UserData');
     v = str2num(get(f,'String'));
-    set(gcf,'DoubleBuffer','on');
     set(m,'XData',[v v]);
-    set(gcf,'DoubleBuffer','off');
     updateStats;
     
 case 'load_times_callback'
     pnfn = GetUIParam(me,'filename','String');
     path = fileparts(pnfn);
-    [fn pn] = uigetfile([path filesep '*.mat']);
-    if exist(fullfile(pn,fn), 'file');
+    [fn pn] = uigetfile([path filesep '*.mat'],...
+        'Load timing data...');
+    if pn ~= 0 & exist(fullfile(pn,fn), 'file');
         d = load(fullfile(pn,fn));
         if (isfield(d,'times'))
             setTimes(d.times);
@@ -222,13 +193,14 @@ case 'load_times_callback'
             SetUIParam(me,'status','String','Invalid .mat file');
         end
     else
-        SetUIParam(me,'status','String',['Unable to open file: ' filename]);
+        SetUIParam(me,'status','String',['Unable to open file.']);
     end
     
 case 'export_times_callback'
     pnfn = GetUIParam(me,'filename','String');
     path = fileparts(pnfn);  
-    [fn pn] = uiputfile([path filesep '*.mat']);
+    [fn pn] = uiputfile([path filesep '*.mat'],...
+        'Export timing data to MAT file...');
     if (fn ~= 0)
         times = getTimes;
         save(fullfile(pn,fn), 'times');
@@ -237,7 +209,8 @@ case 'export_times_callback'
 case 'export_stats_callback'
     pnfn = GetUIParam(me,'filename','String');
     path = fileparts(pnfn);  
-    [fn pn] = uiputfile([path filesep '*.csv']);
+    [fn pn] = uiputfile([path filesep '*.csv'],...
+        'Export statistics to CSV file...');
     if (fn ~= 0)
         wait('Writing statistics...');
         [pspdata, srdata, irdata, abstime] = getStats;
@@ -245,11 +218,19 @@ case 'export_stats_callback'
         wait(['Statistics exported to ' fullfile(pn,fn)]);
     end
     
+case 'export_figure_callback'
+    % generates a new figure window, which will contain controls so the user can save it
+    trace = GetUIParam(me,'trace_axes','UserData');
+    tracehandles = [trace.handle];
+    abstime = [trace.abstime]';
+    ydata = get(tracehandles,'YData');
+    
 case 'save_analysis_callback'
     % stores a complete analysis in one file
     pnfn = GetUIParam(me,'filename','String');
     path = fileparts(pnfn);  
-    [fn pn] = uiputfile([path filesep '*.mat']);
+    [fn pn] = uiputfile([path filesep '*.mat'],...
+        'Export analysis to MAT file...');
     if (fn ~=0)
         wait('Writing file...');
         saveData(fullfile(pn,fn));
@@ -292,10 +273,7 @@ case 'display_statistics_callback'
     set(rb, 'Value', 0);
     set(o, 'Value', 1);
     feval(me,'trace_list_callback');
-    
-case 'invert_stats_callback'
-    updateStats;
-    
+
 case 'show_marks_callback'
     v = GetUIParam(me,'show_marks','Value');
     marks = findobj('ButtonDownFcn','episodeanalysis(''mark_click_callback'')'); 
@@ -322,7 +300,8 @@ case 'clear_legend_callback'
         delete(l);
     end
     
-case {'ignore_outliers_callback','outlier_tolerance_callback'}
+case {'ignore_outliers_callback','outlier_tolerance_callback',...
+            'invert_stats_callback'}
     updateStats;
     
 case 'close_callback'
@@ -347,7 +326,6 @@ dragHandler = @dragMark;
 releaseHandler = @releaseMark;
 set(obj,'WindowButtonMotionFcn',dragHandler);
 set(obj,'WindowButtonUpFcn',releaseHandler);
-set(obj,'DoubleBuffer','on');
 
 function dragMark(varargin)
 obj = gcf;
@@ -362,7 +340,6 @@ function releaseMark(varargin)
 obj = gcf;
 set(obj,'WindowButtonMotionFcn','');
 set(obj,'WindowButtonUpFcn','');
-set(obj,'DoubleBuffer','off');
 updateStats;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -388,6 +365,29 @@ SetUIParam(me,'invert_stats','Value',0);
 SetUIParam(me,'outlier_tolerance','String','1.5');
 SetUIParam(me,'show_marks','Value',1);
 SetUIParam(me,'select_button','Value',1);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function s = loadData(d)
+% loads data from a data structure, which can obtained from
+% a .mat file or anywhere else
+s = 1
+if isempty(d)
+    return;
+elseif ~isfield(d,'abstime')
+    return;
+end    
+SetUIParam(me,'filename','UserData',d);
+SetUIParam(me,'last_trace','StringVal',length(d.abstime));
+SetUIParam(me,'lp_factor','StringVal',d.info.t_rate);
+SetUIParam(me,'lp_factor','UserData',d.info.t_rate);
+if (isfield(d.info,'binfactor'))
+    SetUIParam(me,'bin_factor','StringVal',d.info.binfactor);
+end
+if (isfield(d,'times'))
+    setTimes(d.times);
+end
+updateDisplay;
+s = 0;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function varargout = updateDisplay
@@ -508,23 +508,30 @@ for i = 1:length(tags)
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function [pspdata, srdata, irdata, abstime, color] = getStats(varargin)
+function [pspdata, srdata, irdata, abstime, color, deleted] = getStats(varargin)
 % Computes statistics based on data in the trace_axes. Does outlier
 % calculation if selected.
 % getStats() - returns stats for all traces
 % getStats(tracenums) - returns stats for selected traces
+deleted = [];
 [pspdata, srdata, irdata, abstime, color] = cdm_getStats(varargin{:});
 b = GetUIParam(me,'ignore_outliers','Value');
 if boolean(b)
     tolerance = GetUIParam(me,'outlier_tolerance','StringVal');
     if isnumeric(tolerance)
         index = CutOutliers(pspdata, abstime, tolerance);
+        rem = setdiff(find(abstime),index);
+        deleted.pspdata = pspdata(rem);
+        deleted.srdata = srdata(rem);
+        deleted.irdata = irdata(rem);
+        deleted.abstime = abstime(rem);
+        deleted.color = color(rem,:);
+        
         pspdata = pspdata(index);
         srdata = srdata(index);
         irdata = irdata(index);
         abstime = abstime(index);
         color = color(index,:);
-%         color(index,:) = repmat([1 0 0],length(index),1);
     end
 end
 
@@ -574,30 +581,39 @@ case 'show_none'
     return;
 case 'show_selected'
     traces = str2num(GetUIParam(me,'trace_list','Selected'));
-    [pspdata, srdata, irdata, abstime, color] = getStats(traces);    
+    [pspdata, srdata, irdata, abstime, color, deleted] = getStats(traces);    
 case 'show_unselected'
     sel = str2num(GetUIParam(me,'trace_list','Selected'));
     traces = str2num(GetUIParam(me, 'trace_list', 'String'));
     sel = setdiff(traces, sel);
-    [pspdata, srdata, irdata, abstime, color] = getStats(sel);    
+    [pspdata, srdata, irdata, abstime, color, deleted] = getStats(sel);    
 otherwise % including show_all and any weird conditions
-    [pspdata, srdata, irdata, abstime, color] = getStats;    
+    [pspdata, srdata, irdata, abstime, color, deleted] = getStats;    
 end
 
-% plot it
+% plot psp stats
 a = GetUIHandle(me,'psp_axes');
 clearAxes(a);
 ph = scatter(abstime, pspdata, S, color);
-set(a, 'ButtonDownFcn',[me '(''stats_click_callback'')']);
+if isfield(deleted,'pspdata')
+    scatter(deleted.abstime, deleted.pspdata, S, deleted.color, 'filled');
+end
 ylabel('PSP Slope (mV/ms)');
 
+% plot resist stats
 a = GetUIHandle(me,'resist_axes');
 clearAxes(a);
 sh = scatter(abstime, irdata, S, color);
-ih = scatter(abstime, srdata, S, color, '*');
-set(a, 'ButtonDownFcn',[me '(''stats_click_callback'')']);
+if isfield(deleted, 'irdata')
+    scatter(deleted.abstime, deleted.irdata, S, deleted.color, 'filled');
+end
+ih = scatter(abstime, srdata, S, color, 'v');
+if isfield(deleted, 'srdata')
+    scatter(deleted.abstime, deleted.srdata, S, deleted.color, 'v','filled');
+end
 xlabel('Time (min)'),ylabel('R (M\Omega)');
 showSummary(pspdata, irdata, srdata, abstime);
+drawnow;
 wait;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -833,6 +849,7 @@ updateStats;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function deleteOutliers
+% Deletes outliers from the backing data store.
 wait('Calculating statistics...');
 tolerance = GetUIParam(me,'outlier_tolerance','StringVal');
 d = GetUIParam(me,'filename','UserData');
@@ -898,3 +915,4 @@ v = get(rb,'Value');
 v = [v{:}];
 s = find(v==1);
 handle = rb(s(1));
+
