@@ -39,7 +39,7 @@ for i = 1:length(fields)
 end
 if isfield(stim,'colmap')
     colmap = getfield(stim,'colmap');
-    N = max(max(stim.stimulus));
+    N = max(max(max(stim.stimulus)));
     S = size(colmap);
     if ~all(S == [N 3])
         error('Wrong dimensions for colormap');
