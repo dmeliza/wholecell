@@ -31,8 +31,9 @@ avg = mean(diff(timing));       % the average frame rate
 
 function Y = interp(X, rate)
 % linear interpolator, uses midpoint between supplied values (ignore rate)
-d       = [diff(X);0] / 2;
+d       = [diff(X)];
+d       = [d;mean(d)] / 2;      % extrapolate last value
 Y       = repmat(X,1,2);
 Y(:,2)  = d + Y(:,1);
 Y       = reshape(Y',prod(size(Y)),1);
-Y       = round(Y(1:end-1));      % toss last value, which is extrapolated
+Y       = round(Y);      
