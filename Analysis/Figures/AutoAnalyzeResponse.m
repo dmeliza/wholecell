@@ -130,14 +130,22 @@ end
 
 function [] = printdifference(fid, prefix, pre, pst, units)
 % prints the difference between two sets of data
-[h,P]       = ttest2(pre,pst);
-pre_m       = nanmean(pre);
-pre_e       = nanstd(pre)/sqrt(length(pre));
-pst_m       = nanmean(pst);
-pst_e       = nanstd(pst)/sqrt(length(pst));
-fprintf(fid, '%s %3.2f +/- %3.2f -> %3.2f +/- %3.2f %s (%3.1f%%; P = %3.4f)',...
-    prefix, pre_m, pre_e, pst_m, pst_e, units,...
-    pst_m/pre_m * 100 - 100, P);
+if isempty(pre) & isempty(pst)
+    return
+elseif isempty(pre)
+    printresult(fid,prefix,pst,units);
+elseif isempty(pst)
+    printresult(fid,prefix,pre,units);
+else
+    [h,P]       = ttest2(pre,pst);
+    pre_m       = nanmean(pre);
+    pre_e       = nanstd(pre)/sqrt(length(pre));
+    pst_m       = nanmean(pst);
+    pst_e       = nanstd(pst)/sqrt(length(pst));
+    fprintf(fid, '%s %3.2f +/- %3.2f -> %3.2f +/- %3.2f %s (%3.1f%%; P = %3.4f)',...
+        prefix, pre_m, pre_e, pst_m, pst_e, units,...
+        pst_m/pre_m * 100 - 100, P);
+end
 
 function [] = printresult(fid, prefix, value, units)
 % prints out the statistics of a single set of data
