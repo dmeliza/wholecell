@@ -154,6 +154,10 @@ u   = InitUIObject(me,'m_filter','uipushtool',p);
 p   = cell2struct({cb.menu,'Trace Properties',z.lineprop,'m_traceprop'},f,2);
 u   = InitUIObject(me,'m_traceprop','uipushtool',p);
 
+p   = cell2struct({cb.menu,'Toggle Parameter Display',z.markers,'m_showparams'},f,2);
+u   = InitUIObject(me,'m_showparams','uitoggletool',p);
+set(u,'Separator','On','State','On');
+
 function [] = initValues()
 % Initializes some app data so that calls to getappdata don't break
 setappdata(gcf,'dir',pwd)       % current directory
@@ -223,6 +227,7 @@ params(ind).action = action;
 names{ind} = name;
 setappdata(gcf,'parameters',params);
 SetUIParam(me,'parameters','String',names);
+plotParameter
 
 function [] = keypress(obj, event)
 % handles keypress activity.  I want to capture ctrl-a and maybe some other things
@@ -362,7 +367,7 @@ case 'm_close'
     setappdata(gcf,'r0',r);
     setappdata(gcf,'ds',ds);
     updateFields;
-    plotTraces;
+    plotTraces
     
 case 'm_saveresp'
     % saves the currently selected file in a new r0 file
@@ -470,7 +475,7 @@ case 'm_baseline'
             r0(f).data  = double(r0(f).data) - repmat(m,[samp,1,1]);
         end
         setappdata(gcf,'r0',r0);
-        plotTraces;
+        plotTraces
         SetUIParam(me,'status','String','Baseline subtracted');
     end
 case 'm_crop'
@@ -491,7 +496,7 @@ case 'm_crop'
             setappdata(gcf,'r0',r0);
             setappdata(gcf,'ds',ds);
             updateFields;
-            plotTraces;
+            plotTraces
             SetUIParam(me,'status','String','Episode cropped');
         end
     end
@@ -514,14 +519,17 @@ case 'm_delete'
             setappdata(gcf,'r0',r0);
             setappdata(gcf,'ds',ds);
             updateFields;
-            plotTraces;
+            plotTraces
             SetUIParam(me,'status','String','Episode cropped');
         end
     end   
 case 'resetaxes'
     % resets axes limits
     a   = GetUIHandle(me,'response');
-    axis(a,'tight');
+    mh  = getappdata(gcf,'param_handles');
+    set(mh(ishandle(mh)),'handlevisibility','off','visible','off');
+    set(a,'xlimmode','auto','ylimmode','auto')
+    set(mh(ishandle(mh)),'handlevisibility','callback','visible','on');
     zoom reset;
 case {'mousezoom','paramselect','moveobject'}
     % the state of this button is queried by clickaxes(), but this mode is exclusive
@@ -576,6 +584,9 @@ case 'm_traceprop'
         setappdata(gcf,'ds',ds);
         plotTraces
     end
+    
+case 'm_showparams'
+    updateParameters
             
 otherwise
     disp(tag)
@@ -756,8 +767,11 @@ for i = 1:length(ds)
         end
     end
 end
-if lbl & ~isempty(ds)
-    h = legend(p,str{:});
+if ~isempty(ds)
+    plotParameter
+    if lbl
+        h = legend(p,str{:});
+    end
 end
 
 function [] = updateParameters()
@@ -774,25 +788,62 @@ if ~isempty(p)
     end
     SetUIParam(me,'parameteraction','Value',i);
     SetUIParam(me,'parameteraction','Enable','On');
-    % clear marks, draw marks
-    mh  = getappdata(gcbf,'param_handles');
-    delete(mh(ishandle(mh)));
-    mh = vline(p(v).marks,{'k','k:'});
-    set(mh,'tag','mark','handlevisibility','callback');
-    setappdata(gcbf,'param_handles',mh);
+    plotMarks(p(v).marks);
+
     % calculate things
     plotParameter(p(v));
 else
-    mh  = getappdata(me,'param_handles');
+    mh  = getappdata(gcf,'param_handles');
     delete(mh(ishandle(mh)));
     SetUIParam(me,'parametername','Enable','Off');
     SetUIParam(me,'parameteraction','Enable','Off');
 end
 
+function [] = plotMarks(marks)
+% clear marks, draw marks
+mh  = getappdata(gcbf,'param_handles');
+delete(mh(ishandle(mh)));
+st  = GetUIParam(me,'m_showparams','State');
+if strcmpi(st,'on')
+    axes(GetUIHandle(me,'response'))
+    mh = vline(marks,{'k','k:'});
+    set(mh,'tag','mark','handlevisibility','callback');
+    setappdata(gcbf,'param_handles',mh);
+end
+
 function [] = plotParameter(param)
 % plots a parameter's time course on the parameter axes
+ax  = GetUIHandle(me,'timecourse');
+axes(ax)
+cla,hold on
+st  = GetUIParam(me,'m_showparams','State');
+if strcmpi(st,'off')
+    return
+elseif nargin < 1
+    param = getappdata(gcf,'parameters');
+    if isempty(param)
+        return
+    end
+    v     = GetUIParam(me,'parameters','Value');
+    param = param(v);
+end
 ds  = getSelected;
 if ~isempty(ds)
+    res = EpisodeParameter(param, ds);
+    ax  = GetUIHandle(me,'timecourse');
+    axes(ax)
+    cla,hold on
+    for i = 1:length(res)
+        p      = scatter(res(i).abstime, res(i).value, 10, res(i).color);
+        m      = mean(res(i).value);
+        h(i)   = line([res(i).abstime(1) res(i).abstime(end)],[m m]);
+        set(h(i),'Color',res(i).color,'LineStyle',':')
+        str{i} = sprintf('%3.2f %s', m, res(i).units);
+    end
+    lbl = GetUIParam(me,'labels','Value');
+    if lbl
+        legend(h,str);
+    end
 end 
 
 function out = me()
