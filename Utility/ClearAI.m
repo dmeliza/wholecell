@@ -5,7 +5,7 @@ function [] = ClearAI(obj, event)
 %
 % Usage: [] = ClearAI(obj,[event])
 %
-% obj - an analogoutput object
+% obj - an analoginput object
 %
 % $Id$
 if isvalid(obj)

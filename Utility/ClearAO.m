@@ -1,5 +1,11 @@
 function ClearAO(obj, event)
-% stops and clears the state of an analog output object
+% stops and clears the state of an analog output object. Conforms
+% to the callback stub (obj,event) so that it can be set as an action
+% on an input or output object.
+%
+% Usage: [] = ClearAO(obj,[event])
+%
+% obj - an analogoutput object
 %
 % $Id$
 if isvalid(obj)
@@ -11,9 +17,7 @@ if isvalid(obj)
     set(obj,'StartAction','daqaction');
     set(obj,'TriggerAction',{});
     set(obj,'TriggerType','Manual');
-%    c = get(obj,'Channel');
-%    putsample(obj,zeros(1,length(c)));
-%     putdata(obj,zeros(length(c)));
-%     start(obj);
-%     trigger(obj);
+    % this code would send a zero to all outputs, but is unimplemented
+    c = get(obj,'Channel');
+    putsample(obj,zeros(1,length(c)));
 end

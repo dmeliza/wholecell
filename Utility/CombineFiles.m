@@ -10,7 +10,7 @@ function [resp, str] = CombineFiles(type,filenames,channels)
 % filenames - filenames of responses (cell array or string matrix)
 % channels  - the channels to be included (required if there are .daq files)
 % 
-% resp     - the response structure (empty in errors)
+% resp     - the response structure (empty in errors) (r1 or r0)
 % str      - a string describing the response properties (or the error)
 %
 % See Also:     headers/r0_struct.m
