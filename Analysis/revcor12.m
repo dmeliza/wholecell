@@ -23,6 +23,7 @@ function [h1_est, h2_est, h2_sig] = revcor12(u, y, lags, Fs)
 % Settings
 MEX_CODE = 0;       % Use Mex Code When Multipying Matrices (Uses Less Memory) [1 = yes, 0 = no]
 DISPLAY = 1;        % Display results
+ORTHO = 0;          % Orthogonalize vectors
 
 % check arguments
 error(nargchk(4,4,nargin));
@@ -73,8 +74,14 @@ else
 end
 % Singular value decomposition of covariance matrix
 [h2_est D U] = svd(C);
-h2_est = -h2_est; % sign is arbitrary; this makes it the same sign as the first
-                  % kernel
+h2_sig = diag(D);
+
+%%%%%%%% Orthogonalize kernels ************
+if ORTHO
+    fprintf('Orthogonalizing kernels... \n');
+    h2_est = h2_est(:,1:2);
+    h1_est = orthogonalize(h1_est, h2_est);
+end
 
 
 if DISPLAY
@@ -93,8 +100,8 @@ if DISPLAY
     t = 0:1000/Fs:1000*(length(h1_est)-1)/Fs;
     plot(t,rescale(h1_est),'-k','LineWidth',2)
     hold on
-    plot(t,rescale(h2_est(:,1)),'-b','LineWidth',2)
-    plot(t,rescale(h2_est(:,2)),'-r','LineWidth',2)
+    plot(t,rescale(h2_est(:,1)),'-b','LineWidth',1)
+    plot(t,rescale(h2_est(:,2)),'-r','LineWidth',1)
     hold off
     legend('k1','k2(1)','k2(2)');
     axis square
@@ -131,28 +138,41 @@ if DISPLAY
     ylabel('Response')
     title(['Corr Coef (k1): ' num2str(r(1,2))])    
 
-    % Plot projection histogrames to assess nonlinearity
+    % Plot projection histograms to assess nonlinearity
     subplot(2,2,4)
     vecs = 2;
     lines = {'-b','-r'};
+    [x,p] = ProjectionResponse(y,y_est);
+    plot(x,p,'-k','Linewidth',2);
     hold on
     for i = 1:vecs
         y_est = S * h2_est(:,i); % estimated response for eigenvector i
-        [x,p] = Project(y,y_est);
-        plot(x,-p,lines{i},'Linewidth',2);
+        [x,p] = ProjectionResponse(y,y_est);
+        plot(x,p,lines{i},'Linewidth',2);
     end
+    plot(x,zeros(size(x)),':k');
     axis tight
     axis square
-    set(gca,'YTick',[])
+    set(gca,'YTick',[],'XTick',[])
     xlabel('Projection')
     ylabel('Response')
     %legend('k2(1)','k2(2)');
-    title('k2 Response Projection');
+    title('Response Projection');
     hold off
     
 end
 
+function v3 = orthogonalize(u1,v)
+% dirty non-general orthogonalize a 3rd vector against two
+% already othro vectors
+% u1 - Nx1 non-orthogonal vector
+% v - Nx2 orthogonal vectors
+v1 = v(:,1);
+v2 = v(:,2);
+v3 = u1 - dot(u1,v1)/dot(v1,v1)*v1 - dot(u1,v2)/dot(v2,v2)*v2;
+
 function y = rescale(y)
 % normalizes vector to a power of 1
 % (divide by sqrt of dot product)
-y = y / norm(y);
+y = y - mean(y);
+y = y / sqrt(dot(y,y));
