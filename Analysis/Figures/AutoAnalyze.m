@@ -8,11 +8,12 @@ function [] = AutoAnalyze(reportfilename)
 
 % global parameters that control whether subsidiary modules will save data
 % in their directories
-global WRITE_PARAMETERS WRITE_FIGURES WRITE_RESULTS
+global WRITE_PARAMETERS WRITE_FIGURES WRITE_RESULTS SKIP_COMPLETED
 
 WRITE_PARAMETERS = 0;    % if this is set, write .p0 files 
 WRITE_FIGURES    = 1;    % if this is set, write .fig files
 WRITE_RESULTS    = 0;    % if this is set, write .mat files
+SKIP_COMPLETED   = 1;    % if set, ignore directories with .fig files in them
 
 % local parameters
 RAT_SELECT  = '*';
@@ -49,12 +50,21 @@ try
             cd(celdir);
             fprintf(fid, '-----------------------------');
             fprintf(fid, '\nCell: %s/%s\n', ratdir, celdir);
-            feval(ANALYSIS_FN, fid);
+            nfigs = length(dir('*.fig'));
+            if SKIP_COMPLETED & nfigs > 0
+                fprintf(fid, '(already analyzed)\n');
+            else
+                try
+                    feval(ANALYSIS_FN, fid);
+                catch
+                    fprintf(fid,'Error: %s\n',lasterr);
+                end
+            end
             cd(fullfile(rootdir,ratdir));
         end
     end
     
 catch
-    close(fid)
+    fclose(fid)
     error(lasterr)
 end
