@@ -79,19 +79,21 @@ end
 
 % display results
 if DISPLAY
+    t = 0:1/Fs_y:window;
     figure
     set(gcf,'color',[1 1 1])
     
     subplot(1,2,1)
     OFF = squeeze(h1_est(:,1,:));
-    imagesc(OFF)
+    [rows cols] = size(OFF);
+    imagesc(t(1:cols),1:rows,OFF)
     colormap(gray)
     title('OFF')
     ylabel('Parameter')
     
     subplot(1,2,2)
     ON = squeeze(h1_est(:,2,:));
-    imagesc(ON)
+    imagesc(t(1:cols),1:rows,ON)
     colormap(gray)
     title('ON')
 end
