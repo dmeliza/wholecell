@@ -29,6 +29,12 @@ function varargout = RevCorr_LED(varargin)
 %          the data can be realigned based on when the sync signal transitions from 0
 %          to either the ON or the OFF state.
 %
+%          Additional workarounds were introduced in 1.16+ to deal with the fact that
+%          the DAQ routines "crash" if the sampling rate of the analog input and output
+%          are significantly different.  This puts a lower limit on the frame rate of
+%          the LED, around 100 Hz, which is much too high.  Consequently we have to upsample
+%          the input sequence to a usable frame rate.
+%
 % $Id$
 
 global wc
@@ -77,11 +83,7 @@ case 'stop'
     ClearAO(wc.ao);
     if (isvalid(wc.ai))
         stop(wc.ai);
-        set(wc.ai,'SamplesAcquiredAction',{});
-        set(wc.ai,'TimerAction',{});
-        SetUIParam('wholecell','status','String',get(wc.ai,'Running'));        
-        set(wc.ai,'LoggingMode','Memory');
-        set(wc.ai,'LogFileName',NextDataFile);
+        clearDAQ
     end
     
 otherwise
@@ -121,15 +123,13 @@ global wc;
 function setupHardware()
 % Sets up the hardware for this mode of acquisition
 global wc
-%display = @updateDisplay;
 analyze = @analyze;
 srate   = get(wc.ai, 'SampleRate');               % sample rate of ai
 frate   = GetParam(me,'f_rate','value');          % frame rate of LED in Hz
-%d_rate  = GetParam(me,'d_rate','value');         % update rate, Hz
 len     = loadStimulus;                           % number of frames
-a_int   = (len + 4) / frate * srate;               % analysis interval, samples
-delay   = 2 / frate * srate;                      % 2 sample delay
-%update = fix(sr / u_rate); 
+a_int   = (len + 4) / frate * srate;              % analysis interval, samples
+delay   = 2 / frate * srate;                      % 2 frame delay
+
 set(wc.ai,'SamplesPerTrigger',a_int);
 set(wc.ai,'TriggerDelayUnits','samples');
 set(wc.ai,'TriggerDelay',-delay);
@@ -138,7 +138,12 @@ set(wc.ai,'SamplesAcquiredAction',{me,analyze});
 set([wc.ai wc.ao],'TriggerType','Manual');
 set(wc.ai,'ManualTriggerHwOn','Start');
 
-set(wc.ao, 'SampleRate', frate);
+% the frame rate of the ao must be greater than 100, but an
+% integral multiple of the supplied frame rate.
+m       = fix(200/frate);
+rate    = (m+1) * frate;        % this ensures that we're more than 200
+set(wc.ao, 'SampleRate', rate);
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%55555
 function startSweep()
@@ -164,32 +169,44 @@ len     = size(seq,1);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
 function [] = queueStimulus(ai, ao)
-% queues data in the ao object, returning the length of the sequence (in frames)
+% queues data in the ao object
 % also writes the stimulus to disk if the ai is in disk-logging mode
 seq     = GetUIParam('protocolcontrol','status','UserData');
+m = get(ai,'LoggingMode');
+if ~strcmpi('memory',m)
+    lf = get(ai,'Logfilename')
+    writeStimulus(lf,seq);
+end
 
 % rescale sequence to voltages
 minV    = GetParam(me,'s_min','value');
 maxV    = GetParam(me,'s_max','value');
 seq     = (seq - min(min(seq))) * (maxV - minV) / max(max(seq)) + minV;
+frate   = GetParam(me,'f_rate','value');    % the real frame rate
+aorate  = get(ao,'SampleRate');             % the sample rate of the ao, higher or equal to frate
+m       = aorate/frate;
 
-[len,n] = size(seq);                    % length and number of signals
 nchan   = length(ao.Channel);           % number of channels
-putsample(ao,zeros(1,nchan));           % reset output
-c       = zeros(len,nchan);             % need to fill all the channels
-if n < nchan
-    c(:,1:n) = seq;
-elseif n > nchan
-    c = seq(:,1:nchan);
-else
-    c = seq;
-end
-putdata(ao,c);                          % here is where the data gets sent to the ao obj
+seq     = upsample(seq,m,nchan);        % upsample the sequence
 
-m = get(ai,'LoggingMode');
-if ~strcmpi('memory',m)
-    lf = get(ai,'Logfilename')
-    writeStimulus(lf,seq);
+putsample(ao,zeros(1,nchan));           % reset output
+putdata(ao,seq);                        % here is where the data gets sent to the ao obj
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function seq = upsample(seq, mult, nchan)
+% upsamples and pads/truncates the number of channels so that the sequence
+% can be passed directly to the analogoutput. seq should be an array or column vector
+[len n] = size(seq,1);
+if n < nchan
+    seq = [seq, zeros(len,nchan-n)];  % pad out channels
+elseif n > nchan
+    seq = seq(:,1:nchan);             % chop out useless channels
+end
+% upsample if necessary
+if mult > 1
+    seq     = permute(seq,[3 1 2]);
+    seq     = repmat(seq,[mult 1 1]);
+    seq     = reshape(seq,[len*mult nchan]);
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -249,17 +266,18 @@ sync    = GetParam(me,'sync','value');
 axes(getScope)
 % align input and output timings
 stim    = GetUIParam('protocolcontrol','status','UserData');
-srate   = get(ai,'SampleRate');     % sample rate
-frate   = get(ao,'SampleRate');     % LED frame rate
+srate   = get(ai,'SampleRate');             % sample rate
+frate   = GetParam(me,'f_rate','value')     % LED frame rate (real)
+%frate   = get(ao,'SampleRate');            % LED frame rate (poss upsampled)
 ini     = mean(data(1:100,sync));
-ind     = find(data(:,sync)<ini*3); % indices of data near minimum value
+ind     = find(data(:,sync)<ini*3);         % indices of data near minimum value
 ind     = max(ind)+1;
 data    = data(ind:end,in);
 time    = time(ind:end);
 plot(time,data);
 
 % quick analysis using danlab_revcor
-y       = bindata(data,srate/frate,1);        % bin response to frame rate
+y       = bindata(data,srate/frate,1);      % bin response to frame rate
 options = struct('correct','no','display','yes');
 keyboard
 kern    = danlab_revcor(stim,y(1:length(stim)),10,frate,options);
@@ -288,3 +306,4 @@ SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
 set(wc.ai,'LoggingMode','Memory');
 set(wc.ai,'LogFileName',NextDataFile);
 set(wc.ai,'TriggerType','Manual')
+set(wc.ai,'TriggerDelay',0);
