@@ -2,7 +2,7 @@ function [h1_est] = danlab_revcor(u,y,lags,Fs,options)
 
 % DANLAB_REVCOR General Reverse Correlation Algorithm 
 %
-%  [h1_est] = danlab_revcor(u,y,lags,options)
+%  [h1_est] = danlab_revcor(u,y,lags,Fs,options)
 %
 %  INPUT
 %    u    - stimulus matrix, 
@@ -80,6 +80,12 @@ end
 
 %%%%%%%% COMPUTE KERNEL %%%%%%%%
 if ~isfield(options,'correct'); options.correct = 'no'; end;
+switch options.display
+case 'no'
+    PLOT_RESULT = 0;
+case 'yes'
+    PLOT_RESULT = 1;
+end
 switch options.correct
     
     case 'no',
