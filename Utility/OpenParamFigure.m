@@ -76,14 +76,16 @@ for i = 1:paramCount
     name = paramNames{i};
     s = getfield(params, name);
     InitParam(module, name, s);
-    u = uicontrol(fig,'style','edit','String',s.description,'tooltipstring',name,...
-        'enable','inactive',...
-        'position',[x_pad, y, w_fn, h]);
-    p = [w_fn + x_pad, y, w_f, h];
-    if isfield(s, 'units')
-        p_u = [w_fn + w_f + x_pad + x_pad, y + 1, w_units, 18];
-        u = uicontrol(fig,'position',p_u,'style','text',...
-            'String',s.units);
+    if ~strcmp(lower(s.fieldtype),'hidden')
+        u = uicontrol(fig,'style','edit','String',s.description,'tooltipstring',name,...
+            'enable','inactive',...
+            'position',[x_pad, y, w_fn, h]);
+        p = [w_fn + x_pad, y, w_f, h];
+        if isfield(s, 'units')
+            p_u = [w_fn + w_f + x_pad + x_pad, y + 1, w_units, 18];
+            u = uicontrol(fig,'position',p_u,'style','text',...
+                'String',s.units);
+        end
     end
 %    p = [w_fn + x_pad, y, w_f + x_pad + w_units, h];
     if ~isfield(s,'value')
@@ -110,8 +112,6 @@ for i = 1:paramCount
             u = uicontrol(fig,'position',p_u,'style','pushbutton',...
                 'String','','Callback', {cb, module, name, s});        
         end
-    case 'hidden'
-        % hidden fields are available to GetParam and SetParam but not to the user
     end
     t = [module '.' name];
     u = uicontrol(fig,'position',p,st{:},'tag', t,...
