@@ -33,13 +33,25 @@ if a_frames < 1
     error('No frames have been loaded.');
 end
 
+% look up center and size
+mod = 'cgdisplay';
+x   = fix(GetParam(mod,'cent_x','value'));
+y   = fix(GetParam(mod,'cent_y','value'));
+pw  = fix(GetParam(mod,'width','value'));
+ph  = fix(GetParam(mod,'height','value'));
+rot = fix(GetParam(mod,'theta','value')); %  can't do anything with this here, really
+if pw < 1
+    pw = gprimd.PixWidth;
+end
+if ph < 1
+    ph = gprimd.PixHeight;
+end
+
 % reset timing data and clear screen
 timing = zeros(a_frames,frate);
 sync = 1;
 cgflip(0);
 cgflip(0);
-pw = gprimd.PixWidth;
-ph = gprimd.PixHeight;
 if nargin < 2
     syncrect = [0 0 .2 .2];
 end
@@ -53,7 +65,7 @@ cgpencol(255) % should be black
 t = [pw/2 - 100, -ph/2 + 20];
 for frame = 1:a_frames;
     for i = 1:frate
-        cgdrawsprite(frame,0,0, pw, ph);
+        cgdrawsprite(frame,x,y, pw, ph);
         cgrect(sr(1),sr(2),sr(3),sr(4),syncmap(sync+1));
         cgtext(num2str(frame),t(1),t(2));
         timing(frame,i) = cgflip;
