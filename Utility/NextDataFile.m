@@ -8,24 +8,26 @@ function out = NextDataFile(varargin)
 % {path}\{prefix}year_month_day
 %
 % $Id$
-global wc
 
 if nargin == 0
+    pf = GetUIParam('protocolcontrol','data_prefix','String');
+    dd = GetUIParam('protocolcontrol','data_dir','String');
     d = datevec(now);
     %out = sprintf('%s\\%s_%i_%i_%i_%i-%i-%02.0f',wc.control.data_dir,wc.control.data_prefix, d(:));
-    files = dir(wc.control.data_dir);
+    files = dir(dd);
     n = {files.name};
-    if isempty(wc.control.data_prefix)
-        wc.control.data_prefix = 'wc';
+    if isempty(pf)
+        pf = 'wc';
+        SetUIParam('protocolcontrol','data_prefix','String',pf);
     end
-    basename = sprintf('%s_%i_%i_%i-',wc.control.data_prefix, d(1:3));
+    basename = sprintf('%s_%i_%i_%i-',pf, d(1:3));
     files = strmatch(basename,n);
     if isempty(files)
-        out = sprintf('%s%s%s000',wc.control.data_dir,filesep,basename);
+        out = sprintf('%s%s%s000',dd,filesep,basename);
     else
         files = sort(n(files));
         lastfile = files{length(files)};
-        out = NextDataFile([wc.control.data_dir filesep lastfile]);
+        out = NextDataFile([dd filesep lastfile]);
     end
 else
     lastname = varargin{1};
