@@ -46,6 +46,7 @@ if (isfield(wc.control.telegraph,'gain'))
     gainVoltage = mean(data(:,gainChannel));
     gain = gain(gainVoltage);
     ChannelGain(wc.control.amplifier,'set',gain);
+    SetUIParam('wholecell','ampgain','String',num2str(gain));
 %     ir = get(wc.control.amplifier, 'SensorRange');
 %     set(wc.control.amplifier,'UnitsRange',ir ./ gain);
 end
@@ -55,6 +56,7 @@ if (isfield(wc.control.telegraph,'mode'))
     modeVoltage = mean(data(:,modeVoltage));
     mode = mode(modeVoltage);
     set(wc.control.amplifier,'Units',units(mode));
+    SetUIParam('wholecell','mode','String',mode);
 end
 
 feval(callback,'sweep',data,time);
@@ -68,7 +70,11 @@ try
     gains = [0.5 1 2 5 10 20 50 100 200 500];
     voltages = 4:13; % doubled voltages
     i = find(voltages == V);
-    out = gains(i);
+    if (isempty(i))
+        out = 1;
+    else
+        out = gains(i);
+    end
 catch
     out = 1;
 end
@@ -80,7 +86,12 @@ try
     V = fix(modeVoltage);
     modes = {'Fast Iclamp', 'IClamp', 'I=0', 'Track', 'VClamp'};
     voltages = [1 2 3 4 6];
-    out = modes{find(voltages == V)};
+    i = find(voltages == V);
+    if (isempty(i))
+        out = 'Unknown';
+    else
+        out = modes{i};
+    end
 catch
     out = 'Unknown';
 end
