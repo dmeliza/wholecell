@@ -295,11 +295,15 @@ tr1     = pre.trace;
 tr2     = pst.trace;
 if ~isempty(tr1)
    h    = plot(pre.time_trace,tr1,'k');
-   vline(pre.t_peak,'k:')
+   if ~isempty(pre.t_peak)
+       vline(pre.t_peak,'k:')
+   end
 end
 if ~isempty(tr2)
    h    = plot(pst.time_trace,tr2,'r');
-   vline(pst.t_peak,'r:')
+   if ~isempty(pst.t_peak)
+       vline(pst.t_peak,'r:')
+   end
 end
 axis tight
 xlim    = get(gca,'XLim');
@@ -338,11 +342,11 @@ end
 function [] = plotTimeCourse(ax, pre_time, pre_data, pst_time, pst_data, binsize)
 axes(ax),cla,hold on
 if nargin > 5
-    if ~isempty(pst_time)
+    if ~isempty(pst_data)
         [t,d,n,st]  = TimeBin(pst_time,pst_data,binsize);
         h           = errorbar(t,d,st./sqrt(n),'k.');
     end
-    if ~isempty(pre_time)
+    if ~isempty(pre_data)
         [t,d,n,st]  = TimeBin(pre_time,pre_data,binsize);
         mn          = nanmean(d);
         h           = errorbar(t,d,st./sqrt(n),'k.');
@@ -350,11 +354,11 @@ if nargin > 5
         h           = hline([mn / 0.7, mn / 1.3]);
     end
 else
-    if ~isempty(pst_time)
+    if ~isempty(pst_data)
         h       = plot(pst_time,pst_data,'k.');
         set(h,'markersize',6)
     end
-    if ~isempty(pre_time)
+    if ~isempty(pre_data)
         h       = plot(pre_time,pre_data,'k.');
         set(h,'markersize',6)
         mn      = nanmean(pre_data);
