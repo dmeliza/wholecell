@@ -144,7 +144,7 @@ subplot(3,3,1)
 ind     = ind_surround;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectcentralneighbor(dd(:,:,ind),x_induced(ind),x_center(ind));
-feval(PLOTFUN,t, {black, blue} , {'surr','peak'},SE);
+feval(PLOTFUN,t, {black, blue} , {'flank','peak'},SE,'both');
 title('LTP/LTD');
 ylabel('Condition Surround');
 
@@ -152,57 +152,64 @@ subplot(3,3,2)
 ind     = ind_surround & ind_ltp;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectcentralneighbor(dd(:,:,ind),x_induced(ind),x_center(ind));
-feval(PLOTFUN,t, {black, blue}, {'surr','peak'},SE);
+feval(PLOTFUN,t, {black, blue}, {'flank','peak'},SE,'ltp');
 title('LTP');
 
 subplot(3,3,3)
 ind     = ind_surround & ind_ltd;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectcentralneighbor(dd(:,:,ind),x_induced(ind),x_center(ind));
-feval(PLOTFUN,t, {black, blue}, {'surr','peak'},SE);
+feval(PLOTFUN,t, {black, blue}, {'flank','peak'},SE,'ltd');
 title('LTD');
 
 subplot(3,3,4)
 ind     = ind_center;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectneighbors(dd(:,:,ind),x_induced(ind));
-feval(PLOTFUN,t, {black, blue}, {'peak','surr'},SE);
+red     = selectneighbors(dd(:,:,ind),x_induced(ind),2);
+feval(PLOTFUN,t, {black, blue, red}, {'peak','1','2'},SE,'both');
 ylabel('Condition Center');
 
 subplot(3,3,5)
 ind     = ind_center & ind_ltp;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectneighbors(dd(:,:,ind),x_induced(ind));
-feval(PLOTFUN,t, {black, blue}, {'peak','surr'},SE);
+red     = selectneighbors(dd(:,:,ind),x_induced(ind),2);
+feval(PLOTFUN,t, {black, blue, red}, {'peak','1','2'},SE,'ltp');
 
 subplot(3,3,6)
 ind     = ind_center & ind_ltd;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectneighbors(dd(:,:,ind),x_induced(ind));
-feval(PLOTFUN,t, {black, blue}, {'peak','surr'},SE);
+red     = selectneighbors(dd(:,:,ind),x_induced(ind),2);
+feval(PLOTFUN,t, {black, blue, red}, {'peak','1','2'},SE,'ltd');
 
 subplot(3,3,7)
 black   = select(dd,x_induced);
 blue    = selectneighbors(dd,x_induced);
-feval(PLOTFUN,t, {black, blue}, {'cond','uncond'},SE);
+red     = selectneighbors(dd(:,:,ind),x_induced(ind),2);
+feval(PLOTFUN,t, {black, blue, red}, {'cond','1','2'},SE,'both');
 ylabel('All locations');
 
 subplot(3,3,8)
 ind     = ind_ltp;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectneighbors(dd(:,:,ind),x_induced(ind));
-feval(PLOTFUN,t, {black, blue}, {'cond','uncond'},SE);
+red     = selectneighbors(dd(:,:,ind),x_induced(ind),2);
+feval(PLOTFUN,t, {black, blue, red}, {'cond','1','2'},SE,'ltp');
 xlabel('Time From Spike (ms)')
 
 subplot(3,3,9)
 ind     = ind_ltd;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectneighbors(dd(:,:,ind),x_induced(ind));
-feval(PLOTFUN,t, {black, blue}, {'cond','uncond'},SE);
+red     = selectneighbors(dd(:,:,ind),x_induced(ind),2);
+feval(PLOTFUN,t, {black, blue, red}, {'cond','1','2'},SE,'ltd');
 
+colormap(gray)
 end
 
-function [] = plotbar(t, traces, legendary, SE)
+function [] = plotbar(t, traces, legendary, SE, side)
 % plots bar graphs with CI
 % integrate over these windows:
 ncond   = length(traces);
@@ -212,9 +219,17 @@ for i = 1:ncond
     [ltp_m(i), ltp_ci(i), ltp_p(i)] = integrate(traces{i},t<=0 & t>=LTP_WIN);
     [ltd_m(i), ltd_ci(i), ltd_p(i)] = integrate(traces{i},t>=0 & t<=LTD_WIN);
 end
-h   = whiskerbar(1:2,[ltp_m; ltd_m],[ltp_ci; ltd_ci]);
-axis tight
-set(gca,'XTickLabel',{'dt<0','dt>0'});
+h    = whiskerbar(1:2,[ltp_m; ltd_m],[ltp_ci; ltd_ci],[ltp_ci;ltd_ci],[ltp_p;ltd_p]);
+hline(0,'k')
+switch lower(side)
+    case 'ltp'
+        set(gca,'XLim',[0.5 1.5],'XTickLabel',{''});
+    case 'ltd'
+        set(gca,'XLim',[1.5 2.5],'XTickLabel',{''});
+    otherwise
+        set(gca,'XTickLabel',{'dt<0','dt>0'});
+end
+z   = legend(h(1,:),legendary);
 
 function [m, ci, p] = integrate(data, index)
 A   = data(index,:);
@@ -254,12 +269,17 @@ for i = 1:length(columns)
     out(:,i)    = data(:,columns(i),i);
 end
 
-function out = selectneighbors(data, columns)
+function out = selectneighbors(data, columns, dist)
 % select the neighbors of a column (e.g. if the column is 2, select 1,3)
+% if DIST is supplied and > 1, then the neighbors at that distance will be
+% returned
+if nargin < 3
+    dist  = 1;
+end
 out     = [];
 valcols = 1:size(data,2);
 for i = 1:length(columns)
-    nind             = columns(i) + [-1 1];
+    nind             = columns(i) + [-dist dist];
     nind             = intersect(nind, valcols);
     % average first:
     d                = mean(data(:,nind,i),2);
