@@ -17,6 +17,7 @@ function [s, fields] = r0_struct()
 % Optional fields:
 %
 % .info     - data from the source file
+% .channels - an array of channel structures for the channels in the r0 structure
 %
 % $Id$
 
