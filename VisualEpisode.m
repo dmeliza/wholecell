@@ -156,7 +156,7 @@ set(wc.ai,'TriggerDelay',0)
 set([wc.ai wc.ao], 'TriggerType','HwDigital')
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function seq = setupVisual()
+function [seq, bg] = setupVisual()
 % visual output: loads a .s0 file into video memory
 % returns the sequence of frames to play
 seq = [];
@@ -173,6 +173,7 @@ else
         cgloadarray(i,s.x_res,s.y_res,stim,s.colmap,dim2(1),dim2(2))
     end
     seq = s.sequence; 
+    bg  = s.colmap(1,:);
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
@@ -240,8 +241,8 @@ gprimd  = cggetdata('gpd');
 
 [x y pw ph] = CGDisplay_Position;
 
-seq      = setupVisual;
-len      = length(seq);       % # of frames
+[seq, bg] = setupVisual;
+len       = length(seq);       % # of frames
 
 syncmap  = [1 1 1; 0 0 0];
 sync     = 1;
@@ -250,6 +251,8 @@ for i = 1:len
     % draw frame if index is nonzero
     if fr > 0
         cgdrawsprite(fr,x,y,pw,ph)
+    else
+        cgrect(0,0,640,480,bg)
     end
     % switch sign of sync rectangle
     if i == 1 | fr ~= seq(i-1)
