@@ -8,24 +8,18 @@ function out = GetUIParam(module, param, field)
 %   $Id$
 global wc
 
-%param = lower(param);
+param = lower(param);
 module = lower(module);
 
 % find out if the object exists
 sfp = sprintf('isfield(wc.%s.handles,''%s'')',module,param);
 if (eval(sfp))
     sf = sprintf('wc.%s.handles.%s', module, param);
-    switch field
-    case {'StringVal','stringval','Stringval'}
+    switch lower(field)
+    case 'stringval'
         out = str2num(get(eval(sf),'String'));
-    case {'Selected','selected'}
-        i = get(eval(sf),'Value');
-        s = get(eval(sf),'String');
-        if i <= length(s)
-            out = s(i,:);
-        else
-            out = s;
-        end
+    case 'selected'
+        out = GetSelected(eval(sf));
     otherwise    
         out = get(eval(sf), field);
     end
