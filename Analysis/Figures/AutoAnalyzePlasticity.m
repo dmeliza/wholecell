@@ -55,8 +55,6 @@ if exist(LOCAL_CONTROL) ~= 0
     fprintf(fid, '[%s] - loaded control file\n', LOCAL_CONTROL);
     if isfield(control,'comment')
         fprintf(fid,'[%s] - %s\n', LOCAL_CONTROL, control.comment);
-    else
-        control.comment = '';
     end
 else
     control     = struct([]);
@@ -231,6 +229,9 @@ if nargout > 0
     end
     if ~isfield(control,'skip_slope')
         control.skip_slope = 0;
+    end
+    if ~isfield(control,'comment')
+        control.comment = '';
     end
     results = struct('pre',rmfield(pre,{'stim_electrical','mode_currentclamp'}),...
                      'pst',rmfield(pst,{'stim_electrical','mode_currentclamp'}),...
