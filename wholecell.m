@@ -190,11 +190,7 @@ global wc
 wc.control.SampleRate = get(wc.ai,'SampleRate');
 SetUIParam(me,'samplingrate','String',num2str(wc.control.SampleRate));
 % input:
-cs = '';
-c = get(wc.ai.Channel,{'HwChannel','ChannelName','Units'});
-for i=1:size(c,1);
-    cs{i} = sprintf('%i: %s (%s)', c{i,1}, c{i,2}, c{i,3});
-end
+cs = GetChannelList(wc.ai);
 SetUIParam(me,'ai_channels','String',cs);
 
 % amplifier selection
@@ -212,11 +208,6 @@ else
 end
 
 % output
-cs = '';
-c = get(wc.ao.Channel,{'HwChannel','ChannelName', 'Units'});
-for i=1:size(c,1);
-    cs{i} = sprintf('%i: %s (%s)', c{i,1}, c{i,2}, c{i,3});
-end
-SetUIParam(me,'ao_channels','String',cs);
+SetUIParam(me,'ao_channels','String',GetChannelList(wc.ao));
 
 
