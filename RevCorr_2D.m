@@ -85,7 +85,7 @@ case {'init','reinit'}
     cgloadlib; % error checking needed here for missing toolkit
     cgopen(1,8,0,2);
     p = defaultParams;
-    fig = OpenParamFigure(me, p);
+    fig = ParamFigure(me, p);
     Scope('init');
     
 case 'start'
@@ -263,7 +263,10 @@ if ~isnumeric(fn2)
     set(h,'string',fn2,'tooltipstring',v)
     s = SetParam(mod, param, v);
 end
-queueStimulus;
+stim = queueStimulus;
+SetParam(me,'x_res',stim.x_res);
+SetParam(me,'y_res',stim.y_res);
+SetParam(me,'a_frames',size(stim.stimulus,3));
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function clearDAQ()

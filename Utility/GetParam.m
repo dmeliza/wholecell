@@ -5,7 +5,7 @@ function out = GetParam(module, param, varargin)
 %   module - the module in wc
 %   [param - the tag for the GUI object] (if not supplied, all params are returned)
 %   'value' - if supplied, only the value is returned
-%   out - the param structure (described in OpenParamFigure.m)
+%   out - the param structure (described in ParamFigure.m)
 %
 %   $Id$
 global wc

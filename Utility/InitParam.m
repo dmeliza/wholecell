@@ -3,7 +3,7 @@ function out = InitParam(module, param, struct)
 % work for this parameter
 % 
 % OUT = InitParam(MODULE,PARAM,struct)
-% 		Sets the param to struct (described in OpenParamFigure.m)
+% 		Sets the param to struct (described in ParamFigure.m)
 %       returns the actual value
 % 	
 %

@@ -33,7 +33,7 @@ switch action
 
 case {'init','reinit'}
     p = defaultParams;
-    fig = OpenParamFigure(me, p);
+    fig = ParamFigure(me, p);
     Scope('init');
     
     EpisodeStats('init','min','','PSR_IR');

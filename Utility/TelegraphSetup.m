@@ -36,7 +36,7 @@ case 'init'
     c = GetParam('control.telegraph', linename);   
     p = defaultParams(linename, c);
     clfcn = @close_callback;
-    fig = OpenParamFigure(me, p, clfcn);
+    fig = ParamFigure(me, p, clfcn);
     uiwait(fig);
     
 otherwise
