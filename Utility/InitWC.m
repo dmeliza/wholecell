@@ -14,5 +14,5 @@ wc.control.telegraph.gain = [];
 wc.control.amplifier = [];
 wc.control.base_dir = pwd;
 wc.control.data_dir = pwd;
-wc.control.data_prefix = [];
+wc.control.data_prefix = 'wc';
 wc.control.protocol = [];
