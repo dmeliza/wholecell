@@ -52,7 +52,7 @@ else
 end
 % align episode times
 if iselectrical
-    fprintf('Aligning traces...\n')
+    fprintf('Aligning traces...\n');
     [resp,time]    = AlignEpisodes(double(R.data),double(R.time),ind_resp);
     avg            = mean(resp,2);
 else
@@ -67,6 +67,15 @@ end
 clean_resp      = resp  - repmat(avg,1,size(resp,2));
 % highpass filter to remove any slow residuals
 clean_resp      = filterresponse(clean_resp, 1000, 3, R.t_rate);
+
+% plot the debug info:
+f       = figure;
+set(f,'name',pwd,'visible','off'),hold on
+subplot(2,1,1)
+plot(time,resp);
+axis tight
+subplot(2,1,2)
+plot(time,clean_resp),hold on
 
 % the performance of this algorhythm is sadly rather dependent on the
 % threshhold level.  Too high, no spikes, too low and too few.  So with
@@ -106,36 +115,38 @@ end
 THRESH_SPIKE    = thresh;
 % figure out the statistics of the spike times
 [sptime,sptrial]    = find(spikes);
-timepdf     = full(sum(spikes,2));
-sptimes     = time(sptime);
-
-mu          = mean(sptimes);
-med         = median(sptimes);
-sigma       = std(sptimes);
-n           = length(sptimes);
-fprintf(fid,'Spike timing: %3.2f +/- %3.2f (n = %d, thresh = %2.1f)\n',...
-    med * 1000, sigma * 1000, n, THRESH_SPIKE);
-
-% plot a useful thing
-f       = figure;
-set(f,'name',pwd,'visible','off'),hold on
-% raw responses
-subplot(2,1,1)
-plot(time,resp);
-axis tight
-vline(med,'k')
-% filtered traces with detected spikes
-subplot(2,1,2)
-plot(time,clean_resp),hold on
-cdf     = cumsum(timepdf);
-h(1)    = plot(time,cdf,'k');
-set(h,'LineWidth',2);
-h(2)    = hline(THRESH_SPIKE);
-thresh  = find(timepdf ~= 0);
-mn      = min(thresh);
-mx      = max(thresh);
-legend(h,'Spike count','Thresh');
-set(gca,'XLim',[time(mn)-0.010, time(mx)+0.010])
+if ~any(sptime)
+    fprintf(fid,'Spike timing: no spikes detected (thresh = %2.1f).\n',THRESH_SPIKE);
+    med         = [];
+    var         = [];
+    n           = [];
+else
+    timepdf     = full(sum(spikes,2));
+    sptimes     = time(sptime);
+    
+    mu          = mean(sptimes);
+    med         = median(sptimes);
+    sigma       = std(sptimes);
+    n           = length(sptimes);
+    fprintf(fid,'Spike timing: %3.2f +/- %3.2f (n = %d, thresh = %2.1f)\n',...
+        med * 1000, sigma * 1000, n, THRESH_SPIKE);
+    
+    % plot some more debug info:
+    % raw responses
+    subplot(2,1,1)
+    vline(med,'k')
+    % filtered traces with detected spikes
+    subplot(2,1,2)
+    cdf     = cumsum(timepdf);
+    h(1)    = plot(time,cdf,'k');
+    set(h,'LineWidth',2);
+    h(2)    = hline(THRESH_SPIKE);
+    thresh  = find(timepdf ~= 0);
+    mn      = min(thresh);
+    mx      = max(thresh);
+    legend(h,'Spike count','Thresh');
+    set(gca,'XLim',[time(mn)-0.010, time(mx)+0.010])
+end
 if WRITE_FIGURES
     fn              = fullfile(pwd,['spikes.fig']);
     set(f,'visible','on')

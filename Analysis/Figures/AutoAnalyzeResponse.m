@@ -99,7 +99,7 @@ pre_m       = mean(pre);
 pst_m       = mean(post);
 fprintf(fid, ['%s %3.2f +/- %3.2f -> %3.2f +/- %3.2f %s (%3.1f%%; P = %3.4f)'],...
     name, pre_m, std(pre)/sqrt(length(pre)), pst_m,...
-    std(post)/sqrt(length(post)), units, pst_m/pre_m * 100 - 100, p)
+    std(post)/sqrt(length(post)), units, pst_m/pre_m * 100 - 100, p);
 
 
 function [results] = analyzedirectory(fid, times);
@@ -113,9 +113,10 @@ STIM_VISUAL     = 0.2;      % start time for visual stimulation
 DO_FILTER       = 1;
 FILTER_LP       = 1000;     % lowpass filter cutoff (Hz)
 FILTER_ELEC     = 200;      % lowpass cutoff for electrical
-FILTER_VIS      = 50;      % lowpass cutoff for finding peak of response
+FILTER_VIS      = 100;      % lowpass cutoff for finding peak of response
 FILTER_ORDER    = 3;
 THRESH_ONSET    = 3;        % X standard deviations away from mean defines onset
+LENGTH_EVENT    = 0.040;    % events must be at least 20 ms long
 WINDOW_BASELN   = 0.05;     % length of the baseline to use in computing the response
 WINDOW_PEAK     = 0.001;    % amount of time on either side of the peak to use
 ARTIFACT_WIDTH  = 0.0015;   % width of the artifact to cut out for certain analyses
@@ -140,7 +141,7 @@ for ifile = 1:length(dd)
         otherwise
             iscurrentclamp = 0;
     end
-
+    
     % if there is electrical stimulation we want to align all the
     % episodes based on the artifact.  Electrical artifacts are absurdly
     % fast, so the max z-score of the d/dt should exceed anything in a
@@ -157,7 +158,7 @@ for ifile = 1:length(dd)
     % for visual episodes we're going to assume they're aligned with a
     % fixed stimulus onset time.
     if iselectrical
-        fprintf('Aligning traces...\n')
+        fprintf('Aligning traces...\n');
         [resp,time]    = AlignEpisodes(double(R.data),double(R.time),ind_resp);
         avg            = mean(resp,2);
     else
@@ -173,48 +174,61 @@ for ifile = 1:length(dd)
     set(fig,'name',pwd,'visible','off'),hold on
     h       = plot(time,avg,'b');
     
-        % first we try to locate the event using the statistics of the average
-        % response.
-        ind_baseline        = find(time<-0.005 & time>-0.08);
-        mu    = mean(avg(ind_baseline));
-        sigma = std(avg(ind_baseline));
-        % window over which to search for onset
-        t_sel = time>0.002 & time < WINDOW_RESP;
-        % search for crossing the threshold in the filtered data. filtering
-        % is a pain, because in electrical cases, the artifact fucks shit
-        % up, and we need a reasonably high cutoff to keep temporal
-        % resolution; in visual response we need a lowish cutoff (lower
-        % than 60 Hz anyway) to get around the noise problem.  So for
-        % electrical stimuli we cut out the artifact and filter at ~500 Hz,
-        % and for visual stimuli filter at around 50
-        if ~iselectrical
-            fp          = FILTER_VIS;
-            filtavg     = filterresponse(avg,fp,FILTER_ORDER,R.t_rate);
-        else
-            fp          = FILTER_ELEC;
-            sel_artifact= time>-ARTIFACT_WIDTH & time < ARTIFACT_WIDTH;
-            in          = avg;
-            in(sel_artifact)    = deal(mu);  % this isn't perfect but it's easy
-            filtavg     = filterresponse(in,fp,FILTER_ORDER,R.t_rate);
-        end
-        h               = plot(time,filtavg,'k:');
-        legend('Response',sprintf('Filtered (%4.0f Hz)',fp));
+    % first we try to locate the event using the statistics of the average
+    % response.
+    ind_baseline        = find(time<-0.005 & time>-0.08);
+    mu    = mean(avg(ind_baseline));
+    sigma = std(avg(ind_baseline));
+    % window over which to search for onset
+    t_sel = time>0.002 & time < WINDOW_RESP;
+    % search for crossing the threshold in the filtered data. filtering
+    % is a pain, because in electrical cases, the artifact fucks shit
+    % up, and we need a reasonably high cutoff to keep temporal
+    % resolution; in visual response we need a lowish cutoff (lower
+    % than 60 Hz anyway) to get around the noise problem.  So for
+    % electrical stimuli we cut out the artifact and filter at ~500 Hz,
+    % and for visual stimuli filter at around 50
+    if ~iselectrical
+        fp          = FILTER_VIS;
+        filtavg     = filterresponse(avg,fp,FILTER_ORDER,R.t_rate);
+    else
+        fp          = FILTER_ELEC;
+        sel_artifact= time>-ARTIFACT_WIDTH & time < ARTIFACT_WIDTH;
+        in          = avg;
+        in(sel_artifact)    = deal(mu);  % this isn't perfect but it's easy
+        filtavg     = filterresponse(in,fp,FILTER_ORDER,R.t_rate);
+    end
+    h               = plot(time,filtavg,'k:');
+    legend('Response',sprintf('Filtered (%4.0f Hz)',fp));
+    % this stuff gets skipped if the user specified times
     if isempty(times)
         
         if iscurrentclamp
-            ind             = find(filtavg > (mu + sigma * THRESH_ONSET) & t_sel);
+            threshed        = filtavg > (mu + sigma * THRESH_ONSET) & t_sel;
             hline(mu + sigma * THRESH_ONSET,'r:');
         else
-            ind             = find(filtavg < (mu - sigma * THRESH_ONSET) & t_sel);
+            threshed        = filtavg < (mu - sigma * THRESH_ONSET) & t_sel;
             hline(mu - sigma * THRESH_ONSET,'r:');
         end
+        above       = find(threshed);
         % see if we can find an event onset - this usually fails when there are
-        % too few traces, so we return an empty results structure
-        if isempty(ind)
+        % too few traces, so we return an empty results structure.  We also
+        % need to eliminate spurious crossings of the threshhold, which
+        % tend to occur in the noisier traces from visual data.  In
+        % particular the 60 Hz can be a real bitch.  Rather than try to
+        % filter this out, we'll set a minimum crossing time for the onset
+        % to count.
+        if isempty(above)
             fprintf(fid, 'Err: Unable to detect event onset\n');
             return
         end
-        t_onset(ifile)   = time(ind(1));
+        diffabove       = diff(above);
+        evbegs          = above([ 1; find(diffabove>1)+1 ]);
+        evends          = above([ find(diffabove>1); length(above) ])+1;
+        % eliminate events that are too long or short
+        select          = (evends-evbegs)>=(LENGTH_EVENT*R.t_rate);
+        evtimes         = evbegs(select);
+        t_onset(ifile)   = time(evtimes(1));
         % now we try to locate the peak of the event. This is *tough* to do,
         % especially with visually evoked responses, since what we really want
         % is the *first* peak, not the maximum value. Finding the peak with
@@ -253,9 +267,11 @@ for ifile = 1:length(dd)
     at{ifile}       = R.abstime(:);
     % the mean event is packaged up for later fun, though setting the
     % number of points to extract is tricksy...
-    sel_trace       = time>(t_onset(ifile)-WINDOW_BASELN) & time < STIM_VISUAL;
-    trace           = filtavg(sel_trace);
-    time_trace      = time(sel_trace);
+    %sel_trace       = time>(t_onset(ifile)-WINDOW_BASELN) & time < STIM_VISUAL;
+    sel_trace       = time >= -0.1 & time <= 0.5;
+    sel_trace_bl    = time>(t_onset(ifile)-WINDOW_BASELN) & time < t_onset(ifile);
+    trace{ifile}           = filtavg(sel_trace) - mean(filtavg(sel_trace_bl));
+    time_trace{ifile}      = time(sel_trace);
     
     % now calculate IR and SR
     % we need to use unfiltered, unaligned data to ensure the transients

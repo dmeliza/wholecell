@@ -59,7 +59,7 @@ start_dir   = pwd;
 dd  = GetSubdirectories(FOLDER_SELECT);
 
 len = length(dd);
-fprintf(fid,'Subdirectories: %d ', len)
+fprintf(fid,'Subdirectories: %d ', len);
 
 if len < 3
     fprintf(fid,'\n(experiment ignored)\n');
@@ -109,14 +109,14 @@ fprintf(fid, 'Pre: %s\n', dd{1});
 fprintf(fid, 'Induced: %s', dd{2});
 switch induced
     case -1
-        fprintf(fid,' (unknown induction bar)\n')
+        fprintf(fid,' (unknown induction bar)\n');
     case 0
-        fprintf(fid,' (electrical stimulus)\n')
+        fprintf(fid,' (electrical stimulus)\n');
     otherwise
-        fprintf(fid,' (%d)\n', induced)
+        fprintf(fid,' (%d)\n', induced);
 end
 fprintf(fid, 'Post: %s\n', dd{3});
-fprintf(fid, '----\n')
+fprintf(fid, '----\n');
 % run the analysis script, first in the pre/post directories, then in the
 % induction directory
 if isfield(control,'t_pre') & isfield(control,'t_post')
@@ -127,7 +127,7 @@ else
 end
 [pre,pst]   = feval(ANALYSIS_FN_RESP,dd{1},dd{3}, fid, control.t_pre, control.t_post);
 
-fprintf(fid, '----\n')
+fprintf(fid, '----\n');
 if induced ~= -1
     t_post       = feval(ANALYSIS_FN_SPIKE,dd{2}, fid);
 end
@@ -186,18 +186,29 @@ xlabel('Time (min)')
 
 % plot the two average responses and their difference
 ax      = subplot(4,3,3);
-tr1     = pre.trace - mean(pre.trace(1:50));
-tr2     = pst.trace - mean(pst.trace(1:50));
+tr1     = pre.trace;% - mean(pre.trace(1:50));
+tr2     = pst.trace;% - mean(pst.trace(1:50));
 h       = plot(pre.time_trace,tr1,'k',pst.time_trace,tr2,'r');
 axis tight, set(gca,'XTickLabel',[])
 xlim    = get(gca,'XLim');
-vline(t_post,'k:')
+vline(pre.t_peak,'k:')
+vline(pst.t_peak,'r:')
+end
 title('Temporal RF')
 ax      = subplot(4,3,6);
 % this may break...
-h       = plot(pre.time_trace,tr1 - tr2,'k');
+if length(tr1) > length(tr2)
+    d       = tr1(1:length(tr2)) - tr2;
+    h       = plot(pst.time_trace,d,'k');
+else
+    d       = tr1 - tr2(1:length(tr1));
+    h       = plot(pre.time_trace,d,'k');
+end
+    
 set(gca,'Xlim',xlim)
-vline(t_post,'k:'),hline(0)
+if ~isempty(t_post)
+    vline(t_post,'k:'),hline(0)
+end
 xlabel('Time (s)')
 
 

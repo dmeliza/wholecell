@@ -10,8 +10,8 @@ function [] = AutoAnalyze(reportfilename)
 % in their directories
 global WRITE_PARAMETERS WRITE_FIGURES WRITE_RESULTS
 
-WRITE_PARAMETERS = 1;    % if this is set, write .p0 files 
-WRITE_FIGURES    = 0;    % if this is set, write .fig files
+WRITE_PARAMETERS = 0;    % if this is set, write .p0 files 
+WRITE_FIGURES    = 1;    % if this is set, write .fig files
 WRITE_RESULTS    = 0;    % if this is set, write .mat files
 
 % local parameters
@@ -33,8 +33,8 @@ end
 rootdir = pwd;
 dd1     = GetSubdirectories(RAT_SELECT);
 
-fprintf(fid,'AutoAnalyze.m $Id$\n')
-fprintf(fid,'Begin analysis run in %s at %s\n', rootdir, datestr(now))
+fprintf(fid,'AutoAnalyze.m $Revision$\n');
+fprintf(fid,'Begin analysis run in %s at %s\n', rootdir, datestr(now));
 
 for i = 1:length(dd1)
     ratdir  = dd1{i};
