@@ -51,6 +51,9 @@ function varargout = FlashEpisode(varargin)
 %
 % 1.7:
 % Attempts to eliminate jitter: use timer to trigger turning off image
+% This works great *if* you pick a duration that isn't close to a multiple of the
+% frame rate (e.g. 200, 300, 400 ms for 60 Hz).  If you want a 300 ms flash, pick
+% 292 ms (300 ms minus half the frame rate)
 %
 % $Id$
 
