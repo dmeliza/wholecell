@@ -36,7 +36,9 @@ ANALYSIS_FN_SPIKE   = 'AutoAnalyzeSpikeTiming';
 DAQ2MAT_MODE    = 'stack';
 DAQ2MAT_CHAN    = 1;
 LOCAL_CONTROL   = 'auto.mat';
-DEBUG           = 1;
+MIN_TRIALS      = 50;       % minimum number of trials for pre/post dirs
+MIN_INDUCE      = 10;       % minimum nu8mber of trials for induction
+DEBUG           = 0;
 
 % load the control file, if there is one
 if exist(LOCAL_CONTROL) ~= 0
@@ -60,36 +62,56 @@ dd  = GetSubdirectories(FOLDER_SELECT);
 
 len = length(dd);
 fprintf(fid,'Subdirectories: %d ', len);
-
+% check the number of daq files in each dir
+for i = 1:len
+    n(i)    = length(dir(fullfile(dd{i},'*.daq')));
+end
 if len < 3
     fprintf(fid,'\n(experiment ignored)\n');
     return
 else
     if len > 3
         if isfield(control,'dirs')
-            try
-                dd  = dd(control.dirs);
-                len = length(dd);
+            % use auto.mat if there is one
+            sel     = control.dirs;
+            if ~any(sel > len | sel < 0)
                 fprintf(fid, '[%s] - using [%s]', LOCAL_CONTROL, num2str(control.dirs));
-            catch
+            else
                 fprintf(fid,'\n[%s] - directory spec error\n', LOCAL_CONTROL);
                 return
-            end
+            end      
         else
-            fprintf(fid,'\n(experiment ignored)\n');
-            return
+            % try to guess on the # of trials. not super-robust
+            % what we want to see is a pair of > MIN_TRIALS that are
+            % separated by one or more other episodes
+            sel     = [];
+            above   = find(n > MIN_TRIALS);
+            diffabv = diff(above);
+            for i = 1:length(diffabv)
+                if diffabv(i) == 2
+                    sel = above(i) + [0 1 2];
+                    break
+                elseif diffabv(i) > 2
+                    % try to guess the right induction episode
+                    guess       = (above(i)+1):(above(i+1)-1);
+                    aboveind    = guess(n(guess) > MIN_INDUCE);
+                    if length(aboveind) > 0
+                        sel = [above(i), aboveind(1), above(i+1)];
+                        break
+                    end
+                end
+            end
+            if isempty(sel)
+                fprintf(fid,'\n(unable to guess directories - experiment ignored)\n');
+                return
+            end
         end
+        dd  = dd(sel);
+        len = length(dd);
+        n   = n(sel);
     end
-    % check each directory for .r0 files
-    fprintf(fid,'\n');
-    for i = 1:len
-        d   = dir(fullfile(dd{i}, R0_SELECT));
-        if isempty(d)
-            cd(dd{i});
-            daq2mat(DAQ2MAT_MODE, DAQ2MAT_CHAN);
-            cd(start_dir);
-        end
-    end
+    fprintf(fid,'\n');    
+
 end
 
 % for visual data we need to figure out which bar is induced
@@ -105,10 +127,8 @@ else
     induced = 0;                % electrical
 end
 
-n   = dir(fullfile(dd{1},'*.daq'));
-fprintf(fid, 'Pre: %s (%d files)\n', dd{1}, length(n));
-n   = dir(fullfile(dd{2},'*.daq'));
-fprintf(fid, 'Induced: %s (%d files)', dd{2}, length(n));
+fprintf(fid, 'Pre: %s (%d files)\n', dd{1}, n(1));
+fprintf(fid, 'Induced: %s (%d files)', dd{2}, n(2));
 switch induced
     case -1
         fprintf(fid,' (unknown induction bar)\n');
@@ -117,9 +137,24 @@ switch induced
     otherwise
         fprintf(fid,' (%d)\n', induced);
 end
-n   = dir(fullfile(dd{2},'*.daq'));
-fprintf(fid, 'Post: %s (%d files)\n', dd{3}, length(n));
+fprintf(fid, 'Post: %s (%d files)\n', dd{3}, n(3));
+
+% check that the n's are at least reasonable:
+if n(1) < MIN_TRIALS | n(3) < MIN_TRIALS
+    fprintf(fid,'(too few trials - experiment ignored)\n');
+    return
+end
 fprintf(fid, '----\n');
+
+% check each directory for .r0 files
+for i = 1:len
+    d   = dir(fullfile(dd{i}, R0_SELECT));
+    if isempty(d)
+        cd(dd{i});
+        daq2mat(DAQ2MAT_MODE, DAQ2MAT_CHAN);
+        cd(start_dir);
+    end
+end
 % run the analysis script, first in the pre/post directories, then in the
 % induction directory
 if isfield(control,'t_pre') & isfield(control,'t_post')
@@ -179,7 +214,7 @@ if ~isempty(pre.ir)
     set(ax,'XTickLabel',[])
     ax      = subplot(4,3,[7 8]);
     plotTimeCourse(ax,pre.time,pre.ir,pst.time,pst.ir,BINSIZE);
-    set('Xlim',xlim)
+    set(ax,'Xlim',xlim)
     ylabel('IR')
 end
 if ~isempty(pre.sr)
