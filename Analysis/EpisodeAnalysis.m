@@ -67,14 +67,20 @@ case 'load_traces_callback'
     % loads traces from a .mat file and stores them in the figure
     [fn pn] = uigetfile('*.mat');
     if (fn ~= 0)
-        SetUIParam(me,'filename','String',fn);
+        SetUIParam(me,'filename','String',fullfile(pn,fn));
         d = load(fullfile(pn,fn));
         SetUIParam(me,'filename','UserData',d);
         SetUIParam(me,'status','String',['Loaded data from ' fn]);
         SetUIParam(me,'last_trace','StringVal',length(d.abstime));
         SetUIParam(me,'lp_factor','StringVal',d.info.t_rate);
         SetUIParam(me,'lp_factor','UserData',d.info.t_rate);
+        if (isfield(d.info,'binfactor'))
+            SetUIParam(me,'bin_factor','StringVal',d.info.binfactor);
+        end
         updateDisplay;
+        if (isfield(d,'times'))
+            setTimes(d.times);
+        end
     end
     
     
@@ -173,6 +179,28 @@ case 'export_times_callback'
         save(fullfile(pn,fn), 'times');
     end
     
+case 'export_stats_callback'
+    [fn pn] = uiputfile('*.csv');
+    if (fn ~= 0)
+        [pspdata, srdata, irdata, abstime] = updateStats;
+        csvwrite(fullfile(pn,fn), cat(2,abstime',pspdata',srdata',irdata'));
+        SetUIParam(me,'status','String',['Statistics exported to ' fullfile(pn,fn)]);
+    end
+    
+case 'save_analysis_callback'
+    % stores a complete analysis in one file
+    [fn pn] = uiputfile('*.mat');
+    if (fn ~=0)
+        d = GetUIParam(me,'filename','UserData');
+        time = d.time;
+        info = d.info;
+        info.binfactor = 1;
+        data = getData;
+        [pspdata, srdata, irdata, abstime] = updateStats;
+        times = getTimes;
+        save(fullfile(pn,fn),'data','time','abstime','info','pspdata',...
+            'srdata','irdata','times');
+    end
     
 case 'close_callback'
     delete(gcbf);
@@ -338,7 +366,7 @@ for i = 1:length(tags)
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function updateStats()
+function [pspdata, srdata, irdata, abstime] = updateStats()
 % this method updates the statistics display using the times data
 % and the traces in the window. Deleted traces are ignored, but hidden ones
 % are included.  This method should be safe to call at any time, even
@@ -347,20 +375,22 @@ d = GetUIParam(me,'filename','UserData');
 times = getTimes;
 [data, abstime] = getData;
 dt = 1 / d.info.t_rate;
+w = warning('off');
 pspdata = ComputeSlope(data, [times.pspbs times.pspbe], times.pspm, dt);
 srdata = ComputeSlope(data, [times.rbs times.rbe], times.srm, dt) / times.curr;
 irdata = ComputeSlope(data, [times.rbs times.rbe], times.irm, dt) / times.curr;
+warning(w);
 % plot it
 a = GetUIHandle(me,'psp_axes');
 clearAxes(a);
-ph = scatter(abstime, pspdata);
+ph = plot(abstime, pspdata,'bo');
 ylabel('PSP Slope');
 set(ph, 'ButtonDownFcn',[me '(''stats_click_callback'')']);
 a = GetUIHandle(me,'resist_axes');
 clearAxes(a);
-sh = scatter(abstime, srdata);
+sh = plot(abstime, srdata, 'bo');
 set(sh, 'ButtonDownFcn',[me '(''stats_click_callback'')']);
-ih = scatter(abstime, irdata,10,'filled');
+ih = plot(abstime, irdata,'b*');
 set(ih, 'ButtonDownFcn',[me '(''stats_click_callback'')']);
 xlabel('Time (min)'),ylabel('R (M\ohm');
 
