@@ -83,13 +83,11 @@ global wc
 
 data = data(:,index);
 time = (time - time(1)) * 1000 + wc.gapfree.offset;
-% Condition 1: bounds overstep
+% Condition 1: bounds overstep - move data to beginning of plot
 xlim = get(scope, 'XLim');
 i = find(time >= xlim(2));
 if (~isempty(i))
-    d = zeros(size(time));
-    d(i) = time(i(1));
-    time = time - d;
+    time = time - time(1);
 end
 % condition 2: overlap with plot
 kids = get(scope,'Children');
@@ -105,15 +103,7 @@ if (~isempty(kids))
     s = (time(2) > minmax(:,1)) & (time(2) < minmax(:,2));
     e = (time(length(time)) > minmax(:,1)) & (time(length(time)) < minmax(:,2));
     delete(kids(find(s)));
-    delete(kids(find(e)));
-%     [i, j] = find(used==time(2));
-%     if (~isempty(i))
-%         delete(kids(i));
-%     end
-%     [i, j] = find(used==time(length(time)));
-%     if (~isempty(i))
-%         delete(kids(i));
-%     end
+    delete(kids(find((e - s)>0))); % the minus avoids deleting handles already deleted
 end
     
 % plot data (finally) and set offset for next plot
