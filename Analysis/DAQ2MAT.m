@@ -48,6 +48,7 @@ case 'stack'
         uni     = unique(seq);
         for i = 1:length(uni)
             ind = find(seq==uni(i));
+            ind = ind(ind<=length(names));
             n  = names(ind);
             r0 = DAQ2R0(n, channels);
             save(sprintf('daqdata-%d.r0',uni(i)),'r0','-mat');
