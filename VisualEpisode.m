@@ -266,6 +266,10 @@ for i = 1:len
     cgrect(-320,-240,100,100,syncmap(sync+1,:))       % sync rectangle, hard-coded
     cgflip(0,0,0)
 end
+% redraw the last frame at the end but with black sync rectangle
+cgdrawsprite(fr,x,y,pw,ph)
+cgrect(-320,-240,100,100,syncmap(2,:));
+cgflip(0,0,0)
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
