@@ -230,6 +230,9 @@ if nargout > 0
     if ~isfield(control,'skip_slope')
         control.skip_slope = 0;
     end
+    if ~isfield(control,'skip_time')
+        control.skip_time = 0;
+    end    
     if ~isfield(control,'comment')
         control.comment = '';
     end
@@ -245,7 +248,8 @@ if nargout > 0
                      'stim_electrical',stim_electrical(1),...
                      'skip_ir',control.skip_ir,...
                      'skip_sr',control.skip_sr,...
-                     'skip_slope',control.skip_slope,...
+                     'skip_slope',control.skip_slope,...,
+                     'skip_time',control.skip_time,...
                      'comment',control.comment);
 end
 
