@@ -18,6 +18,9 @@ function varargout = EpisodeAnalysis(varargin)
 % lp_factor.UserData - original sampling rate of data
 % times.UserData - times for computation marks
 %
+% 1.34 - Fixed EA to work with .r0 files and .mat files.  This monster needs some
+%        major work though...
+%
 % $Id$
 global wc;
 
@@ -65,18 +68,16 @@ case 'load_traces_callback'
     % loads traces from a .mat file and stores them in the figure
     pnfn = GetUIParam(me,'filename','String');
     path = fileparts(pnfn);
-    [fn pn] = uigetfile([path filesep '*.mat'],...
+    [fn pn] = uigetfile([path filesep '*.r0'],...
         'Load traces from MAT file...');
     if (fn ~= 0)
         wait('Loading data...');
         SetUIParam(me,'filename','String',fullfile(pn,fn));
-        d = load(fullfile(pn,fn));
-        s = loadData(d);
-        if boolean(s)
-            wait('Invalid .mat file');
-        else
-            wait(['Loaded data from ' fn]);
+        [r0 str] = LoadResponseFile(fullfile(pn,fn));
+        if ~isempty(r0)
+            loadData(d)
         end
+        wait(str);
     end
     
     
@@ -114,7 +115,7 @@ case 'save_trace_callback'
     % saves the selected traces to a new file
     pnfn = GetUIParam(me,'filename','String');
     path = fileparts(pnfn);  
-    [fn pn] = uiputfile([path filesep '*.mat'],...
+    [fn pn] = uiputfile([path filesep '*.r0'],...
         'Export traces to MAT file...');
     if (fn ~= 0)
         traces = str2num(GetUIParam(me,'trace_list','Selected'));
@@ -397,30 +398,22 @@ SetUIParam(me,'show_marks','Value',1);
 SetUIParam(me,'select_button','Value',1);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function s = loadData(d)
-% loads data from a data structure, which can obtained from
-% a .mat file or anywhere else
-s = 1;
-if isempty(d)
-    return;
-elseif ~isfield(d,'abstime')
-    return;
-end
+function [] = loadData(r0)
+% loads data from an r0 data structure into the figure
 % DAQ2MAT stores data in single precision values; convert here to double
-d.data = double(d.data);
-d.time = double(d.time);
-SetUIParam(me,'filename','UserData',d);
-SetUIParam(me,'last_trace','StringVal',length(d.abstime));
-SetUIParam(me,'lp_factor','StringVal',d.info.t_rate);
-SetUIParam(me,'lp_factor','UserData',d.info.t_rate);
-if (isfield(d.info,'binfactor'))
-    SetUIParam(me,'bin_factor','StringVal',d.info.binfactor);
+r0.data = double(r0.data);
+r0.time = double(r0.time);
+SetUIParam(me,'filename','UserData',r0);
+SetUIParam(me,'last_trace','StringVal',length(r0.abstime));
+SetUIParam(me,'lp_factor','StringVal',r0.info.t_rate);
+SetUIParam(me,'lp_factor','UserData',r0.info.t_rate);
+if (isfield(r0.info,'binfactor'))
+    SetUIParam(me,'bin_factor','StringVal',r0.info.binfactor);
 end
 updateDisplay;
-if (isfield(d,'times'))
-    setTimes(d.times);
+if (isfield(r0,'times'))
+    setTimes(r0.times);
 end
-s = 0;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function varargout = updateDisplay
