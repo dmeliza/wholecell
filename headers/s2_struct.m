@@ -1,23 +1,24 @@
 function [s, fields] = s2_struct()
 %
-% Defines the stimulus structure (by returning a structure with the proper fields)
+% Defines the stimulus structure (by returning a structure with the proper fields).
+% The S2 stimulus structure defines a set of frames which are to be displayed
+% to the animal, usually in a shuffled sequence.
 %
 % Required fields:
 %
 % m.type   - must be 's2'
 % m.colmap - the color mappings for each value in the stimulus 
 %            (Nx3 array, N == max(max(m.stimulus)))
-% m.stimulus - the movie, which should be an x_res by y_res by n_frames array of doubles
-% m.sequence - a row vector of indices into the stimulus field (0 is not valid)
+% m.stimulus - the frame array, with dimensions of x_res by y_res by (n_frames+1)
+%              The initial frame is displayed as background
 %
 % Optional fields:
 %
 % m.x_res - the number of (parameter) x pixels (scalar)
 % m.y_res - the number of (parameter) y pixels (scalar)
-% m.parameters - for parameterized stimuli, a J-by-n_frames array of stimulus parameters
 %
 % $Id$
 
-fields = {'type','colmap','stimulus','sequence','x_res','y_res','parameters'};
-C      = {'s2',[],[],[],[],[],[]};
+fields = {'type','colmap','stimulus','x_res','y_res',};
+C      = {'s2',[],[],[],[]};
 s      = cell2struct(C, fields, 2);
