@@ -74,9 +74,11 @@ h   = findobj(f,'tag','type');
 v   = get(h,'value');
 s   = get(h,'string');
 s   = lower(s{v});
-m   = getMarks(a,s);
-res = getResults(s, d.data(:,:,c), double(d.time), m);
-plotResults(f,res,d.abstime);
+if ~strcmpi('none',s)
+    m   = getMarks(a,s);
+    res = getResults(s, d.data(:,:,c), double(d.time), m);
+    plotResults(f,res,d.abstime);
+end
 
 function res = getResults(type, data, time, marks)
 % computes the results
@@ -99,6 +101,8 @@ else
         % average slope of line between two marks
         % with the baseline taken to be everything prior to the first mark
         res = diff(y) / diff(x) / 1000;     % (units)/ms
+    case 'difference'
+        res = diff(y);
     end
 end
 
@@ -187,7 +191,7 @@ end
 function p = initFigure(p)
 % Note that because multiple figures may be open, we can't use the usual
 % UI functions to access objects.
-t   = {'none','amplitude','slope'};
+t   = {'none','amplitude','difference','slope'};
 cb  = @editField;
 cbb = @cleanup;
 cf  = @clickfcn;
