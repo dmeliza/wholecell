@@ -18,6 +18,8 @@ function f = PlotSTRF(strf)
 %
 % $Id$
 
+
+
 % check arguments
 error(nargchk(1,1,nargin))
 if ~isa(strf,'struct')
@@ -35,7 +37,7 @@ click   = @clickSTRF;
 f       = figure;
 pos     = get(gcf,'Position');
 set(gcf,'Color',[1 1 1],'Position',[pos(1) pos(2) dim(1) dim(2)],...
-    'Name','STRF','Numbertitle','off');
+    'Name','STRF','Numbertitle','off');  
 if isfield(strf,'frate')
     set(gcf,'UserData',strf(1).frate);
 end
@@ -46,7 +48,6 @@ for i = 1:NUM
 end
 mx           = max(mx);
 
-exp   = @exportSTRF;
 % make plots
 for i = 1:NUM
     subplot(1,NUM,i)
@@ -55,7 +56,8 @@ for i = 1:NUM
         h   = plot(squeeze(strf(i).data))                 % single pixel STRF, use plot
         set(gca,'YLim',[-mx mx]);
     else
-        h   = imagesc(strf(i).data(:,:,1),[-mx mx]);
+        Z   = interpolate(strf(i).data(:,:,1));
+        h   = imagesc(Z,[-mx mx]);
         text(1,1,getTime(1));
         set(h,'buttondownfcn',click)
         set(gca,'UserData',strf(i).data,'NextPlot','replacechildren',...
@@ -64,10 +66,10 @@ for i = 1:NUM
             title(strf(i).title);
         end
     end
-    m = uicontextmenu;
-    uimenu(m,'Label','Export','Callback',{exp,gca});
+    m = makemenu;
     set(gca,'UiContextMenu',m);
     set(h,'UiContextMenu',m);
+
 end
 
 % setup slider
@@ -78,7 +80,7 @@ else
     step     = 1/(T-1);
     h        = uicontrol('style','slider','position',[45 5 dim(1)-90 20],...
         'Min',1,'Max',T,'SliderStep',[step step],'Value',1,...
-        'Callback',cb);
+        'Callback',cb,'tag','slider','UserData',1);
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -94,12 +96,46 @@ else
     str = num2str((ind-1)/frate);
 end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Callbacks:
+function m = makemenu()
+% Generates the context menu
+colmaps   = {'gray','hot','hsv','pink','cool','bone','prism'};
+interps   = [1 2 5 10];
+colmap_cb = @changeColormap;
+interp_cb = @changeInterpolation;
+exp       = @exportSTRF;
 
-function [] = moveSlider(obj, event)
-% handles slider position changes
+m = uicontextmenu;
+h = uimenu(m,'Label','Colormap');
+for i = 1:length(colmaps)
+    l(i) = uimenu(h,'Label',colmaps{i},'Callback',colmap_cb);
+end
+set(l(1),'Checked','On');
+h = uimenu(m,'Label','Interpolate');
+for i = 1:length(interps)
+    l(i) = uimenu(h,'Label',num2str(interps(i)),'Callback',interp_cb);
+end
+set(l(1),'Checked','On');
+uimenu(m,'Label','Export','Callback',{exp,gca});
+
+function Z = interpolate(data)
+% uses interp2 to interpolate (smooth) a dataset
+% if data is 1-dimensional, this should not be called
+h  = findobj(gcf,'tag','slider');
+lvl = get(h,'UserData');
+if lvl == 1 | isempty(lvl)
+    Z = data;
+else
+    [x y] = size(data);             % "real" indices are 0 to x-1 (y-1)
+    xi = linspace(0,x-1,x*lvl);
+    yi = linspace(0,y-1,y*lvl);
+    [X Y] = meshgrid(xi,yi);
+    Z  = interp2(0:x-1,0:y-1,data,X,Y);     % could use a cubic interpolator here...
+end
+
+function [] = replot()
+% replots all the axes in the window
 click   = @clickSTRF;
+obj     = findobj(gcf,'tag','slider');
 val     = fix(get(obj,'Value'));
 f       = get(obj,'Parent');
 a       = findobj(f,'type','axes'); % the axes in the window
@@ -107,11 +143,40 @@ for i = 1:length(a)
     axes(a(i))
     R   = get(a(i),'UserData');
     mx  = get(a(i),'CLim');         % keep the CLUT axis the same
-    h   = imagesc(R(:,:,val),mx);
+    R   = interpolate(R(:,:,val));
+    h   = imagesc(R,mx);
     set(h,'buttondownfcn',click);
     set(h,'UiContextMenu',get(a(i),'UiContextMenu'));
     text(1,1,getTime(val))
 end
+axis(a,'tight')
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Callbacks:
+
+function [] = moveSlider(obj, event)
+% handles slider position changes
+replot;
+
+function [] = changeColormap(obj, event)
+% changes colormap of figure
+sel = get(obj,'Label');     % name of colmap
+colormap(sel);
+par = get(obj,'Parent');
+kid = get(par,'Children');
+set(kid,'Checked','Off');
+set(obj,'Checked','On');
+
+function [] = changeInterpolation(obj, event)
+% changes the interpolation level at which things are plotted (figure-wide)
+sel = get(obj,'Label');
+sli = findobj(gcf,'tag','slider');
+set(sli,'UserData',str2num(sel));
+par = get(obj,'Parent');
+kid = get(par,'Children');
+set(kid,'Checked','Off');
+set(obj,'Checked','On');
+replot;
 
 function [] = clickSTRF(obj,event)
 % handles double clicks on STRF pixels
