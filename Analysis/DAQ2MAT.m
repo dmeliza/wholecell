@@ -25,10 +25,25 @@ end
 d = dir('*.daq');
 names = {d.name};
 
-% load the info from the first file
+% load info from the first file and figure out what to do with subsequent files
 d = daqread(names{1},'info');
-c = d.ObjInfo.Channel(1);
-info.y_unit = c.Units;
+c = d.ObjInfo.Channel;
+if length(c) > 1
+    cnames = {c.ChannelName};
+    output = c(strmatch('amplifier',cnames));
+    mode = c(strmatch('mode',cnames));
+    gain = c(strmatch('gain',cnames));
+else
+    output = c;
+    mode = [];
+    gain = [];
+end
+if isempty(mode)
+    info.y_unit = c.Units;
+else
+    m = daqread(names{1},'Channel',mode.Index);
+    info.y_unit = TelegraphReader('units',mean(m));
+end
 info.t_unit = 's';
 info.t_rate = d.ObjInfo.SampleRate;
 info.samples = d.ObjInfo.SamplesAcquired;
@@ -41,7 +56,11 @@ time = [];
 for i = 1:length(names);
     fn = names{i};
     if (exist(fn) > 0)
-        [dat, t, at] = daqread(fn,'Channels',1);
+        if isempty(gain)
+            [dat, t, at] = daqread(fn,'Channel',output.Index);
+        else
+            [dat, t, at] = ReadDAQScaled(fn,output.Index, gain.Index, info.y_unit);
+        end
         if (length(t) < length(time))
             disp(['Data file ' fn ' too short; ignored.']);
         else
@@ -60,6 +79,7 @@ end
 % data.
 clocks = datenum(abstime);
 [at, ind] = sort(clocks);
+info.starttime = at(1);
 atv = datevec(at - at(1));
 abstime = atv(:,4)*60 + atv(:,5) + atv(:,6)/60;
 abstime = abstime';
@@ -67,3 +87,4 @@ data = data(:,ind);
 save('daqdata.mat','data','time','abstime','info');
 disp('Wrote data to daqdata.mat');
 cd(oldpn);
+

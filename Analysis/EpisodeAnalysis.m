@@ -389,15 +389,15 @@ times = getTimes;
 tracehandles = GetUIParam(me, 'trace_list', 'UserData');
 dt = 1 / d.info.t_rate;
 w = warning('off');
-pspdata = ComputeSlope(data, [times.pspbs times.pspbe], times.pspm, dt);
-srdata = ComputeSlope(data, [times.rbs times.rbe], times.srm, dt) / times.curr;
-irdata = ComputeSlope(data, [times.rbs times.rbe], times.irm, dt) / times.curr;
+pspdata = ComputeSlope(data, [times.pspbs times.pspbe], times.pspm, dt) / 1000;
+srdata = ComputeDiff(data, [times.rbs times.rbe], times.srm, dt) / times.curr;
+irdata = ComputeDiff(data, [times.rbs times.rbe], times.irm, dt) / times.curr;
 warning(w);
 % plot it
 a = GetUIHandle(me,'psp_axes');
 clearAxes(a);
 ph = scatter(abstime, pspdata);
-ylabel('PSP Slope (mV/s)');
+ylabel('PSP Slope (mV/ms)');
 
 a = GetUIHandle(me,'resist_axes');
 clearAxes(a);
