@@ -109,7 +109,6 @@ global wc;
     p.repeat = cell2struct({'Repeats (0=inf)','value',1},f_s,2);
     p.stim = cell2struct({'Stim File','fixed','',loadStim},f_sb,2);
     p.display = cell2struct({'Display', 'value', 2,cb},f_sb,2);
-    p.sync_val = cell2struct({'Sync Voltage','value',1,'V'},f,2);
     ic = get(wc.control.amplifier,'Index');
     p.sync_c = cell2struct({'Sync Channel','list',ic,GetChannelList(wc.ai)},f_l,2);
     p.input = cell2struct({'Amplifier Channel','list',ic,GetChannelList(wc.ai)},...
@@ -120,7 +119,7 @@ function setupHardware()
 % Sets up the hardware for this mode of acquisition
 global wc
 analyze = @analyze;
-len     = checkMovie(wc.ai);            % number of sprites in the movie
+len     = checkMovie(wc.ai) + 5;            % number of sprites in the movie
 gprimd  = cggetdata('gpd');
 v_res   = gprimd.RefRate100 / 100;      % frames/second
 sr      = get(wc.ai, 'SampleRate');     % samples/second
@@ -131,19 +130,10 @@ set(wc.ai,'SamplesPerTrigger', a_int);
 set(wc.ai,'SamplesAcquiredActionCount', a_int);
 set(wc.ai,'SamplesAcquiredAction',{me,analyze});
 set(wc.ai,'ManualTriggerHwOn','Start');
-% hardware triggering:
-sync    = GetParam(me,'sync_c','value');
-sync_v  = GetParam(me,'sync_val','value');
-curr    = getsample(wc.ai);
-curr    = curr(sync);                   % current value of sync detector
+% hardware triggering (falling ttl on pfi0/Trig1):
 set(wc.ai,'TriggerDelayUnits','seconds');
-%set(wc.ai,'TriggerDelay',-2/v_res);     % pre-sample 2 frames
 set(wc.ai,'TriggerDelay',0);     
-set(wc.ai,'TriggerType','Software');
-set(wc.ai,'TriggerCondition','Rising');
-set(wc.ai,'TriggerConditionValue',curr+sync_v);
-set(wc.ai,'TriggerChannel',wc.ai.Channel(sync));
-set(wc.ai,'TriggerAction',{});
+set(wc.ai,'TriggerType','HwDigital');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%55555
 function startSweep()
@@ -198,7 +188,6 @@ if ~isempty(movfile)
     % reset display toolkit
     disp     = GetParam(me,'display','value');
     cgshut;
-    %cgopen(1,8,0,disp);
     cgopen(1,16,0,disp);        % dc mode
     % run the mfile or load the .s0 file
     stim     = LoadMovie(movfile);
