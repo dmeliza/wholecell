@@ -7,6 +7,7 @@ function varargout = PausedCallback(varargin)
 %
 % $Id$
 
+disp(['pausing ' num2str(varargin{4}) ' seconds']);
 pause(varargin{4});  % unfortunately it's not possible to arrest this mid-stroke
 % to do: check to see if the protocol is still running
 if (nargin > 4)

@@ -7,7 +7,11 @@ function varargout = StopAcquisition(module, devices)
 % $Id$
 global wc
 
+if (isvalid(devices))
 stop(devices);
-set(wc.ai,'SamplesAcquiredAction','');
-wc.control.protocol = [];
-SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
+end
+if (isvalid(wc.ai))
+    set(wc.ai,'SamplesAcquiredAction','');
+    wc.control.protocol = [];
+    SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
+end

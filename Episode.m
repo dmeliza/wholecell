@@ -28,6 +28,7 @@ switch action
 
 case {'init','reinit'}
     fig = OpenGuideFigure(me);
+    Scope('init');
     SetUIParam(me,'input_channel','String',GetChannelList(wc.ai));
     cs = GetChannelList(wc.ao);
     SetUIParam(me,'stim_channel','String',cs);
@@ -42,10 +43,12 @@ case {'init','reinit'}
 case 'start'
     control = getValues;
     setupHardware(control);
-    setupScope(wc.wholecell.handles.scope, wc.control.amplifier, control);
+    setupScope(getScope, wc.control.amplifier, control);
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
-    SetUIParam('wholecell','progress_txt','String','Sweeps Acquired:');
-    SetUIParam('wholecell','progress','String','0');
+    %SetUIParam('scope','status','String',['Sweeps Acquired: 0']);
+    wc.episode.lastlogfilename = get(wc.ai,'LogFileName');
+    [dir newdir] = fileparts(wc.episode.lastlogfilename);
+    set(wc.ai,'LogFileName',fullfile(dir, '0000.daq'));
     startSweep;
     
 case 'record'
@@ -55,38 +58,50 @@ case 'record'
     end
     control = getValues;
     setupHardware(control);
-    setupScope(wc.wholecell.handles.scope, wc.control.amplifier, control);
+    setupScope(getScope, wc.control.amplifier, control);
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
-    SetUIParam('wholecell','progress_txt','String','Sweeps Acquired:');
-    SetUIParam('wholecell','progress','String','0');
+    %SetUIParam('scope','status','String',['Sweeps Acquired: 0']);
     % data is stored in a directory, one file per sweep.
     wc.episode.lastlogfilename = get(wc.ai,'LogFileName');
     [dir newdir] = fileparts(wc.episode.lastlogfilename);
     s = mkdir(dir, newdir);
     set(wc.ai,'LogFileName',fullfile(dir,newdir, '0000.daq'));
-    set(wc.ai,{'LoggingMode','LogToDiskMode'}, {'Disk&Memory','Index'});
+    set(wc.ai,{'LoggingMode','LogToDiskMode'}, {'Disk&Memory','Overwrite'});
     startSweep;
     
     
 case 'stop'
-    set(wc.ao,'StopAction','');
-    stop([wc.ai wc.ao]);
-    set(wc.ai,'LoggingMode','Memory');
-    SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
-    % set the next file name up correctly
-    if (isfield(wc.episode, 'lastlogfilename'))
-        set(wc.ai,'LogFileName',NextDataFile(wc.episode.lastlogfilename));
+    if (isvalid(wc.ao))
+        set(wc.ao,'StopAction','');
+        stop(wc.ao);
+    end
+    if (isvalid(wc.ai))
+        stop(wc.ai);
+        set(wc.ai,'LoggingMode','Memory');
+        SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
+        % set the next file name up correctly
+%         if (isfield(wc.episode, 'lastlogfilename'))
+%             set(wc.ai,'LogFileName',NextDataFile(wc.episode.lastlogfilename));
+%         end
+        wc.episode.lastlogfilename = [];
+        set(wc.ai,'LogFileName',NextDataFile);
     end
 
 case 'sweep'
     data = varargin{2};
     time = varargin{3};
-    plotData(data, time, wc.wholecell.handles.scope, wc.control.amplifier.Index);
-    sw = str2num(GetUIParam('wholecell','progress','String'));
-    SetUIParam('wholecell','progress','String',num2str(sw+1));
+    if isvalid(wc.ai)
+        fn = get(wc.ai,'LogFileName');
+        set(wc.ai,'LogFileName',NextDataFile(fn));
+    end
+    plotData(data, time, getScope, wc.control.amplifier.Index);
+    %sw = sscanf(GetUIParam('scope','status','String'),'Sweeps Acquired: %i');
+    %SetUIParam('scope','progress','String',sprintf('Sweeps Acquired: %i', sw+1));
     
 case 'newsweep'
-    startSweep;
+    if ~isempty(wc.episode.lastlogfilename)
+        startSweep;
+    end
 
 % callbacks
 case 'value_changed_callback' % called whenever a field is edited
@@ -130,6 +145,14 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function out = me()
 out = mfilename;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+function scope = getScope()
+scope = GetUIHandle('scope','scope');
+if (isempty(scope) | ~ishandle(scope))
+    Scope('init');
+    scope = GetUIHandle('scope','scope');
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function varargout = setValues(varargin)
@@ -183,11 +206,11 @@ control.command_channel = GetUIParam(me,'command_channel','Value');
 function varargout = startSweep()
 % Begins a sweep
 global wc;
-stop([wc.ai wc.ao]);
-% delay...
-putdata(wc.ao, wc.control.pulse);
-start([wc.ai wc.ao]);
-trigger([wc.ai wc.ao]);
+    stop([wc.ai wc.ao]);
+    putdata(wc.ao, wc.control.pulse);
+    SetUIParam('scope','status','String',get(wc.ai,'logfilename'));
+    start([wc.ai wc.ao]);
+    trigger([wc.ai wc.ao]);
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -203,6 +226,7 @@ set(wc.ai,'SamplesAcquiredActionCount',len);
 set(wc.ai,'SamplesAcquiredAction',{'SweepAcquired',me}) % calls SweepAcquired m-file, which deals with data
 set(wc.ao,'StopAction',{'PausedCallback',me,(1/control.frequency - control.length/1000),'newsweep',}); % the daq's timer is used to initiate repeat sweeps
 
+% populates the wc.ao data channels
 numouts = length(wc.ao.Channel);
 wc.control.pulse = zeros(len,numouts);
 p = control.stim_delay+1:control.stim_delay+pulse_len;
@@ -231,5 +255,5 @@ plot(time * 1000, data, 'Parent', scope);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function clearPlot(axes)
-kids = get(axes, 'Children');
+kids = get(axes, 'Children'); 
 delete(kids);
