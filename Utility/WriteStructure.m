@@ -13,8 +13,9 @@ if ~isa(structure,'struct')
 end
 n = fieldnames(structure);
 for i = 1:length(n)
-    fn = n{i};
-    sf = sprintf('%s = structure.%s;',fn,fn);
+    i_am_an_obfuscated_variable = n{i};
+    sf = sprintf('%s = structure.%s;',...
+        i_am_an_obfuscated_variable,i_am_an_obfuscated_variable);
     eval(sf);
 end
 save(filename,n{:});
