@@ -40,6 +40,14 @@ set(gcf,'Color',[1 1 1],'Position',[pos(1) pos(2) dim(1) dim(2)],...
     'Name','STRF','Numbertitle','off');  
 if isfield(strf,'frate')
     set(gcf,'UserData',strf(1).frate);
+else
+    if ispref('strfGUI','srate')
+        frate = getpref('strfGUI','srate');
+        if ~isempty(frate)
+            strf(1).frate = frate;
+            set(gcf,'UserData',frate);
+        end
+    end
 end
 
 % find the absolute maximum of all the STRFs
@@ -53,7 +61,12 @@ for i = 1:NUM
     subplot(1,NUM,i)
     [X Y T] = size(strf(i).data);
     if X == 1 & Y == 1
-        h   = plot(squeeze(strf(i).data))                 % single pixel STRF, use plot
+        d   = squeeze(strf(i).data);
+        dt  = 1/strf(1).frate;
+        t   = 0:dt:(length(d)-1)*dt;
+        h   = plot(t,d)                 % single pixel STRF, use plot
+        xlabel('Time (s)');
+        set(gca,'YTick',[0]);
         set(gca,'YLim',[-mx mx]);
     else
         Z   = interpolate(strf(i).data(:,:,1));
@@ -98,11 +111,12 @@ end
 
 function m = makemenu()
 % Generates the context menu
-colmaps   = {'gray','hot','hsv','pink','cool','bone','prism'};
+colmaps   = {'gray','jet','hot','hsv','pink','cool','bone','prism'};
 interps   = [1 2 5 10];
 colmap_cb = @changeColormap;
 interp_cb = @changeInterpolation;
 exp       = @exportSTRF;
+surf      = @plotSurface;
 
 m = uicontextmenu;
 h = uimenu(m,'Label','Colormap');
@@ -115,6 +129,7 @@ for i = 1:length(interps)
     l(i) = uimenu(h,'Label',num2str(interps(i)),'Callback',interp_cb);
 end
 set(l(1),'Checked','On');
+uimenu(m,'Label','Surface','Callback',{surf,gca});
 uimenu(m,'Label','Export','Callback',{exp,gca});
 
 function Z = interpolate(data)
@@ -223,3 +238,15 @@ if isnumeric(fn)
 end
 save(fullfile(pn,fn),'strf');
 fprintf('STRF written to file %s\n', fn);
+
+function [] = plotSurface(obj, event, handle)
+% plots the current frame as a surface in another window
+c    = findobj(handle,'Type','image');
+if isempty(c)
+    errordlg('No data stored in object!');
+    error('Unable to retreive parameter response');
+end
+strf = get(c,'CData');
+map = colormap;
+figure,surf(strf);
+colormap(map);
