@@ -36,7 +36,7 @@ otherwise
 end
 
 % check structure of stimulus
-fields = {'x_res','y_res','colmap'};
+fields = {'type','x_res','y_res','colmap'};
 for i = 1:length(fields)
     j = isfield(stim,fields{i});
     if ~j
@@ -46,7 +46,7 @@ end
 if ~isfield(stim,'stimulus') & ~isfield(stim,'param')
     error('A .stimulus or .param field is required');
 end
-if isfield(stim,'stimulus')
+if strcmpi(stim.type,'s0')
     colmap = getfield(stim,'colmap');
     N = max(max(max(stim.stimulus)));
     S = size(colmap);

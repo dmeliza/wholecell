@@ -177,7 +177,7 @@ if p
     queueStimulus;
 end
 stim = GetUIParam('protocolcontrol','status','UserData');
-if isfield(stim,'mfile')
+if strcmpi(stim.type,'s1')
     name = 'stim.s1';
     len  = size(stim.param,1);
 else
@@ -209,7 +209,7 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function pickStimulus(varargin)
 % callback for the stimulus field, allows user to select
-% an .s0 or .m file that describes the stimulus
+% a file that describes the stimulus
 mod         = varargin{3};
 param       = varargin{4};
 s           = varargin{5};

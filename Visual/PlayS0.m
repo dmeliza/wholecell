@@ -16,7 +16,11 @@ function [] = PlayS0(movie)
 %
 % $Id$
 
-error(nargchk(1,1,nargin));
+error(nargchk(1,1,nargin))
+
+if ~strcmpi(movie.type,'s0')
+    error('Wrong movie type')
+end
 
 % figure and colormap
 run = @play;

@@ -34,13 +34,13 @@ end
 % Load Required Parameters
 [pn fn ext] = fileparts(filename);
 try
-    switch lower(ext)
-    case '.s0'
+    switch lower(stim.type)
+    case 's0'
         stimulus = getfield(stim,'stimulus');
         [X Y T] = size(stimulus);
         colmap = getfield(stim,'colmap');
         str = sprintf('s0: %d frames\n%d x %d x %d\n',T, X, Y, size(colmap,1));
-    case '.s1'
+    case 's1'
         param   = getfield(stim,'param');
         xres    = getfield(stim,'x_res');
         yres    = getfield(stim,'y_res');
@@ -64,7 +64,7 @@ if ~isempty(err)
 end
 
 % Load Optional Parameters
-if strcmpi(ext,'.s0') & isfield(stim,'parameters')
+if strcmpi(stim.type,'s0') & isfield(stim,'parameters')
     params = getfield(stim,'parameters');
     count = size(unique(params,'rows'),1);
     str = sprintf('%s%d params\n',str,count);

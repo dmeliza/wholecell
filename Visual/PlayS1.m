@@ -17,6 +17,9 @@ function [] = PlayS1(movie)
 % $Id$
 
 error(nargchk(1,1,nargin));
+if ~strcmpi(movie.type,'s1')
+    error('Wrong movie type!')
+end
 
 % figure and colormap
 run = @play;

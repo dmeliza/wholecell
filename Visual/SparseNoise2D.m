@@ -13,12 +13,13 @@ function stim = SparseNoise2D(xres,yres,frames,pixsize)
 % frames - the number of frames to generate. If 0, generates a complete set (each pixel
 %          gets one black and one white frame)
 %
-% stim - the stimulus structure, which has the following fields:
-%   x_res
-%   y_res
-%   colmap
-%   stimulus
-%   parameters  (Nx3 array, giving the x,y location of each pixel and its color)
+% stim - an s0 structure
+%
+% See Also:
+%
+%   headers/s0_struct
+%
+% Changes:
 %
 % 1.7: a complete set is now generated and shuffled.
 %
@@ -28,7 +29,7 @@ if nargin < 4
     [xres, yres, frames, pixsize, COMPLETE] = ask;
 end
 
-
+stim.type = 's0';
 % colormap:
 stim.colmap = gray(3);
 % stimulus dimensions:

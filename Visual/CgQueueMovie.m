@@ -25,7 +25,7 @@ if size(movie.colmap,1) > 255
 end
 cgcoltab(1,movie.colmap);
 cgnewpal;
-if isfield(movie,'mfile')
+if strcmpi(movie.type,'s1')
     % for s1 structs, just check to make sure we can load the frames
     if ~exist(movie.mfile)
         errordlg('Could not find the frame-generating function','Load Movie Failed')
