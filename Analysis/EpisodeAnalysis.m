@@ -35,6 +35,18 @@ error(nargchk(0,0,nargin))
 
 initFigure;
 initValues;
+d   = dir('*.r0');
+for i = 1:length(d)
+    [r0 str] = LoadResponseFile(fullfile(pwd,d(i).name));
+    if isstruct(r0)
+        storeData(r0, d(i).name);
+    end    
+end
+if ~isempty(d)
+    updateFields;
+    plotTraces;
+    SetUIParam(me,'status','String',['Loaded ' num2str(length(d)) ' files']);
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%5
 % Figure specification:
@@ -385,6 +397,7 @@ case 'm_saveresp'
             r0  = r0(fls);
             save(fullfile(pn,fn),'r0','-mat')
             SetUIParam(me,'status','String',['Wrote response to ' fn]);
+            setappdata(gcf,'dir',pn);
         end
     else
         SetUIParam(me,'status','String','Only single files can be saved')
@@ -408,6 +421,7 @@ case 'm_savetrace'
     time            = ds(end).time;
     save(fullfile(pn,fn),'fname','data','time')
     SetUIParam(me,'status','String',['Traces saved to ' fn]);
+    setappdata(gcf,'dir',pn);
     
 case 'm_save'
     % save parameters
@@ -417,6 +431,7 @@ case 'm_save'
         params = getappdata(gcf,'parameters');
         save(fullfile(pn,fn),'params','-mat');
         SetUIParam(me,'status','String',sprintf('Wrote %d parameters to %s',length(params),fn));
+        setappdata(gcf,'dir',pn);
     end
 case 'm_param'
     % load parameters
@@ -430,6 +445,7 @@ case 'm_param'
             updateParameters
             SetUIParam(me,'status','String',sprintf('Loaded %d parameters from %s',...
                 length(d.params),fn));
+            setappdata(gcf,'dir',pn);
         else
             SetUIParam(me,'status','String','Unable to load parameters from file');
         end
@@ -461,6 +477,7 @@ case 'm_export'
             csvWriteResults(fullfile(pn,fn),p);
         end
         SetUIParam(me,'status','String',sprintf('Wrote results to %s',fn));
+        setappdata(gcf,'dir',pn);
     end
         
 case 'm_baseline'
@@ -904,11 +921,16 @@ if ~isempty(ds)
     axes(ax)
     cla,hold on
     for i = 1:length(res)
-        p      = scatter(res(i).abstime, res(i).value, 10, res(i).color);
+        p       = scatter(res(i).abstime, res(i).value, 10, res(i).color);
+        X       = [res(i).abstime(1) res(i).abstime(end)];
         m      = mean(res(i).value);
+        [z, s]  = polyfit(res(i).abstime, res(i).value,1);
+        %h(i)    = line(X,polyval(z,X));
         h(i)   = line([res(i).abstime(1) res(i).abstime(end)],[m m]);
+        %str{i} = sprintf('%4.3f %s', m, res(i).units);
+        str{i}  = sprintf('%4.3f %s (%3.2f%%)', m, res(i).units, z(1) * 100);
         set(h(i),'Color',res(i).color,'LineStyle',':')
-        str{i} = sprintf('%4.3f %s', m, res(i).units);
+        
     end
     lbl = GetUIParam(me,'labels','Value');
     if lbl & ~isempty(str)
@@ -926,23 +948,24 @@ m       = length(p(1).results);
 r       = [p.results];
 t       = {p(1).results.abstime};       % cell array of column vectors (m)
 d       = {r.value};                    % cell array of column vectors (n * m)
-ind     = reshape(1:prod([n m]),n,m);   % rows index datasets, columns parameters
+ind     = reshape(1:prod([n m]),m,n);   % rows index datasets, columns parameters
 % now generate a sparse array that we will resort
 nzmax       = sum(cellfun('prodofsize',d));
 at          = cat(1,t{:});
 s           = spalloc(length(at),prod([n m]),nzmax);
-ct          = 0;
-for i = 1:m
-    toff    = 1;
-    for j = 1:n
-        ct  = ct + 1;
+col         = 0;
+for i = 1:n % parameters
+    row     = 1;
+    for j = 1:m     % datasets
+        col = col + 1;
         v   = fixzeros(d{ind(j,i)});    % we have to fix any zero values or they will
                                         % be lost in the sparse array
         len = length(v) - 1;
-        s(toff:toff+len,ct) = v(:);
-        toff = toff + len + 1;
+        s(row:row+len,col) = v(:);
+        row = row + len + 1;
     end
 end
+
 % now sort the time offsets
 [t,i,j] = unique(at);
 if length(i)==length(j)
@@ -951,7 +974,7 @@ else
     % hand-sort
     v   = spalloc(length(t),prod([n m]),nnz(s));
     for z = 1:length(t)
-        zz      = find(j==z);       % all rows which correspond to time t(z)
+        zz      = find(at==t(z));   % all rows which correspond to time t(z)
         v(z,:)  = sum(s(zz,:),1);   % this should work b/c only one row has a value
     end
 end
