@@ -226,7 +226,7 @@ case 'analysis_module_callback'
         module = fullfile(pn,fn);
     end
     try
-        feval(module,getData)
+        feval(module,'init')
     catch
         disp(lasterr);
     end
@@ -596,7 +596,8 @@ end
 w = warning('off');
 pspdata = ComputeSlope(data, d.time, [times.pspbs times.pspbe], times.pspm) / 1000;
 srdata = ComputeDiff(data, d.time, [times.rbs times.rbe], times.srm);
-irdata = ComputeDiff(data, d.time, [times.rbs times.rbe], times.irm);
+irint = [times.srm + (times.irm - times.srm) * 0.5, times.irm];
+irdata = ComputeDiff(data, d.time, [times.rbs times.rbe], irint);
 switch(lower(d.info.y_unit))
 case 'na'
     srdata = times.curr ./ srdata;
@@ -970,7 +971,7 @@ SP = 0.1;
 a = GetUIHandle(me,'psp_axes');
 [pspspline t] = TimeWeight(pspdata, abstime, SP,100);
 plot(t, pspspline, 'b', 'Parent', a, 'Linewidth', 2)
-pspmean = mean(pspdata);
+pspmean = nanmean(pspdata);
 psperr = stderr(pspdata) / pspmean * 100;
 t = sprintf('Mean: %2.4g +/- %2.2f %%', pspmean, psperr);
 y = get(a, 'YLim');
@@ -984,9 +985,9 @@ a = GetUIHandle(me,'resist_axes');
 plot(t, srspline, 'b', 'Parent', a, 'Linewidth', 2);
 [irspline t]= TimeWeight(irdata, abstime, SP, 100);
 plot(t, irspline, 'r', 'Parent', a, 'Linewidth', 2);
-srmean = mean(srdata);
+srmean = harmmean(srdata);
 srerr = stderr(srdata) / srmean * 100;
-irmean = mean(irdata);
+irmean = harmmean(irdata);
 irerr = stderr(irdata) / irmean * 100;
 t1 = sprintf('SR: %2.4g +/- %2.2f %%', srmean, srerr);
 y = get(a, 'YLim');
@@ -995,7 +996,7 @@ l = legend(a, t1, t2);
 set(l,'tag','resist_legend');
 
 function err = stderr(data)
-err = std(data) / sqrt(length(data));
+err = nanstd(data) / sqrt(length(data));
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function handle = getSelectedRadioButton()
