@@ -568,8 +568,17 @@ end
 dt = 1 / d.info.t_rate;
 w = warning('off');
 pspdata = ComputeSlope(data, [times.pspbs times.pspbe], times.pspm, dt) / 1000;
-srdata = ComputeDiff(data, [times.rbs times.rbe], times.srm, dt) / times.curr;
-irdata = ComputeDiff(data, [times.rbs times.rbe], times.irm, dt) / times.curr;
+srdata = ComputeDiff(data, [times.rbs times.rbe], times.srm, dt);
+irdata = ComputeDiff(data, [times.rbs times.rbe], times.irm, dt);
+switch(lower(d.info.y_unit))
+case 'na'
+    srdata = times.curr / srdata;
+    irdata = times.curr / irdata;
+otherwise
+    srdata = srdata / times.curr;
+    irdata = irdata / times.curr;
+    
+end
 invert = GetUIParam(me,'invert_psp','Value');
 if boolean(invert)
     pspdata = -pspdata;
@@ -801,6 +810,7 @@ end
 d = GetUIParam(me,'filename','UserData');
 ds.time = d.time;
 ds.info = d.info;
+ds.abstime = shiftdim(d.abstime,1);
 bf = GetUIParam(me,'bin_factor','StringVal');
 if bf > 1
     ds.info.binfactor = 1;
@@ -811,7 +821,7 @@ ds.data = shiftdim(data,1);
 ds.pspdata = shiftdim(pspdata,1);
 ds.irdata = shiftdim(irdata,1);
 ds.srdata = shiftdim(srdata,1);
-ds.abstime = shiftdim(abstime,1);
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function saveData(filename, varargin)
