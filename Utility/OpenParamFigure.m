@@ -86,37 +86,37 @@ for i = 1:paramCount
             u = uicontrol(fig,'position',p_u,'style','text',...
                 'String',s.units);
         end
-    end
-%    p = [w_fn + x_pad, y, w_f + x_pad + w_units, h];
-    if ~isfield(s,'value')
-        wc_param = GetParam(module, name);
-        s.value = wc_param.value;
-    end
-    % first deal with pre-defined custom types ('file_in')
-    switch lower(s.fieldtype)
-    case 'file_in'
-        s.callback = @file_in_btn;
-    end
-    switch lower(s.fieldtype)
-    case {'string','value'}
-        st = {'style','edit','BackgroundColor','white',...
-                'HorizontalAlignment','right'};
-    case 'list'
-        st = {'style','popupmenu','string',s.choices,'BackgroundColor','white'};
-    case {'fixed','file_in'}
-        st = {'style','edit','enable','inactive'};
-        % create button if .callback is specified
-        if isfield(s,'callback')
-            p_u = [w_fn + w_f + x_pad + x_pad, y + 2, w_units/2, 18];
-            cb = s.callback;
-            u = uicontrol(fig,'position',p_u,'style','pushbutton',...
-                'String','','Callback', {cb, module, name, s});        
+        %    p = [w_fn + x_pad, y, w_f + x_pad + w_units, h];
+        if ~isfield(s,'value')
+            wc_param = GetParam(module, name);
+            s.value = wc_param.value;
         end
+        % first deal with pre-defined custom types ('file_in')
+        switch lower(s.fieldtype)
+        case 'file_in'
+            s.callback = @file_in_btn;
+        end
+        switch lower(s.fieldtype)
+        case {'string','value'}
+            st = {'style','edit','BackgroundColor','white',...
+                    'HorizontalAlignment','right'};
+        case 'list'
+            st = {'style','popupmenu','string',s.choices,'BackgroundColor','white'};
+        case {'fixed','file_in'}
+            st = {'style','edit','enable','inactive'};
+            % create button if .callback is specified
+            if isfield(s,'callback')
+                p_u = [w_fn + w_f + x_pad + x_pad, y + 2, w_units/2, 18];
+                cb = s.callback;
+                u = uicontrol(fig,'position',p_u,'style','pushbutton',...
+                    'String','','Callback', {cb, module, name, s});        
+            end
+        end
+        t = [module '.' name];
+        u = uicontrol(fig,'position',p,st{:},'tag', t,...
+            'callback',{fn_ui, module, name, s});
+        s.value = setValue(u,s);
     end
-    t = [module '.' name];
-    u = uicontrol(fig,'position',p,st{:},'tag', t,...
-        'callback',{fn_ui, module, name, s});
-    s.value = setValue(u,s);
     params = setfield(params,name,s);
 end
 
