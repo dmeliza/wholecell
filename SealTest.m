@@ -1,20 +1,25 @@
 function varargout = SealTest(varargin)
-% Seal test protocol: sends pulses through the amplifier
-% command and determines the resistance of the electrode.
-% void SealTest(action,[params])
-% action can be 'init' or 'sweep' (presently)
+%
+% The SealTest module is one of the first I wrote; thus, it lacks many of the
+% conventions that were instituted later.  However, it performs its function
+% well enough, so there is little point in refactoring it just to make it look
+% pretty.  Its job is to determine the resistance of the pipette by sending command
+% voltage pulses to the amplifier and measuring the amount of current that passes
+% through the tip.  Like a standard wholecell protocol, it has an 'init' action, but
+% once the module is initialized, it has its own buttons for starting and stopping
+% acquisition.  It also supports a 'standalone' mode, which is primarily used for
+% debugging.
+%
+% See Also:
+%    SealTest.fig
+%
 % $Id$
 
 global wc
 
+error(nargchk(1,Inf,nargin));
 
-if nargin > 0
-	action = lower(varargin{1});
-else
-	action = lower(get(gcbo,'tag'));
-end
-
-switch action
+switch lower(action)
     
 case 'standalone'
 
@@ -24,13 +29,10 @@ case 'standalone'
 case 'init'
     OpenGuideFigure(me);
 
-%     InitParam(me,'pulse',5); % 5 mV
-%     InitParam(me,'pulse_length', .040);  % s
-%     InitParam(me,'n_sweeps',3);
-    wc.sealtest.pulse = 5;
-    wc.sealtest.pulse_length = 0.04;
-    wc.sealtest.n_sweeps = 3;
-    wc.sealtest.scaling = [1 0 0 0];  % auto
+    wc.sealtest.pulse         = 5;
+    wc.sealtest.pulse_length  = 0.04;
+    wc.sealtest.n_sweeps      = 3;
+    wc.sealtest.scaling       = [1 0 0 0];  % the default is auto
 
     SetUIParam(me,'axes','NextPlot','ReplaceChildren');
     lbl = get(wc.sealtest.handles.axes,'XLabel');
@@ -50,6 +52,7 @@ case 'sweep' % plot the data
     time = varargin{3};
     plotData(time, data);
     
+% these callbacks are associated with buttons in the GUI.  See SealTest.fig to change
 case 'sweeps_callback'
     try
         n_sweeps = str2num(get(wc.sealtest.handles.sweeps,'String'));
@@ -116,14 +119,14 @@ global wc
 function setScaling(fcn)
 global wc
 % there has GOT to be a better way to handle this
-h = wc.sealtest.handles;
-buttons = [h.scaling_0 h.scaling_1 h.scaling_2 h.scaling_3];
-v = get(buttons,'Value');
-values = [v{1} v{2} v{3} v{4}];
+h        = wc.sealtest.handles;
+buttons  = [h.scaling_0 h.scaling_1 h.scaling_2 h.scaling_3];
+v        = get(buttons,'Value');
+values   = [v{1} v{2} v{3} v{4}];
 switched = values - wc.sealtest.scaling;
 set(buttons(find(switched > 0)),'Value',1);
 set(buttons(find(switched < 1)),'Value',0);
-v = get(buttons,'Value');
+v        = get(buttons,'Value');
 wc.sealtest.scaling = [v{1} v{2} v{3} v{4}];
 switch num2str(find(wc.sealtest.scaling))
     case '1'
@@ -140,15 +143,17 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
 function initializeHardware(fcn)
+% This function initializes the WC structure and the DAQ when the
+% module is called in standalone mode.
 global wc
 
 InitWC;
 InitDAQ(5000);
 
-wc.control.amplifier = CreateChannel(wc.ai, 0, {'ChannelName','Units'}, {'Im','nA'});
+wc.control.amplifier      = CreateChannel(wc.ai, 0, {'ChannelName','Units'}, {'Im','nA'});
 wc.control.telegraph.gain = 2;
 CreateChannel(wc.ai, wc.control.telegraph.gain);
-wc.control.command = CreateChannel(wc.ao, 0,...
+wc.control.command        = CreateChannel(wc.ao, 0,...
     {'ChannelName','Units','UnitsRange'},{'Vcommand', 'mV', [-200 200]}); % 20 mV/V
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -156,14 +161,14 @@ function setupSweep(fcn)
 % each sweep is twice as long as the pulse.  we have to convert between
 % samples and time rather too often.
 global wc
-[start, finish, sweeplen] = pulseTimes;
-numouts = length(wc.ao.Channel);
+[start, finish, sweeplen]        = pulseTimes;
+numouts          = length(wc.ao.Channel);
 wc.control.pulse = zeros(sweeplen,numouts);
 wc.control.pulse(start:finish,1) = wc.sealtest.pulse;  % here we assume the first channel is the command
 set(wc.ai,'SamplesPerTrigger',inf);
 set(wc.ai,'SamplesAcquiredAction',{'SweepAcquired',me});
 set(wc.ai,'SamplesAcquiredActionCount',length(wc.control.pulse));
-sr = get(wc.ai,'SampleRate');
+sr               = get(wc.ai,'SampleRate');
 set(wc.ao,'SampleRate',sr);
 set(wc.ai,'UserData',length(wc.control.pulse));
 set([wc.ai wc.ao],'StopAction','daqaction')
@@ -175,10 +180,10 @@ set(wc.ao,'RepeatOutput',inf);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [start, finish, total] = pulseTimes;
 global wc
-len = fix(wc.sealtest.pulse_length .* wc.control.SampleRate);
-total = 2 .* len;
-start = fix(.3 .* len);
-finish = start + len;
+len     = fix(wc.sealtest.pulse_length .* wc.control.SampleRate);
+total   = 2 .* len;
+start   = fix(.3 .* len);
+finish  = start + len;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function plotData(time, data)
@@ -188,11 +193,11 @@ function plotData(time, data)
 global wc
 
 channel = wc.control.amplifier.Index;
-data = data(:,channel);
-time = (time(:) - time(1)) .* 1000;
+data    = data(:,channel);
+time    = (time(:) - time(1)) .* 1000;
 plot(time, data, 'Parent', wc.sealtest.handles.axes);
 
-[Rt, Rs, Ri] = calculateResistance(data, wc.sealtest.pulse);
+[Rt, Rs, Ri]       = calculateResistance(data, wc.sealtest.pulse);
 wc.sealtest.resist = cat(1,wc.sealtest.resist,[Rt Rs Ri]);
 if size(wc.sealtest.resist,1) >= wc.sealtest.n_sweeps
     r = mean(wc.sealtest.resist,1);
@@ -207,20 +212,22 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
 function [Rt, Rs, Ri] = calculateResistance(data, Vpulse)
 % calculates the input and series resistance from the first column of data
-% the transient will occur at the maximum
+% the transient should occur at the maximum.
 % units are in mV/pA = MOhm.
-% This function is annoying b/c dividing is really prone to errors.
-d = data(:,1);
-len = length(data);
-[y, start] = max(d);
+% This function is annoying b/c dividing is really prone to error propagation,\
+% and the noise can often overwhelm the transient, leading to mis-estimation of
+% a lot of different things.
+d           = data(:,1);
+len         = length(data);
+[y, start]  = max(d);
 [y, finish] = min(d);
 if (start < 21 | start > finish | finish > (len-11))
     [start, finish] = pulseTimes;
 end
-baseline = mean(d(10:start-10));
-It = (d(start) - baseline);
-Is = (d(start+10) - baseline);
-Ii = (d(finish-20) - baseline);
+baseline    = mean(d(10:start-10));
+It          = (d(start) - baseline);
+Is          = (d(start+10) - baseline);
+Ii          = (d(finish-20) - baseline);
 [Rt, Rs, Ri] = deal(Inf);
 if (It ~= 0)
     Rt = Vpulse./It;
