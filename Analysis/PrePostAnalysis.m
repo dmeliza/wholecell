@@ -73,7 +73,11 @@ case 'export_csv_callback'
         end
         [pre_data, pre_abstime, pre_err, pre_n] = aligndata(pre, 'pre',ds, bs);
         [post_data, post_abstime, post_err, post_n] = aligndata(post, 'post', ds, bs);
-        d = [pre_data, post_data; pre_err, post_err; pre_n post_n];
+        if length(pre_n) > 1
+            d = [pre_data, post_data; pre_err, post_err; pre_n post_n];
+        else
+            d = [pre_data, post_data];
+        end
         data = cat(2,data,d');
     end
     t = [pre_abstime, post_abstime];
