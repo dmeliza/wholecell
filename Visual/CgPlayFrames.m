@@ -1,16 +1,15 @@
-function CgPlayFrames(frate, s1)
+function CgPlayFrames(frate, seq)
 % Plays a movie using the coggraph toolkit.  We define a movie
 % as a collection of sprites that are played at a certain frame
 % rate.  This function requires the movie to have been loaded into
 % video memory, and will throw an error if there are not enough sprites loaded
 %
-% CgPlayMovie(frate, [s1])
+% CgPlayMovie(frate, seq)
 % frate - the frame rate of the movie, in multiples of the refresh time
 %         (e.g. if the refresh rate is 60 Hz and frate is 2, the frame rate
 %          will be 30 Hz)
-% s1    - An s1 structure.  If this is supplied, the frames will be generated from
-%         the mfile and parameters supplied.  Otherwise, a movie must have been
-%         queued using CgQueueMovie
+% seq   - The sequence of sprites to play (column of indices).  Values must not exceed
+%         the number of sprites actually loaded in video memory.
 %
 % Changes:
 % 1.8:      This function now commandeers colormap entries 0 and 255 for the sync
@@ -21,6 +20,8 @@ function CgPlayFrames(frate, s1)
 %
 % 1.10:     Now supports s1 structures. Syncrect is hard-coded.
 %
+% 1.13:     s1 frames are now preloaded, but only the unique ones
+%
 % $Id$
 
 % check that display has been defined
@@ -29,10 +30,10 @@ if isempty(gprimd)
     error('No display has been defined.');
 end
 
-% check that frames have been loaded
+% check that enough frames have been loaded
 a_frames = gprimd.NextRASKey - 1;
-if a_frames < 1 & nargin == 1
-    error('No frames have been loaded.');
+if a_frames < max(seq)
+    error('Not enough frames have been loaded.');
 end
 
 % look up center and size
@@ -56,33 +57,33 @@ cgnewpal
 cgpencol(255)
 t = [PW/2 - 100, -PH/2 + 20];
 
-% the display loop is coded twice to avoid making 1000's of if's
-if nargin < 2           % s0 mode
-    for frame = 1:a_frames;
-        for i = 1:frate
-            cgdrawsprite(frame,x,y, pw, ph);
-            cgrect(sr(1),sr(2),sr(3),sr(4),syncmap(sync+1));
-            cgtext(num2str(frame),t(1),t(2));
-            cgflip(0);
-        end
-        sync = ~sync;
+% now iterate through the sprites in the sequence
+for frame = seq;
+    cgdrawsprite(frame,x,y, pw, ph);
+    cgrect(sr(1),sr(2),sr(3),sr(4),syncmap(sync+1));
+    cgtext(num2str(frame),t(1),t(2));
+    cgflip(0);    
+    for i = 1:frate-1
+        cgnewpal;                       % with no new frame to display this is fastest
     end
-else
-    a_frames = size(s1.param,1);
-    for frame = 1:a_frames
-        Z     = feval(s1.mfile,s1.static{:},s1.param(frame,:));
-        [X,Y] = size(Z);
-        cgloadarray(2,X,Y,reshape(Z',1,X*Y),s1.colmap,1);
-        cgdrawsprite(2,x,y, pw, ph);
-        cgrect(sr(1),sr(2),sr(3),sr(4),syncmap(sync+1));
-        cgtext(num2str(frame),t(1),t(2));
-        cgflip(0);
-        for i = 1:frate-1
-            cgnewpal;                   % this should be sync'd with the display
-        end
-        sync = ~sync;
-    end
+    sync = ~sync;
 end
+% else
+%     a_frames = size(s1.param,1);
+%     for frame = 1:a_frames
+%         Z     = feval(s1.mfile,s1.static{:},s1.param(frame,:));
+%         [X,Y] = size(Z);
+%         cgloadarray(2,X,Y,reshape(Z',1,X*Y),s1.colmap,1);
+%         cgdrawsprite(2,x,y, pw, ph);
+%         cgrect(sr(1),sr(2),sr(3),sr(4),syncmap(sync+1));
+%         cgtext(num2str(frame),t(1),t(2));
+%         cgflip(0);
+%         for i = 1:frate-1
+%             cgnewpal;                   % this should be sync'd with the display
+%         end
+%         sync = ~sync;
+%     end
+% end
 
 % clear screen at end
 cgflip(0);

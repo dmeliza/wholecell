@@ -156,13 +156,8 @@ SetUIParam('protocolcontrol','status','String',get(wc.ai,'logfilename'));
 start([wc.ai]);
 cogstd('spriority','high');
 frate  = GetParam(me,'t_res','value');
-gpd    = cggetdata('gpd');
-if gpd.NextRASKey < 5
-    s  = GetUIParam('protocolcontrol','status','UserData');
-    CgPlayFrames(frate,s);      % if no frames are loaded, this must be an s1 structure
-else
-    CgPlayFrames(frate);
-end
+s  = GetUIParam('protocolcontrol','status','UserData');
+CgPlayFrames(frate,s.seq);      % pass the sequence of sprites and the frame rate to CgPF()
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function setLoadFlag(varargin)
@@ -194,7 +189,9 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
 function [] = queueStimulus()
 % Loads a "movie" in the form of sprites.  Once the sprites are loaded into
-% video memory they can be rapidly accessed.
+% video memory they can be rapidly accessed.  The sequence in which the
+% sprites should be played, as well as the original stimulus data, is stored
+% in the status bar's UserData field.
 movfile  = GetParam(me,'stim','value');
 if ~isempty(movfile)
     % reset display toolkit
@@ -203,8 +200,8 @@ if ~isempty(movfile)
     cgopen(1,8,0,disp);
     % run the mfile or load the .s0 file
     stim     = LoadMovie(movfile);
+    stim.seq = CgQueueMovie(stim);                      % the sequence of sprites
     SetUIParam('protocolcontrol','status','UserData',stim);
-    CgQueueMovie(stim);
     SetParam(me,'load_me',0);
 end    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
