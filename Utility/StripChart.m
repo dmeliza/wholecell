@@ -1,4 +1,4 @@
-function StripChart(mode,arg2,arg3)
+function StripChart(mode,arg2,arg3,arg4)
 %STRIPCHART provides scrolling display of streaming data.
 %   This strip chart is a special kind of XY plot meant to convey recent
 %   history of a waveform, such as voltage over time by dynamic updates
@@ -16,7 +16,7 @@ function StripChart(mode,arg2,arg3)
 %   measurement units of the X axis for appropriate labeling of spacing per
 %   division. XUNITS must be a string.
 %
-%   STRIPCHART('Update',HLINE,YDATA) updates the strip chart with new data.
+%   STRIPCHART('Update',HLINE,XDATA,YDATA) updates the strip chart with new data.
 %   YDATA is an M-length vector.  M new points get added to the right.
 %   Everything else shifts left. The M oldest points are discarded. If the
 %   initially defined number of points, N is less than M, then only the
@@ -39,7 +39,7 @@ function StripChart(mode,arg2,arg3)
 %   $Id$
 
 % check syntax usage 
-error(nargchk(2,3,nargin))
+error(nargchk(2,4,nargin))
 error(nargchk(0,0,nargout))
 
 %input argument checking and parsing
@@ -50,8 +50,8 @@ if findstr(lower(mode),'initialize')
     initialize(arg2)  %INITIALIZE(HAXES)
   end
 elseif findstr(lower(mode),'update')
-  error(nargchk(3,3,nargin))
-  update(arg2,arg3)  %UPDATE(HLINE,YDATA)
+  error(nargchk(4,4,nargin))
+  update(arg2,arg3,arg4)  %UPDATE(HLINE,YDATA)
 else
   error(['invalid mode ' mode])
 end
@@ -93,19 +93,21 @@ if Range(end)~=Ticks(end)
   Ticks = fliplr(Range(end):-dX:Range(1));
   set(hAxes,'XTick',Ticks)
 end
-set(hAxes,'XTickLabel',[],'XTickMode','Manual','XGrid','On','YGrid','On')
+%set(hAxes,'XTickLabel',[],'XTickMode','Manual','XGrid','On','YGrid','On')
+set(hAxes,'XTickMode','Manual','XGrid','On','YGrid','On')
 
 % label X axis with units/division
 xlabel(sprintf('%g %s/div',dX,xUnits))
 
 
 %--------------------------------------------------------------------------
-function update(hLine,newData)
+function update(hLine, newX, newY)
 %UPDATE strip chart with new data.
-%   UPDATE(HLINE,YDATA) adds new data to the specified line plot.
+%   UPDATE(HLINE,XDATA,YDATA) adds new data to the specified line plot.
 %       HLINE must be a valid line handle.
-%       YDATA is an N-length vector of new Y values.
-%       The N new points append to right (N oldest points discarded).
+%       XDATA and YDATA are N-length vectors of new X and Y values.
+%       The N new points append to right (old points discarded if the total
+%           length exceeds that of the graph).
 
 if ~ishandle(hLine), error('invalid axes handle'), end
 if ~strmatch(get(hLine,'type'),'line'), error('invalid HLINE'), end
@@ -116,15 +118,18 @@ ax = get(hLine,'Parent');       % the axes
 xlim = get(ax, 'Xlim');         % limits of the graph
 
 yData = get(hLine,'YData');     % old data
-nPts = length(newData);         % how much new data
-
-if nPts>length(yData)                   % more new data than original
-  nPts = length(yData);                 % only keep last part
-  newData = newData(end-nPts+1:nPts);
+xData = get(hLine,'XData');
+newX = newX - newX(1) + xData(end);     % move x back to 0
+Y = cat(2, yData, newY);        % concatenate data
+X = cat(2, xData, newX);
+over = X(end) - xlim(2);        % if time exceeds xlim, slide times backward
+if (over > 0)
+    X = X - over;
 end
+i = find(X >= xlim(1));       % eliminate points that come before xlim(1)
+X = X(i);
+Y = Y(i);
 
-yData(1:end-nPts) = yData(nPts+1:end);  % shift old data left
-yData(end-nPts+1:end) = newData;        % new data goes on right
 if ~ishandle(hLine), return, end
-set(hLine,'YData',yData)                % update plot
+set(hLine,'YData',Y,'XData',X);                % update plot
 drawnow                                 % refresh display
