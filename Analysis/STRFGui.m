@@ -127,21 +127,14 @@ f            = findfig('strfgui_stimulus');
 set(f,'Color',[1 1 1]);
 a            = axes;
 stim         = GetUIParam(me,'stimulus','UserData');
-% if isfield(stim,'parameters')
-%     [stimulus param params] = unique(stim.parameters,'rows');
-%     s = rasterize([params stim.parameters(:,3)]);
-%     s(find(~s)) = 2;  % fudge!
-% else
-    [X Y FRAMES] = size(stim.stimulus);
-    s            = reshape(stim.stimulus,X*Y,FRAMES);
-% end
+[X Y FRAMES] = size(stim.stimulus);
+s            = reshape(stim.stimulus,X*Y,FRAMES);
 imagesc(s);
 title('Stimulus')
 axis(a,'tight');
 xlabel('Frame')
 ylabel('Parameter');
 colormap(stim.colmap);
-
 
 function [] = showresponse(obj, event)
 resp   = loadResponse;
@@ -223,7 +216,6 @@ for  i = 1:n
     if i > 5, break, end
 end
 SetUIParam(me,'responsestatus','String',str);
-% does nothing at present; response isn't used until analysis button is clicked
 
 function [] = pickregion(obj, event)
 % lets user drag a rectangle over the graph to select a region of the stimulus to analyze
