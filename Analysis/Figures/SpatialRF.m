@@ -39,7 +39,7 @@ function [rf, cm, rf_err, cm_err, sigma] = SpatialRF(files, sigma)
 % $Id$
 global SPATIALRF_WIN RFWIN BASELINE_THRESH
 SPATIALRF_WIN     = [1 7000];      % analysis window
-BASELINE_THRESH   = 3;             % # of standard deviations a response must exceeed
+BASELINE_THRESH   = 3.5;             % # of standard deviations a response must exceeed
                                    % the mean in order to count
 SZ      = [3.0 3.0];
 RFWIN   = 20;
@@ -86,6 +86,7 @@ function [rf,sigma] = computeResponse(t, u, a, sigma)
 % the baseline over the points before the stimulus appears, then uses the
 % mean and standard deviation to determine when the response occurs.
 global BASELINE_THRESH
+WINDOW      = 40;          % window over which to look for the peak or integral
 % compute baseline properties (t < 0)
 % not sure what to do here for multiple trials, so this is probably broken
 i       = find(t<=0);
@@ -96,18 +97,21 @@ end
 % compute values of each point relative to threshhold (zero if below)
 val     = a(i(end)+1:end,:,:);
 thresh  = repmat(mu - sigma * BASELINE_THRESH, [size(val,1), 1, 1]);
-val     = (thresh - val) .* (val < thresh);
+%val     = (thresh - val) .* (val < thresh);
+val     = repmat(mu, [size(val,1),1,1]) - val;
 % and then we need to define a cutoff to avoid interference from other PSCs
 onset   = find(val > 0);
 onset   = min(min(ind2sub(size(val),onset)));
 dt      = mean(diff(t));
-m       = fix(onset + 180 / dt);
+m       = fix(onset + WINDOW / dt);
 if m > size(val,1)
     m   = size(val,1);
 end
 % compute the maximum displacement from the baseline
-[rf,j]  = max(val(1:m,:));
-%rf      = mean(val,1);
+%[rf,j]  = max(val(1:m,:));
+%rf      = mean(val(1:m,:),1);
+ind      = find(t>=70 & t<=110);
+rf       = mean(val(ind,:),1);
 % some debugging code
 if 0
     figure, plot(t,a);
