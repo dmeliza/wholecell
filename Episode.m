@@ -44,23 +44,46 @@ case 'start'
     setupHardware(control);
     setupScope(wc.wholecell.handles.scope, wc.control.amplifier, control);
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
+    SetUIParam('wholecell','progress_txt','String','Sweeps Acquired:');
+    SetUIParam('wholecell','progress','String','0');
     startSweep;
     
 case 'record'
-    control = varargin{2};
+    switch get(wc.ai,'Running')
+    case 'On'
+        Episode('stop');
+    end
+    control = getValues;
     setupHardware(control);
-    setupScope(wc.wholecell.scope, wc.control.amplifier, control);
+    setupScope(wc.wholecell.handles.scope, wc.control.amplifier, control);
+    SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
+    SetUIParam('wholecell','progress_txt','String','Sweeps Acquired:');
+    SetUIParam('wholecell','progress','String','0');
+    % data is stored in a directory, one file per sweep.
+    wc.episode.lastlogfilename = get(wc.ai,'LogFileName');
+    [dir newdir] = fileparts(wc.episode.lastlogfilename);
+    s = mkdir(dir, newdir);
+    set(wc.ai,'LogFileName',fullfile(dir,newdir, '0000.daq'));
+    set(wc.ai,{'LoggingMode','LogToDiskMode'}, {'Disk&Memory','Index'});
+    startSweep;
+    
     
 case 'stop'
     set(wc.ao,'StopAction','');
     stop([wc.ai wc.ao]);
     set(wc.ai,'LoggingMode','Memory');
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
+    % set the next file name up correctly
+    if (isfield(wc.episode, 'lastlogfilename'))
+        set(wc.ai,'LogFileName',NextDataFile(wc.episode.lastlogfilename));
+    end
 
 case 'sweep'
     data = varargin{2};
     time = varargin{3};
     plotData(data, time, wc.wholecell.handles.scope, wc.control.amplifier.Index);
+    sw = str2num(GetUIParam('wholecell','progress','String'));
+    SetUIParam('wholecell','progress','String',num2str(sw+1));
     
 case 'newsweep'
     startSweep;
@@ -79,7 +102,10 @@ case 'load_command_callback'
     
 case 'view_command_callback'
     a = axes;
-    plot(GetUIParam(me,'command_gain','UserData'),'Parent',a);
+    d = GetUIParam(me,'command_gain','UserData');
+    if ~isempty(d)
+        plot(d,'Parent',a);
+    end
 
 case 'load_protocol_callback'
     [fn pn] = uigetfile('*.mat','Load episode control data...');
@@ -201,7 +227,7 @@ function varargout = plotData(data, time, scope, index)
 % plots the data
 
 data = data(:,index);
-plot(time, data, 'Parent', scope);
+plot(time * 1000, data, 'Parent', scope);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function clearPlot(axes)

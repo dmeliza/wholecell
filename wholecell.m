@@ -3,7 +3,7 @@ function varargout = WholeCell(varargin)
 %    FIG = WHOLECELL launch WholeCell GUI.
 %    WHOLECELL('callback_name', ...) invoke the named callback.
 
-% Last Modified by GUIDE v2.0 28-Mar-2003 15:41:48
+% Last Modified by GUIDE v2.0 04-Apr-2003 16:45:32
 
 global wc
 
@@ -113,7 +113,11 @@ case 'start_scope_callback'
     GapFree('start');
     
 case 'start_record_callback'
-    GapFree('record');
+    if (isempty(wc.control.protocol))
+        GapFree('record');
+    else
+        feval(wc.control.protocol,'record')
+    end
     
 case 'stop_callback'
     if (isempty(wc.control.protocol))
@@ -121,7 +125,6 @@ case 'stop_callback'
     else
         feval(wc.control.protocol,'stop')
     end
-    %GapFree('stop'); % this will need to change when running protocols
 
 case 'start_protocol_callback'
     func = wc.control.protocol;
@@ -235,3 +238,10 @@ end
 SetUIParam(me,'ao_channels','String',GetChannelList(wc.ao));
 
 
+
+
+
+% --------------------------------------------------------------------
+function varargout = progress_Callback(h, eventdata, handles, varargin)
+% Stub for Callback of the uicontrol handles.progress.
+disp('progress Callback not implemented yet.')

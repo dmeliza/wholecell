@@ -92,6 +92,7 @@ function varargout = plotData(data, time, scope, index)
 global wc
 
 data = data(:,index);
+SetUIParam('wholecell','progress','String',num2str(time(1)));
 time = (time - time(1)) * 1000 + wc.gapfree.offset;
 % Condition 1: bounds overstep - move data to beginning of plot
 xlim = get(scope, 'XLim');
