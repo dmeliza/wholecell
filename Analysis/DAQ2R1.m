@@ -26,15 +26,11 @@ for i = 1:length(files);
     fn = files{i};
     if (exist(fn) > 0)
         info         = GetDAQHeader(fn);
+        [dat, time, abstime, units] = ReadDAQScaled(fn, info);
         dat          = daqread(fn);
-        units        = info.channels(respchannel).Units;
-        j            = respchannel;
-        if ~isempty(info.gain)
-            [dat(:,j), units] = ReadDAQScaled(dat, j, info.gain, info.mode, units);
-        end
         [N M]         = size(dat);
-        fprintf('%s: %d x %d (%s)\n',fn, N, 1, units);
-        out(i).data   = single(dat(:,j));
+        fprintf('%s: %d x %d (%s)\n',fn, N, 1, units{1});
+        out(i).data   = single(dat(:,respchannel));
         out(i).y_unit = units;
         out(i).timing = Sync2Timing(dat(:,syncchannel));
         out(i).t_rate = info.t_rate;
