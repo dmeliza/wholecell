@@ -100,15 +100,10 @@ global wc
     state = GetUIParam(me,'runButton','Value');
     if (state > 0)
         SetUIParam(me,'runButton','String','Running');
-%         switch action
-%         case 'reset'
-%             stop([wc.ai wc.ao]);
-%         otherwise
-%         end
         stop([wc.ai wc.ao]);
         flushdata([wc.ai]);
         setupSweep(me);
-        wc.sealtest.sweeps = [];
+        wc.sealtest.resist = [];
         start([wc.ai wc.ao]);
         trigger([wc.ai wc.ao]);
         SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
@@ -131,6 +126,19 @@ set(buttons(find(switched > 0)),'Value',1);
 set(buttons(find(switched < 1)),'Value',0);
 v = get(buttons,'Value');
 wc.sealtest.scaling = [v{1} v{2} v{3} v{4}];
+switch num2str(find(wc.sealtest.scaling))
+    case '1'
+        SetUIParam(me,'axes',{'YLimMode'},{'auto'});
+    case '2'
+        SetUIParam(me,'axes','YLim',[-5 5]);
+    case '3'
+        SetUIParam(me,'axes','YLim',[-1 5]);
+    case '4'
+        SetUIParam(me,'axes','YLim',[-1 1]);
+    otherwise
+        SetUIParam(me,'axes',{'YLimMode','XLimMode'},{'manual','manual'});
+    end
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
 function initializeHardware(fcn)
@@ -155,9 +163,7 @@ numouts = length(wc.ao.Channel);
 wc.control.pulse = zeros(sweeplen,numouts);
 wc.control.pulse(start:finish,1) = wc.sealtest.pulse;  % here we assume the first channel is the command
 set(wc.ai,'SamplesPerTrigger',inf);
-% set(wc.ao,'SamplesOutputAction',{'SweepAcquired',me}) % calls SweepAcquired m-file, which deals with data
-% set(wc.ao,'SamplesOutputActionCount',length(wc.control.pulse)+20)  % some padding
-set(wc.ai,'SamplesAcquiredAction',{'SweepAcquired',me}); 
+set(wc.ai,'SamplesAcquiredAction',{'SweepAcquired',me});
 set(wc.ai,'SamplesAcquiredActionCount',length(wc.control.pulse)); 
 set([wc.ai wc.ao],'StopAction','daqaction')
 putdata(wc.ao, wc.control.pulse);
@@ -173,38 +179,26 @@ finish = start + len;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function plotData(time, data)
+% plots data on the graph and displays resistance values
+% no averaging occurs on sweep display, but the user can set how many sweeps
+% to use for resistance averaging
 global wc
 
 channel = wc.control.amplifier.Index;
-% enable this to drop unnecessary channels
 data = data(:,channel);
-if (~isfield(wc.sealtest,'sweeps'))
-    wc.sealtest.sweeps = data;
-elseif (size(wc.sealtest.sweeps,3) <= wc.sealtest.n_sweeps)
-    wc.sealtest.sweeps = cat(3,wc.sealtest.sweeps,data);
-else
-    data = mean(wc.sealtest.sweeps,3);
-    wc.sealtest.sweeps = data;
-    time = (time(:) - time(1)) .* 1000;
-    [Rt, Rs, Ri] = calculateResistance(data, wc.sealtest.pulse);
-    SetUIParam(me,'ri','String',sprintf('%4.2f',Ri));
-    SetUIParam(me,'rs','String',sprintf('%4.2f',Rs));
-    SetUIParam(me,'rt','String',sprintf('%4.2f',Rt));
+time = (time(:) - time(1)) .* 1000;
+plot(time, data, 'Parent', wc.sealtest.handles.axes);
+
+[Rt, Rs, Ri] = calculateResistance(data, wc.sealtest.pulse);
+wc.sealtest.resist = cat(1,wc.sealtest.resist,[Rt Rs Ri]);
+if size(wc.sealtest.resist,1) >= wc.sealtest.n_sweeps
+    r = mean(wc.sealtest.resist,1);
+    wc.sealtest.resist = [];
+    SetUIParam(me,'ri','String',sprintf('%4.2f',r(3)));
+    SetUIParam(me,'rs','String',sprintf('%4.2f',r(2)));
+    SetUIParam(me,'rt','String',sprintf('%4.2f',r(1)));
     SetUIParam(me,'gain','String',num2str(get(wc.control.amplifier,'UnitsRange')));
-%    disp(sprintf('%i - %i',length(time),length(data)));
-    plot(time, data, 'Parent', wc.sealtest.handles.axes);
-    switch num2str(find(wc.sealtest.scaling))
-    case '1'
-        SetUIParam(me,'axes',{'YLimMode','XLimMode'},{'auto','auto'});
-    case '2'
-        SetUIParam(me,'axes','YLim',[-5 5]);
-    case '3'
-        SetUIParam(me,'axes','YLim',[-1 5]);
-    case '4'
-        SetUIParam(me,'axes','YLim',[-1 1]);
-    otherwise
-        SetUIParam(me,'axes',{'YLimMode','XLimMode'},{'manual','manual'});
-    end
+    
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
