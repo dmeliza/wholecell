@@ -114,7 +114,6 @@ function [] = initValues()
 setappdata(gcf,'dir',pwd)       % current directory
 setappdata(gcf,'r0',[])         % response file
 setappdata(gcf,'parameters',[]) % parameter data
-%setappdata(gcf,'paramfigs',[])  % parameter window handles
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Callbacks:
@@ -193,6 +192,66 @@ case 'm_resp'
         setappdata(gcf,'dir',pn);
         SetUIparam(me,'status','String',str);
     end
+case 'm_save'
+    % save parameters
+    path    = getappdata(gcf,'dir');
+    [fn pn] = uiputfile([path filesep '*.p0'],'Save Parameters (p0)');
+    if ~isnumeric(fn)
+        params = getappdata(gcf,'parameters');
+        save(fullfile(pn,fn),'params','-mat');
+        SetUIParam(me,'status','String',sprintf('Wrote %d parameters to %s',length(params),fn));
+    end
+case 'm_param'
+    % load parameters
+    path    = getappdata(gcf,'dir');
+    [fn pn] = uigetfile([path filesep '*.p0'],'Load Parameters (p0)');
+    if ~isnumeric(fn)
+        d       = load('-mat',fullfile(pn,fn));
+        if isfield(d,'params')
+            % we have to delete all the existing parameters
+            p  = getappdata(gcf,'parameters');
+            h  = [p.handle];
+            delete(h(find(ishandle(h))));
+            setappdata(gcf,'parameters',d.params);
+            SetUIParam(me,'parameters','String',{d.params.name});
+            SetUIParam(me,'status','String',sprintf('Loaded %d parameters from %s',...
+                length(d.params),fn));
+        else
+            SetUIParam(me,'status','String','Unable to load parameters from file');
+        end
+    end
+case 'm_export'
+    % compute results of all parameters, then let the user save it in a .mat or .csv file
+    p   = getappdata(gcf,'parameters');
+    if length(p) == 0
+        SetUIParam(me,'status','String','No parameters defined!');
+        return
+    end
+    path    = getappdata(gcf,'dir');
+    wd      = cd(path);
+    [fn pn] = uiputfile({'*.mat';'*.csv'},'Save Results');
+    cd(wd);
+    if ~isnumeric(fn)
+        r0  = getappdata(gcf,'r0');
+        for i = 1:length(p)
+            r            = windowR0(p(i).window,r0);
+            p(i).results = EpisodeParameter('calc',p(i),r);
+        end
+    end
+    [pn fi ext] = fileparts(fullfile(pn,fn));
+    switch lower(ext)
+    case '.mat'
+        % store as a parameter structure array with data attached
+        results = p;
+        save(fullfile(pn,fn),'results')
+    case '.csv'
+        % store in columns. no easy way to provide column headers
+        res = cat(1,p.results);
+        d   = [r0.abstime' res'];
+        csvwrite(fullfile(pn,fn),d);
+    end
+    SetUIParam(me,'status','String',sprintf('Wrote results to %s',fn));
+        
 case 'm_baseline'
     % adjust baseline (modifies stored r0), subtracting out DC of each trace
     r0      = getappdata(gcf,'r0');
@@ -276,6 +335,11 @@ if ~isempty(r0)
     SetUIParam(me,'channels','String',c);
     % plot traces
     plotTraces;
+    % update parameter windows with new data
+    p   = getappdata(gcf,'parameters');
+    for i = 1:length(p)
+        updateParameter(p(i));
+    end
 end
 
 function [] = plotTraces()
@@ -303,10 +367,16 @@ function [] = updateParameter(p)
 h   = p.handle;
 if ishandle(h)
     r0 = getappdata(gcbf,'r0');
-    t  = r0.time >= p.window(1) & r0.time <= p.window(2);   % logical array
-    i  = find(t);                                           % indices
-    EpisodeParameter('update',h,double(r0.data(i,:,:)),r0.time(i),r0.abstime);
+    r0 = windowR0(p.window,r0);
+    EpisodeParameter('update',h,r0);
 end
+
+function r0 = windowR0(window,r0);
+% snips out the relevant bit of the r0 for each parameter
+t  = r0.time >= window(1) & r0.time <= window(2);   % logical array
+i  = find(t);                                           % indices
+r0.time = double(r0.time(i));
+r0.data = double(r0.data(i,:,:));
 
 function out = me()
 out = mfilename;

@@ -7,8 +7,10 @@ function out = EpisodeParameter(varargin)
 %
 %       p = EpisodeParameter('init',paramstruct)        
 %           - opens the figure, returns an updated parameter structure
-%       EpisodeParameter('update',h,data,time,abstime)               
+%       EpisodeParameter('update',h,r0)               
 %           - updates the data in the figure (h is the handle of the figure)
+%       res = EpisodeParameter('calc',paramstruct,r0)
+%           - calculates the value of the parameter
 %
 % This function is responsible for maintaining the parameter's representation
 % in the main figure's appdata.  That way, when the figure is closed, the
@@ -16,20 +18,32 @@ function out = EpisodeParameter(varargin)
 %
 % $Id$
 
-switch nargin
-case {0,1}
+if nargin < 2
     disp('EpisodeParameter is started from EpisodeAnalysis')
     return
-case 2
+end
+
+switch lower(varargin{1})
+case 'init'
     action  = varargin{1};
     p       = varargin{2};
     p       = initFigure(p);
     out     = p;
-case 5
-    d       = cell2struct(varargin(3:5),{'data','time','abstime'},2);
-    updateFigure(varargin{2},d);
+case 'update'
+    updateFigure(varargin{2:3});
+case 'calc'
+    p       = varargin{2};
+    d       = varargin{3};
+    if ishandle(p.handle)
+        ch  = findobj(p.handle,'tag','channel');
+        c   = str2num(get(ch,'string'));
+    else
+        c   = 1;
+    end
+    out     = getResults(p.type, d.data(:,:,c), d.time, p.marks);
+    
 otherwise
-    disp('Check usage...')
+    disp(varargin{1})
     return
 end
 
@@ -60,36 +74,32 @@ h   = findobj(f,'tag','type');
 v   = get(h,'value');
 s   = get(h,'string');
 s   = lower(s{v});
-switch s
-case 'none'
-    % do nothing
+m   = getMarks(a,s);
+res = getResults(s, d.data(:,:,c), double(d.time), m);
+plotResults(f,res,d.abstime);
+
+function res = getResults(type, data, time, marks)
+% computes the results
+if strcmpi(type,'none')
     res = [];
-case 'amplitude'
-    % absolute value of the amplitude difference between two marks
-    % with the baseline taken to be everything prior to the first mark
-    m   = getMarks(a,s);
-    t   = double(d.time);
-    x   = t(1) + m;  % real time values
-    T   = (t >= x(1)) & (t <= x(2));    % logical extractor
-    ind = find(T);
-    i   = [ind(1), ind(end)];           % endpoints of gap
-    y   = d.data(i,:,c);
-    y(1,:) = mean(d.data(1:i(1),:,c));
-    res = abs(diff(y))
-    plotResults(f,res,d.abstime);
-case 'slope'
-    % average slope of line between two marks
-    % with the baseline taken to be everything prior to the first mark
-    m   = getMarks(a,s);
-    t   = double(d.time);
-    x   = t(1) + m;  % real time values
-    T   = (t >= x(1)) & (t <= x(2));    % logical extractor
-    ind = find(T);
-    i   = [ind(1), ind(end)];           % endpoints of gap
-    y   = d.data(i,:,c);
-    y(1,:) = mean(d.data(1:i(1),:,c));
-    res = diff(y) / diff(x) * 1000;     % (units)/ms
-    plotResults(f,res,d.abstime);
+    return
+else
+    x   = time(1) + marks;                      % real time values
+    T   = (time >= x(1)) & (time <= x(2));      % logical extractor
+    ind = find(T);                              % indices of gap
+    i   = [ind(1), ind(end)];                   % endpoints of gap
+    y   = data(i,:);                            % extract data
+    y(1,:) = mean(data(1:i(1),:));              % compute baseline
+    switch lower(type)
+    case 'amplitude'
+        % absolute value of the amplitude difference between two marks
+        % with the baseline taken to be everything prior to the first mark
+        res = abs(diff(y));
+    case 'slope'
+        % average slope of line between two marks
+        % with the baseline taken to be everything prior to the first mark
+        res = diff(y) / diff(x) / 1000;     % (units)/ms
+    end
 end
 
 function [] = plotResults(f, res, abstime)
@@ -109,8 +119,28 @@ if ishandle(a)
     axes(a)
     barh(x,n);
     set(a,'YTick',mean(res),'Yaxislocation','right','YGrid','On');
-end   
-    
+end
+
+function [p,i] = getParam(f)
+% Loads the parameter structure defining the figure
+parent  = getappdata(f,'parent');
+parms   = getappdata(parent,'parameters');
+h       = [parms.handle];
+i       = find(h==f);     % if this is empty, figure is not linked
+p       = parms(i);
+
+function [] = setParam(f,p)
+% Sets the parameter in the parent figure (including updating name)
+parent  = getappdata(f,'parent');
+parms   = getappdata(parent,'parameters');
+h       = [parms.handle];
+i       = find(h==f);     % if this is empty, figure is not linked
+if ~isempty(i)
+    parms(i) = p;
+    setappdata(parent,'parameters',parms);
+    t = findobj(parent,'tag','parameters');
+    set(t,'String',{parms.name});
+end
 
 function m = getMarks(ax,type)
 % returns the location of the marks on the trace, or if the marks are not to be found,
@@ -190,11 +220,6 @@ if ~isempty(i)
     set(h,'Value',i);
 end
 
-% h   = uicontrol(f,'style','text','String','Binning:','backgroundcolor',BG,...
-%     'position',[15 96 40 20],'horizontalalignment','left');
-% h   = uicontrol(f,'style','edit','backgroundcolor',BG,'tag','binning','callback',cb,...
-%     'position',[15 80 140 18],'horizontalalignment','right','String',num2str(p.binning));
-
 h   = uicontrol(f,'style','text','String','Channel:','backgroundcolor',BG,...
     'position',[15 105 40 20],'horizontalalignment','left');
 h   = uicontrol(f,'style','edit','backgroundcolor',BG,'tag','channel','callback',cb,...
@@ -211,7 +236,6 @@ a3   = axes;
 set(a3,'units','pixels','position',[760 50 140 150],'box','on','ytick',[],...
     'xtick',[],'tag','histogram');
 set([a1 a2 a3],'nextplot','replacechildren');
-%zoom on;
 % store mark data if supplied
 if isfield(p,'marks')
     setappdata(f,'marks',p.marks)
@@ -219,11 +243,8 @@ end
 
 function [] = editField(obj, event)
 % handles what happens when the user edits a field
-par     = getappdata(gcbf,'parent');
-parms   = getappdata(par,'parameters');
-h       = [parms.handle];
-i       = find(h==gcbf);     % if this is empty, figure is not linked
-if ~isempty(i)
+p       = getParam(gcbf);
+if ~isempty(p)
     t   = get(obj,'tag');
     if strcmpi(t,'mark')
         wh  = findobj(gcbf,'tag','window');
@@ -235,24 +256,22 @@ if ~isempty(i)
         end
         m = fliplr(m);  % for some reason the order of the marks gets reversed by findobj
         setappdata(gcbf,'marks',m);
-        parms(i).marks = m;
+        p.marks = m;
     else
         s   = get(obj,'String');
         switch lower(t)
         case 'name'
-            parms(i).name = s;
+            p.name = s;
         case 'type'
             v = get(obj,'Value');
-            parms(i).type = s{v};
+            p.type = s{v};
         case 'binning'
-            parms(i).binning = str2num(s);
+            p.binning = str2num(s);
         case 'channel'
-            parms(i).channel = str2num(s);
+            p.channel = str2num(s);
         end
     end
-    setappdata(par,'parameters',parms);
-    t = findobj(par,'tag','parameters');
-    set(t,'String',{parms.name});
+    setParam(gcbf,p);
     
     updateFigure(gcbf)
 end
@@ -297,13 +316,10 @@ editField(h,[]);
 function [] = cleanup(obj, event)
 % cleans up the figure; specifically we have to delete the handle reference in the main
 % window, if it still exists
-par     = getappdata(gcbf,'parent');
-parms   = getappdata(par,'parameters');
-h       = [parms.handle];
-i       = find(h==gcbf);     % if this is empty, figure is not linked
-if ~isempty(i)
-    parms(i).handle = deal(-1);
-    setappdata(par,'parameters',parms)
+[p,i]   = getParam(gcbf);
+if ~isempty(p)
+    [p.handle] = deal(-1);
+    setParam(gcbf,p);
 end
 delete(gcbf)
 
