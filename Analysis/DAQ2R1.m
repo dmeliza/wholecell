@@ -1,0 +1,43 @@
+function [out] = daq2r1(files, respchannel, syncchannel)
+
+% DAQ2R1: Reads in a list of daq files and generates an r1 structure
+% (this function supercedes the DAQ2MAT('indiv') function
+%
+% Usage: r1 = daq2r1(files,respchannel,syncchannel)
+%
+% files        - cell array of file names to be read in
+% respchannel  - index of the channel defining the "response" (can be a vector, but not impl)
+% syncchannel  - index of the sync channel (used to generate r1.timing)
+%
+% r1           - output structure
+%
+% See Also:     headers/r1_struct.m
+%
+% $Id$
+
+error(nargchk(3,3,nargin));
+
+out = r1_struct;
+if isa(files,'char')
+    files = {files};
+end
+
+for i = 1:length(files);
+    fn = files{i};
+    if (exist(fn) > 0)
+        info         = GetDAQHeader(fn);
+        dat          = daqread(fn);
+        units        = info.channels(respchannel).Units;
+        j            = respchannel;
+        if ~isempty(info.gain)
+            [dat(:,j), units] = ReadDAQScaled(dat, j, info.gain, info.mode, units);
+        end
+        [N M]         = size(dat);
+        fprintf('%s: %d x %d (%s)\n',fn, N, 1, units);
+        out(i).data   = single(dat(:,j));
+        out(i).y_unit = units;
+        out(i).timing = Sync2Timing(dat(:,syncchannel));
+        out(i).t_rate = info.t_rate;
+        out(i).info = info;
+    end
+end
