@@ -132,30 +132,29 @@ out = mfilename;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function p = defaultParams;
 global wc;
-f = {'description','fieldtype','value','units'};
-f_s = {'description','fieldtype','value'};
-f_l = {'description','fieldtype','value','choices'};
+f        = {'description','fieldtype','value','units'};
+f_s      = {'description','fieldtype','value'};
+f_l      = {'description','fieldtype','value','choices'};
 loadStim = @loadStimulus;
 
-p.inj_length = cell2struct({'Inj Length','value',6,'ms'},f,2);
-p.inj_delay = cell2struct({'Inj Delay','value',200,'ms'},f,2);
-p.inj_gain = cell2struct({'Inj Gain','value',1},f_s,2);
+p.inj_length  = cell2struct({'Inj Length','value',6,'ms'},f,2);
+p.inj_delay   = cell2struct({'Inj Delay','value',200,'ms'},f,2);
+p.inj_gain    = cell2struct({'Inj Gain','value',1},f_s,2);
 p.inj_channel = cell2struct({'Command','list',1,GetChannelList(wc.ao)},f_l,2);
 
-p.vis_len = cell2struct({'Visual Length','value', 300, 'ms'},f,2);
-p.vis_delay = cell2struct({'Visual Delay','value', 200, 'ms'},f,2);
-p.vis_image = cell2struct({'Visual Image','fixed','',loadStim},...
-    {'description','fieldtype','value','callback'},2);
-%p.vis_disp = cell2struct({'Display', 'value', 2},f_s,2);
-p.sync_val = cell2struct({'Sync Voltage','value',2,'V'},f,2);
-p.sync_c = cell2struct({'Sync Channel','list',1,GetChannelList(wc.ai)},f_l,2);
+p.vis_len     = cell2struct({'Visual Length','value', 300, 'ms'},f,2);
+p.vis_delay   = cell2struct({'Visual Delay','value', 200, 'ms'},f,2);
+p.vis_image   = cell2struct({'Visual Image','fixed','',loadStim},...
+                            {'description','fieldtype','value','callback'},2);
+p.sync_val    = cell2struct({'Sync Voltage','value',2,'V'},f,2);
+p.sync_c      = cell2struct({'Sync Channel','list',1,GetChannelList(wc.ai)},f_l,2);
 
-p.stim_len = cell2struct({'Stim Length','value', 300, 'ms'},f,2);
-p.stim_delay = cell2struct({'Stim Delay','value',200,'ms'},f,2);
-p.stim_gain = cell2struct({'Stim Gain','value',10,'(V)'},f,2);
-p.frequency = cell2struct({'Ep. Freq','value',0.2,'Hz'},f,2);
-p.ep_length = cell2struct({'Ep. Length','value',2000,'ms'},f,2);
-p.stim_channel = cell2struct({'Stimulator','list',1,GetChannelList(wc.ao)},f_l,2);
+p.stim_len      = cell2struct({'Stim Length','value', 300, 'ms'},f,2);
+p.stim_delay    = cell2struct({'Stim Delay','value',200,'ms'},f,2);
+p.stim_gain     = cell2struct({'Stim Gain','value',10,'(V)'},f,2);
+p.frequency     = cell2struct({'Ep. Freq','value',0.2,'Hz'},f,2);
+p.ep_length     = cell2struct({'Ep. Length','value',2000,'ms'},f,2);
+p.stim_channel  = cell2struct({'Stimulator','list',1,GetChannelList(wc.ao)},f_l,2);
 p.input_channel = cell2struct({'Input','list',1,GetChannelList(wc.ai)},f_l,2);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -274,11 +273,11 @@ function updateDisplay(obj, event)
 % plots and analyzes the data
 [data, time, abstime] = getdata(obj);
 plotData(data, time, abstime);
-t = 1 / GetParam(me,'frequency','value');
-t2 = GetParam(me,'ep_length','value') / 1000;
+t                     = 1 / GetParam(me,'frequency','value');
+t2                    = GetParam(me,'ep_length','value') / 1000;
 pause(t - t2)
-l = get(obj,'SamplesAcquiredAction');
-if ~isempty(l)
+a                     = get(obj,'SamplesAcquiredAction');
+if ~isempty(a)
     startSweep;
 end
 
@@ -286,35 +285,35 @@ end
 function plotData(data, time, abstime)
 % plots the data
 
-scope = getScope;
-mode = GetParam('control.telegraph', 'mode');
-gain = GetParam('control.telegraph', 'gain');
-index = GetParam(me,'input_channel','value');
+scope       = getScope;
+mode        = GetParam('control.telegraph', 'mode');
+gain        = GetParam('control.telegraph', 'gain');
+index       = GetParam(me,'input_channel','value');
 if ~isempty(mode)
-    units = TelegraphReader('units',mean(data(:,mode)));
+    units   = TelegraphReader('units',mean(data(:,mode)));
 else
-    units = 'V';
+    units   = 'V';
 end
 if ~isempty(gain)
-    gain = TelegraphReader('gain',mean(data(:,gain)));
+    gain    = TelegraphReader('gain',mean(data(:,gain)));
 else
-    gain = 1;
+    gain    = 1;
 end
-lbl = get(scope,'YLabel');
+lbl         = get(scope,'YLabel');
 set(lbl,'String',['amplifier (' units ')']);
 % plot the data and average response
-data = AutoGain(data(:,index), gain, units);
-a = get(scope, 'UserData'); % avgdata is now a cell array
+data            = AutoGain(data(:,index), gain, units);
+a               = get(scope, 'UserData'); % avgdata is now a cell array
 if isempty(a)
-    numtraces = 1;
-    avgdata = data;
+    numtraces   = 1;
+    avgdata     = data;
 else
-    avgdata = a{2};
-    numtraces = a{1} + 1;
-    avgdata = avgdata + (data - avgdata) / (numtraces);
+    avgdata     = a{2};
+    numtraces   = a{1} + 1;
+    avgdata     = avgdata + (data - avgdata) / (numtraces);
 end
 Scope('plot','plot',time * 1000, [data avgdata]);
-a = {numtraces, avgdata};
+a               = {numtraces, avgdata};
 set(scope,'UserData', a);
 EpisodeStats('plot', abstime, data);
 
