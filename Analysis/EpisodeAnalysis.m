@@ -64,7 +64,7 @@ h = InitUIControl(me, 'average', 'style', 'checkbox', 'backgroundcolor', BG,...
     'Callback',cb.selectaverage,'position',[20 255 180 20], 'String', 'Average Traces',...
     'Value', 1);
 h = InitUIControl(me, 'channels', 'style', 'list',...
-    'Callback',cb.pickchannels,'position', [20 185 180 70],'backgroundcolor',BG);
+    'Callback',cb.pickchannels,'position', [20 185 180 70],'backgroundcolor',BG,'Max',2);
 % Frame 2: Parameter selection
 h = uicontrol(gcf, 'style', 'frame','backgroundcolor',BG,'position',[10 10 200 160]);
 h = uicontrol(gcf, 'style','text','backgroundcolor',BG,'position',[25 140 160 20],...
@@ -380,7 +380,7 @@ if ~isempty(r0)
         p = plot(r0.time, r0.data(:,tr,chn));
         set(p,'Color',[0.5 0.5 0.5],'linewidth',0.1);
     end
-    data = mean(r0.data(:,tr,chn),2);
+    data = squeeze(mean(r0.data(:,tr,chn),2));
     plot(r0.time, data, 'k');
 end
 
