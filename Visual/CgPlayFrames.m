@@ -28,7 +28,7 @@ if isempty(gprimd)
 end
 
 % check that frames have been loaded
-a_pix = gprimd.NextRasKey - 1;
+a_pix = gprimd.NextRASKey - 1;
 if a_pix < 1
     error('No frames have been loaded.');
 end

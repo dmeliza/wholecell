@@ -207,7 +207,7 @@ gprimd = cggetdata('gpd'); %max frame is given by gprimd.NextRASKey - 1
 if gprimd.NextRASKey < 2
     queueStimulus;
 end
-CgPlayMovie(frate);
+CgPlayFrames(frate);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
 function queueStimulus()
