@@ -1,4 +1,4 @@
-function varargout = ChannelSetup(varargin)
+function channel = ChannelSetup(varargin)
 % CHANNELSETUP Application M-file for TelegraphSetup.fig
 %    channel = CHANNELSETUP(action,type,([name]|index))
 %    action is either 'add' or 'edit'
@@ -44,8 +44,7 @@ case 'add'
     SetUIParam(me, 'channels', {'String', 'Value'}, {channels, 1}); 
     
 	% Wait for callbacks to run and window to be dismissed:
-	uiwait(wc.channelsetup.fig);
-    varargout = {wc.channelsetup.channel};
+	uiwait(fig);
     
 case 'edit'
     fig = OpenGuideFigure(me);
@@ -72,8 +71,7 @@ case 'edit'
     SetUIParam(me, 'gain', 'String', num2str(gain(1)));
 
     % Wait for callbacks to run and window to be dismissed:
-	uiwait(wc.channelsetup.fig);
-    varargout = {wc.channelsetup.channel};
+	uiwait(fig);
     
     
 case 'ok_callback'
@@ -84,9 +82,9 @@ case 'ok_callback'
     channels = get(wc.channelsetup.handles.channels,'String');
     choice = channels(choice,:);
     if (isempty(choice))
-        % do nothing
+        c = [];
     else
-        wc.channelsetup.channel = makeChannel(type, choice);
+        c = makeChannel(type, choice);
     end
     uiresume(wc.channelsetup.fig);
     DeleteFigure(me);
