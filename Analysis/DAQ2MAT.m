@@ -1,27 +1,24 @@
-function [out] = daq2mat(runmode, traceindices)
-% [d.data,d.time,d.abstime,d.info] =  daq2mat(mode,[traceindices])
+function [out] = daq2mat(runmode, channels)
+% [d.data,d.time,d.abstime,d.info] =  daq2mat(mode,args)
 
 % reads in all the daq files in a directory, sorts them by creation time, and
-% outputs a mat file containing the following variables:
+% outputs a file with the result.
 
 % mode: 'stack': arranges traces vertically. short episodes are discarded
-% data - MxNxP array of traces; traces arranged columnwise; P > 1 if multiple traces are kept
-% time - Mx1 array of times corresponding to rows in data
-% abstime = 1XN array of time offsets corresponding to the start of each trace (sec)
-% info - a structure array of interesting property values
-%
+%                an r0 file is generated
+%                args are the channels to keep
 
-% mode: 'cat': concatenates traces horizontally
-% data - MxN array, where M is the sum of the number of samples in the inputs
-% time - Mx1 array, containing times.  No abstime correction is made
-% abstime - clock vector giving the start time of the first trace
-% info - nice info about acquisition
-% data are sorted by relative abstime
+% mode: 'cat':   concatenates traces horizontally and generates an r0 file
+%                data are sorted by relative abstime
+%                args are respchannel
 
 % mode: 'indiv': applies gain and mode settings to individual traces, generating a
-%                structure array as an output
+%                structure array as an output (r1 file)
+%                args are respchannel,synchannel
 %
-% 1.3: NOTE: DAQ2MAT NO LONGER WRITES ANYTHING TO THE DISK
+% 1.13: NOTE: DAQ2MAT NO LONGER WRITES ANYTHING TO THE DISK
+% 1.14: DAQ2MAT is becoming a wrapper for DAQ2R0 and DAQ2R1, and it will
+%      write to disk
 
 % $Id$
 
@@ -44,32 +41,7 @@ amp = info.channels(info.amp);
 switch lower(runmode)
 case 'stack'
     
-    data = single(zeros(info.samples,length(names),length(traceindices)));
-    abstime = zeros(length(names),6);
-    time = [];
-    for i = 1:length(names);
-        fn = names{i};
-        if (exist(fn) > 0)
-            [dat, t, at] = daqread(fn);
-            if ~isempty(info.gain)
-                j = info.amp;
-                [dat(:,j), units] = ReadDAQScaled(dat, j, info.gain, info.mode, amp.Units);
-            end
-            fprintf('%s: %d x %d (%s)\n',fn, length(t), length(traceindices), units);
-            if length(t) < length(time) | length(t) < 100
-                disp('Data file too short');
-            else
-                time = t;
-                data(:,i,:) = single(dat(:,traceindices));
-                abstime(i,:) = at;
-            end
-        end
-    end
-    [out.abstime, ind] = reltimes(abstime);
-    info.y_unit = units;
-    out.data = data(:,ind,:);
-    out.time = single(time);
-    out.info = info;
+    out = DAQ2R0(names,channels);
 
 case 'cat'
     data = cell(1,length(names));
@@ -107,38 +79,10 @@ case 'cat'
     out.info = info;
     
 case 'indiv'
-    for i = 1:length(names);
-        fn = names{i};
-        if (exist(fn) > 0)
-            [dat, t, at] = daqread(fn);
-            if ~isempty(info.gain)
-                j = info.amp;
-                [dat(:,j), units] = ReadDAQScaled(dat, j, info.gain, info.mode, amp.Units);
-            end
-            fprintf('%s: %d x %d (%s)\n',fn, length(t), length(traceindices), units);
-            info.y_unit = units;
-            out(i).data = single(dat(:,traceindices));
-            out(i).time = single(t);
-            out(i).abstime = at;
-            out(i).info = info;
-        end
-    end
+    
+    out = DAQ2R1(names, channels(1), channels(2));
     
 otherwise
     disp([runmode ' not supported.']);
     
 end
-
-function [abstime, ind] = reltimes(abstime)
-% fixes the abstime vector to relative timings
-clocks = datenum(abstime);
-[at, ind] = sort(clocks);
-% remove failed files by clipping out zeros
-i = find(at);
-at = at(i);
-ind = ind(i);
-% convert to relative times (minutes)
-info.starttime = at(1);
-atv = datevec(at - at(1));
-abstime = atv(:,4)*60 + atv(:,5) + atv(:,6)/60;
-abstime = abstime';
