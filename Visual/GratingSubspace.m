@@ -37,18 +37,20 @@ ind     = repmat(1:frames,repeats,1);
 indind  = randperm(frames*repeats);
 ind     = ind(indind);
 
-% evil loop:
+% evil loop, with clutting:
 s = zeros([dim(1) dim(2) frames]);
 for i = 1:length(ind)
     p = params(ind(i),:);
-    s(:,:,i) = SinGrating(p(1),p(2),p(3),dim);
+    S        = SinGrating(p(1),p(2),p(3),dim);
+    S        = S - min(min(S));
+    s(:,:,i) = round(S * 255 / max(max(S)));
 end
-clear params ind
 
 % CLUT s
-s = s - min(min(min(s)));
-s = s * 255 / max(max(max(s)));
-s = round(s);
+% s = s - min(min(min(s)));
+% s = s * 255 / max(max(max(s)));
+% s = round(s);
 
 % package it up:
-s0 = struct('colmap',gray(255),'stimulus',s,'x_res',dim(1),'y_res',dim(2));
+s0 = struct('colmap',gray(255),'stimulus',s,'x_res',dim(1),'y_res',dim(2),...
+            'parameters',params(ind,:));
