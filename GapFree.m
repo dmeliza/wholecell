@@ -1,26 +1,31 @@
 function varargout = GapFree(varargin)
-% a simple gapfree protocol.  Acquires data from the DAQ from time to time
-% and updates the scope.
 %
-% void GapFree(action,[options])
-% action can be 'start', 'stop', or 'record'
+% GapFree is another simple protocol.  Its function is to record an
+% uninterrupted sequence of samples from the analoginput (for instance,
+% when recording the response of a cell to depolarization to ascertain its
+% spike physiology).  From time to time this module will acquire data from
+% the DAQ and plot it on a scope window.
 %
 %
-%
+% See Also:
+%   Utility/Scope.m (.fig) - the auxiliary function that provides the method
+%                            of oscilloscope-like plotting of the data
 %
 % $Id$
 global wc
 
-if nargin > 0
-	action = lower(varargin{1});
-else
-	action = lower(get(gcbo,'tag'));
+error(nargchk(1,Inf,nargin));
+
+if isobject(varargin{1})
+    feval(varargin{3},varargin{1:2});
+    return;
 end
+action = lower(varargin{1});
+
 
 switch action
-    
 case {'init','reinit'}
-    Scope('init');
+    Scope('init');              % initialize the plot window
     
 case 'start'
     scope = getScope;
@@ -47,14 +52,6 @@ case 'stop'
     ClearAI(wc.ai);
     SetUIParam('protocolcontrol','status','String','Stopped');
     
-    
-case 'sweep'
-    in = get(wc.ai,'SamplesAvailable');
-    out = get(wc.ao,'SamplesAvailable');
-%     status = sprintf('in: %d / out: %d',in, out); 
-%     SetUIParam('protocolcontrol','status','String',status);    
-    plotData(varargin{2}, varargin{3}, wc.control.amplifier.Index);
-    
 otherwise
     disp(['Action ' action ' is unsupported by ' me]);
 end
@@ -73,37 +70,43 @@ if (isempty(scope) | ~ishandle(scope))
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function varargout = setupHardware(amp)
+function [] = setupHardware(amp)
 % Sets up the hardware for this mode of acquisition
 global wc
-
-daq = amp.Parent;
-sr = get(daq, 'SampleRate');
-update = fix(sr / 10); % update at 20 Hz
+acq     = @analyze;
+daq     = amp.Parent;
+sr      = get(daq, 'SampleRate');
+update  = fix(sr / 10); % update at 20 Hz
 set(daq,'SamplesPerTrigger',inf);
-set(daq,'SamplesAcquiredAction',{'SweepAcquired',me}) % calls SweepAcquired m-file, which deals with data
+set(daq,'SamplesAcquiredAction',{me, acq}) % calls SweepAcquired m-file, which deals with data
 set(daq,'SamplesAcquiredActionCount',update)
 set(daq,'StopAction','daqaction');
-% may need to turn ManualTriggerHwOn to Start, in which case we need to make sure we put it back
-set(daq,'UserData',update);
+set(daq,'UserData',update);                 % the number of samples to acquire is stored here
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function varargout = setupScope(scope, amp);
+function [] = setupScope(scope, amp);
 % sets up the scope properties
 clearPlot(scope);
 set(scope, {'XLimMode','XLim'}, {'Manual', [0 2000]});  % we'll manage the x axis ourselves.
-%set(scope, {'YLimMode','YLim'}, {'Manual', [-2 2]});  % for now, before we figure out how to change this in the GUI
-%set(scope,'XLimMode','Auto','YLimMode','auto');
 set(scope, 'NextPlot', 'add');
 lbl = get(scope,'XLabel');
 set(lbl,'String','Time (ms)');
 lbl = get(scope,'YLabel');
 set(lbl,'String',[get(amp, 'ChannelName') ' (' get(amp,'Units') ')']);
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+function [] = analyze(obj, event)
+% This function gets called as a result of the SamplesAcquiredAction.  It
+% retrieves the data from the DAQ engine and passes it to plotData()
+samples         = get(obj,'UserData');
+[data, time]    = getdata(obj, samples);
+plotData(data,time)
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function varargout = plotData(data, time, index)
+function [] = plotData(data, time)
 global wc
-data = data(:,index);
+index   = wc.control.amplifier.Index;
+data    = data(:,index);
 Scope('scope', time * 1000, data);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
