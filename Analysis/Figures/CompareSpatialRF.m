@@ -11,7 +11,7 @@ function [pre_rf, pst_rf, pre_cm, pst_cm] = CompareSpatialRF(pre, post, inductio
 %
 %
 % $Id$
-SZ      = [3.0 3.0];
+SZ      = [3.2 2.2];
 X       = [-47.25 -33.75 -20.25 -6.75];
 
 [pre_rf, pre_cm, pre_rf_err, pre_cm_err, sigma]    = SpatialRF(pre);
@@ -52,6 +52,7 @@ pre_rf_err  = diff(pre_rf_err) ./ 2;
 pst_rf_err  = diff(pst_rf_err) ./ 2;
 p(1:2) = errorbar(X,pre_rf, pre_rf_err,'k');
 p(3:4) = errorbar(X,pst_rf, pst_rf_err,'r');
+set(p([1,3]),'Visible','Off');
 
 vline(pre_cm,'k:');
 vline(pst_cm,'r:');
