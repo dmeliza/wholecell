@@ -7,7 +7,12 @@ function stim = WhiteNoise2D(xres,yres,frames,colmap)
 % zres - generates a grayscale colormap with zres values
 % colmap - the colormap (an Nx3 array)
 %
+% If no parameters are supplied, a dialogbox is opened
+%
 % $Id$
+if nargin < 3
+    [xres yres frames colmap] = ask;
+end
 r = rand(xres,yres,frames); % numbers are distributed between 0 and 1
 if length(colmap) == 1
     N = colmap;
@@ -20,3 +25,14 @@ stim.stimulus = ceil(r .* N); % integers distributed between 1 and N
 stim.x_res = xres;
 stim.y_res = yres;
 stim.colmap = colmap;
+
+function [xres, yres, frames, zres] = ask()
+% opens a dialog box to ask values
+prompt = {'X Resolution (pixels):','Y Resolution (pixels):','Frames:','Z values:'};
+def = {'6','6','1000','2'};
+title = 'Values for 2D White Noise';
+answer = inputdlg(prompt,title,1,def);
+xres = str2num(answer{1});
+yres = str2num(answer{2});
+frames = str2num(answer{3});
+zres = str2num(answer{4});

@@ -23,8 +23,11 @@ function stim = SparseNoise2D(xres,yres,frames,pixsize)
 % 1.7: a complete set is now generated and shuffled.
 %
 % $Id$
-error(nargchk(4,4,nargin));
 COMPLETE = 1;
+if nargin < 4
+    [xres, yres, frames, pixsize, COMPLETE] = ask;
+end
+
 
 % colormap:
 stim.colmap = gray(3);
@@ -70,3 +73,15 @@ x = X(frame_ind);
 y = Y(frame_ind);
 z = Z(frame_ind);
 
+function [xres, yres, frames, pixsize, complete] = ask()
+% opens a dialog box to ask values
+prompt = {'X Resolution (pixels):','Y Resolution (pixels):','Frames:','Pixel Size:',...
+          'Complete Set?'};
+def = {'10','10','1000','1','1'};
+title = 'Values for 2D White Noise';
+answer = inputdlg(prompt,title,1,def);
+xres = str2num(answer{1});
+yres = str2num(answer{2});
+frames = str2num(answer{3});
+pixsize = str2num(answer{4});
+complete = str2num(answer{5});
