@@ -12,7 +12,7 @@ function out = SetUIParam(module, param, field, value)
 % $Id$
 global wc
 
-param = lower(param);
+%param = lower(param);
 module = lower(module);
 out = [];
 

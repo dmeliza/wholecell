@@ -24,23 +24,23 @@ case 'standalone'
 case 'init'
     OpenGuideFigure(me);
 
-    wc.sealtest.pulse = 5; % 20 mV
-    wc.sealtest.pulse_length = .040;  % s
-    wc.sealtest.n_sweeps = 3;
+    InitParam(me,'pulse',5); % 5 mV
+    InitParam(me,'pulse_length', .040);  % s
+    InitParam(me,'n_sweeps',3);
     wc.sealtest.scaling = [1 0 0 0];  % auto
 
-    set(wc.sealtest.handles.axes,'NextPlot','ReplaceChildren');
+    SetUIParam(me,'axes','NextPlot','ReplaceChildren');
     lbl = get(wc.sealtest.handles.axes,'XLabel');
     set(lbl,'String','Time (ms)');
     lbl = get(wc.sealtest.handles.axes,'YLabel');
     set(lbl,'String',['Current (' get(wc.ai.Channel(1),'Units') ')']);
     
-    set(wc.sealtest.handles.pulse,'String',num2str(wc.sealtest.pulse))
-    set(wc.sealtest.handles.commandUnits,'String',get(wc.ao.Channel(1),'Units'));
-    set(wc.sealtest.handles.sweeps,'String',num2str(wc.sealtest.n_sweeps));
-    set(wc.sealtest.handles.pulseLengthUnits,'String','ms');
-    set(wc.sealtest.handles.pulse_length,'String',num2str(1000 .* wc.sealtest.pulse_length));
-    set(wc.sealtest.handles.scaling_0,'Value',1);
+    SetUIParam(me,'pulse','String',num2str(wc.sealtest.pulse))
+    SetUIParam(me,'commandUnits','String',get(wc.ao.Channel(1),'Units'));
+    SetUIParam(me,'sweeps','String',num2str(wc.sealtest.n_sweeps));
+    SetUIParam(me,'pulseLengthUnits','String','ms');
+    SetUIParam(me,'pulse_length','String',num2str(1000 .* wc.sealtest.pulse_length));
+    SetUIParam(me,'scaling_0','Value',1);
     
 case 'sweep' % plot the data
     data = varargin{2};
@@ -52,24 +52,24 @@ case 'sweeps_callback'
         n_sweeps = str2num(get(wc.sealtest.handles.sweeps,'String'));
         wc.sealtest.n_sweeps = n_sweeps;
     catch
-        set(wc.sealtest.handles.sweeps,'String',num2str(wc.sealtest.n_sweeps));
+        SetUIParam(me,'sweeps','String',num2str(wc.sealtest.n_sweeps));
     end
     
 case 'pulse_length_callback'
     try
-        pulse_length = str2num(get(wc.sealtest.handles.pulse_length,'String'));
-        wc.sealtest.pulse_length = pulse_length / 1000;
+        pulse_length = str2num(GetUIParam(me, 'pulse_length','String'));
+        SetParam(me,'pulse_length', pulse_length / 1000);
     catch
-        set(wc.sealtest.handles.pulse_length,'String',num2str(wc.sealtest.pulse_length));
+        SetUIParam(me,'pulse_length','String',num2str(wc.sealtest.pulse_length));
     end
     run(me,'reset');
         
 case 'pulse_callback'
     try
-        pulse = str2num(get(wc.sealtest.handles.pulse,'String'));
-        wc.sealtest.pulse = pulse;
+        pulse = str2num(GetUIParam(me,'pulse','String'));
+        SetParam(me,'pulse', pulse);
     catch
-        set(wc.sealtest.handles.pulse,'String',num2str(wc.sealtest.pulse));
+        SetUIParam(me, 'pulse','String',num2str(GetParam(me,'pulse')));
     end
     run(me,'reset');
     
@@ -97,9 +97,9 @@ out = mfilename;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
 function run(fcn,action)
 global wc
-    state = get(wc.sealtest.handles.runButton,'Value');
+    state = GetUIParam(me,'runButton','Value');
     if (state > 0)
-        set(wc.sealtest.handles.runButton,'String','Running');
+        SetUIParam(me,'runButton','String','Running');
         switch action
         case 'reset'
             stop([wc.ai wc.ao]);
@@ -110,7 +110,7 @@ global wc
         start([wc.ai wc.ao]);
         trigger([wc.ai wc.ao]);
     else
-        set(wc.sealtest.handles.runButton,'String','Stopped');
+        SetUIParam(me,'runButton','String','Stopped');
         stop([wc.ai wc.ao]);
     end
 
@@ -159,7 +159,7 @@ set(wc.ao,'RepeatOutput',inf);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [start, finish, total] = pulseTimes;
 global wc
-len = fix(wc.sealtest.pulse_length .* wc.control.SampleRate);
+len = fix(GetParam(me,'pulse_length') .* wc.control.SampleRate);
 total = 2 .* len;
 start = fix(.3 .* len);
 finish = start + len;
@@ -180,23 +180,23 @@ else
     wc.sealtest.sweeps = data;
     time = (time(:) - time(1)) .* 1000;
     [Rt, Rs, Ri] = calculateResistance(data, wc.sealtest.pulse);
-    set(wc.sealtest.handles.ri,'String',sprintf('%4.2f',Ri));
-    set(wc.sealtest.handles.rs,'String',sprintf('%4.2f',Rs));
-    set(wc.sealtest.handles.rt,'String',sprintf('%4.2f',Rt));
-    set(wc.sealtest.handles.gain,'String',num2str(get(wc.control.amplifier,'UnitsRange')));
+    SetUIParam(me,'ri','String',sprintf('%4.2f',Ri));
+    SetUIParam(me,'rs','String',sprintf('%4.2f',Rs));
+    SetUIParam(me,'rt','String',sprintf('%4.2f',Rt));
+    SetUIParam(me,'gain','String',num2str(get(wc.control.amplifier,'UnitsRange')));
 %    disp(sprintf('%i - %i',length(time),length(data)));
     plot(time, data, 'Parent', wc.sealtest.handles.axes);
     switch num2str(find(wc.sealtest.scaling))
     case '1'
-        set(wc.sealtest.handles.axes,{'YLimMode','XLimMode'},{'auto','auto'});
+        SetUIParam(me,'axes',{'YLimMode','XLimMode'},{'auto','auto'});
     case '2'
-        set(wc.sealtest.handles.axes,'YLim',[-5 5]);
+        SetUIParam(me,'axes','YLim',[-5 5]);
     case '3'
-        set(wc.sealtest.handles.axes,'YLim',[-1 5]);
+        SetUIParam(me,'axes','YLim',[-1 5]);
     case '4'
-        set(wc.sealtest.handles.axes,'YLim',[-1 1]);
+        SetUIParam(me,'axes','YLim',[-1 1]);
     otherwise
-        set(wc.sealtest.handles.axes,{'YLimMode','XLimMode'},{'manual','manual'});
+        SetUIParam(me,'axes',{'YLimMode','XLimMode'},{'manual','manual'});
     end
 end
 

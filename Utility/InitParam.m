@@ -17,3 +17,4 @@ out = [];
 
 sf = sprintf('wc.%s.%s', module, param);
 eval(FormatAssignment(sf, value));
+%assignin('caller',sf,value);

@@ -8,7 +8,7 @@ function out = GetUIParam(module, param, field)
 %   $Id$
 global wc
 
-param = lower(param);
+%param = lower(param);
 module = lower(module);
 
 % find out if the object exists
