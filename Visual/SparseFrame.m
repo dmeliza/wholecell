@@ -20,9 +20,9 @@ function Z = SparseFrame(dim, pixsize, param)
 %
 % $Id$
 
-ON  = 3;
-NEU = 2;
-OFF = 1;
+ON  = 2;
+NEU = 1;
+OFF = 0;
 
 
 if pixsize == 1                         % fast generate the simplest case
