@@ -123,6 +123,7 @@ m    = uimenu(op, 'Label', 'Re&scale...', 'Callback', cb.menu, 'tag', 'm_rescale
 m    = uimenu(op, 'Label', '&Crop', 'Callback', cb.menu, 'tag', 'm_crop');
 m    = uimenu(op, 'Label', '&Delete', 'Callback', cb.menu, 'tag', 'm_delete');
 m    = uimenu(op, 'Label', '&Filter...', 'Callback', cb.menu, 'tag', 'm_filter');
+m    = uimenu(op, 'Label', 'C&ombine Selected Traces', 'Callback', cb.menu, 'tag', 'm_combine');
 m    = uimenu(op, 'Label', '&Trace Properties...', 'Callback', cb.menu, 'tag', 'm_traceprop');
 
 % toolbar:
@@ -522,7 +523,30 @@ case 'm_delete'
             plotTraces
             SetUIParam(me,'status','String','Episode cropped');
         end
-    end   
+    end
+case 'm_combine'
+    % combines selected traces into a single dataset.  The user is asked for a name
+    % for the new dataset, which is added to the ds list but is not saved to disk
+    % The old datasets are kept so that the user can go back if the combination fails
+    fls = GetUIParam(me,'files','String');
+    v   = GetUIParam(me,'files','Value');
+    if length(v) < 2 | length(fls) < 2
+        SetUIParam(me,'status','Error: Select more than 1 dataset');
+    else    
+        a   = inputdlg({'New Dataset Name'},'Combine dataset...',1,{'Combined.r0'});
+        if ~isempty(a)
+            ds  = getSelected;
+            if isempty(ds)
+                SetUIParam(me,'status','Error: No traces selected');
+            else
+                r0  = combineDataSets(ds);
+                storeData(r0, a{1});
+                SetUIParam(me,'status','String','Traces combined.')
+            end
+        end
+    end
+    
+    
 case 'resetaxes'
     % resets axes limits
     a   = GetUIHandle(me,'response');
@@ -604,17 +628,59 @@ function ds = getDataSelector(r0)
 %   .chan   - an array of indices defining which channels to use
 %   .color  - an Nx3 array defining the color to use for each channel (random from hsv)
 cnum = size(r0.data,3);
-if isfield(r0,'channels')
-    c = {r0.channels.ChannelName};
+if isfield(r0,'channels') & ~isempty(r0.channels)
+    if isnumeric(r0.channels)
+        c = {r0.info.channels(r0.channels).ChannelName};
+    else
+        c = {r0.channels.ChannelName};
+    end
 else
     c  = cellstr(num2str((1:cnum)'));
 end
 cmap  = jet(50);
 cmap  = cmap(randperm(50),:);
 at    = r0.abstime(:); % convert to column vector
-ds = struct('start',r0.info.start_time,'abstime',at,...
+ds = struct('start',r0.start_time,'abstime',at,...
             'sweeps',(1:length(r0.abstime))','channels',{c},...
             'chan',1,'color',cmap(1:cnum,:));
+        
+function r0 = combineDataSets(ds)
+% combines a selected dataset into a single r0 structure, with a unified
+% abstime.  Missing values (e.g. if one file has two channels and the other 1)
+% are padded with zeros, so be careful.  The new r0 structure has no info
+% structure (at present)
+
+start   = datenum(cat(1,ds.start));
+[m,fir] = min(start);
+offset  = datevec(start - m);
+offmins = offset(:,4) * 60 + offset(:,5) + offset(:,6) / 60;
+
+data    = {ds.data};
+time    = {ds.time};
+abstime = {ds.abstime};
+nt      = sum(cellfun('length',abstime));   % # of traces
+[ns,ms] = max(cellfun('length',time));      % # of samples
+nc      = max(cellfun('size',data,3));      % # of channels
+t       = time{ms};
+Fs      = 1 / mean(diff(double(t)));
+r0      = struct('data',zeros([ns nt nc]),'time',t,'abstime',zeros([1 nt]),...
+    't_rate',Fs,'y_unit',ds(fir).units,'start_time',ds(fir).start,...
+    'info',[],'channels',[]);
+% this loop is probably unneccessary but I want to keep sweeps with duplicate
+% abstimes
+o       = 0;
+for i = 1:length(abstime)
+    at  = abstime{i} + offmins(i);
+    r0.abstime(o+1:o+length(at)) = at;
+    d   = data{i};
+    r0.data(1:size(d,1),o+1:o+size(d,2),1:size(data,3)) = d;
+    o   = o + length(at);
+end
+[r0.abstime, ind] = sort(r0.abstime);
+r0.data = r0.data(:,ind,:);
+
+
+% keyboard
 
 function [] = createparameter(window)
 % creates a new parameter defined over the time points supplied in the first
@@ -839,7 +905,7 @@ if ~isempty(ds)
         m      = mean(res(i).value);
         h(i)   = line([res(i).abstime(1) res(i).abstime(end)],[m m]);
         set(h(i),'Color',res(i).color,'LineStyle',':')
-        str{i} = sprintf('%3.2f %s', m, res(i).units);
+        str{i} = sprintf('%4.3f %s', m, res(i).units);
     end
     lbl = GetUIParam(me,'labels','Value');
     if lbl & ~isempty(str)
