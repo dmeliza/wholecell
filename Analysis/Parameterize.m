@@ -1,4 +1,4 @@
-function out = Parameterize(u, y)
+function out = Parameterize(u, y, p)
 %
 % A general-purpose algorhythm that sorts and averages a matrix of
 % response vectors along a single parameter.  It's useful in analyzing
@@ -6,12 +6,14 @@ function out = Parameterize(u, y)
 % are non-additive, making reverse correlation impossible.
 %
 %
-%  out = Parameterize(u,y)
+%  out = Parameterize(u,y,[p])
 %
 %  INPUT
 %    u    - stimulus parameter, N-by-1 vector
 %
 %    y    - frame-shifted response, N-by-M array
+%
+%    p    - lookup an individual parameter
 %
 %
 %
@@ -19,11 +21,14 @@ function out = Parameterize(u, y)
 %    out  - I-by-J parameterized response matrix
 %           I is the number of parameter values
 %           J is equal to M (length of each frame)
+%    out  - if argument p is supplied, a K-by-J response matrix
+%           K are the number of times the parameter occurs
+%           J is equal to M
 %
 %  $Id$
 
 % check input arguments
-error(nargchk(2,2,nargin))
+error(nargchk(2,3,nargin))
 
 % check input dimensions
 [FRAMES PARAMS pages] = size(u);
@@ -36,10 +41,17 @@ elseif FRAMES ~= rows
 end
 
 % Sort and average response matrix
-params = unique(u); % unique parameter values
-out  = zeros(length(params),cols);
-for i = 1:length(params)
-    j = params(i);
+params      = unique(u);                   % unique parameter values
+if nargin < 3
+    out  = zeros(length(params),cols);     % allocate output matrix
+    for i = 1:length(params)
+        j        = params(i);              % parameter value is an index
+        ind      = find(u==j);             % which identifies frames assoc. with it
+        out(i,:) = mean(y(ind,:),1);       % result is the mean of all frames assoc with param
+    end
+else
+    % Look up individual parameter
+    j   = params(p);
     ind = find(u==j);
-    out(i,:) = mean(y(ind,:),1);
+    out = y(ind,:);
 end
