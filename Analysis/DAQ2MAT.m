@@ -59,7 +59,7 @@ end
 switch lower(runmode)
 case 'stack'
     
-    data = zeros(info.samples,length(names),length(traceindices));
+    data = single(zeros(info.samples,length(names),length(traceindices)));
     abstime = zeros(length(names),6);
     time = [];
     for i = 1:length(names);
@@ -76,14 +76,14 @@ case 'stack'
                 disp('Data file too short');
             else
                 time = t;
-                data(:,i,:) = dat(:,traceindices);
+                data(:,i,:) = single(dat(:,traceindices));
                 abstime(i,:) = at;
             end
         end
     end
     [abstime, ind] = reltimes(abstime);
     info.y_unit = units;
-    data = single(data(:,ind,:));
+    data = data(:,ind,:);
     time = single(time);
     save('daqdata.mat','data','time','abstime','info');
     out.data = data;
@@ -107,14 +107,14 @@ case 'cat'
             s = sprintf('%s: %d x %d (%s)',fn, length(t), length(traceindices), units);
             disp(s);
             time{i} = t;
-            data{i} = dat(:,traceindices);
+            data{i} = single(dat(:,traceindices));
             abstime(i,:) = at;
         end
     end
     clocks = datenum(abstime);
     [at, ind] = sort(clocks);
     info.y_unit = units;
-    data = single(cat(1,data{ind}));
+    data = cat(1,data{ind});
     disp('Aligning times');
     t = [];
     step = 0;
