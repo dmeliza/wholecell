@@ -48,8 +48,10 @@ case 'start'
     setupScope;
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
     SetUIParam('scope','status','String','Not recording');
-    queueStimulus;
-    StartAcquisition(me,[wc.ai wc.ao]);
+    llf = get(wc.ai,'LogFileName');
+    [dir newdir] = fileparts(llf);
+    set(wc.ai,'LogFileName',fullfile(dir, '0000.daq'));    
+    startSweep;
     
 case 'record'
     switch get(wc.ai,'Running')
@@ -59,12 +61,12 @@ case 'record'
     setupHardware;
     setupScope;
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
+    llf = get(wc.ai,'LogFileName');
+    [dir newdir] = fileparts(llf);
+    s = mkdir(dir, newdir);
+    set(wc.ai,'LogFileName',fullfile(dir,newdir, '0000.daq'));    
     set(wc.ai,{'LoggingMode','LogToDiskMode'}, {'Disk&Memory','Overwrite'});
-    lf = NextDataFile;
-    set(wc.ai,'LogFileName',lf);
-    SetUIParam('scope','status','String',lf);
-    queueStimulus;
-    StartAcquisition(me,[wc.ai wc.ao]);
+    startSweep;
     
 case 'stop'
     stop([wc.ai wc.ao]);
@@ -73,19 +75,8 @@ case 'stop'
         set(wc.ai,'TimerAction','');
         SetUIParam('wholecell','status','String',get(wc.ai,'Running'));        
         set(wc.ai,'LoggingMode','Memory');
+        set(wc.ai,'LogFileName',NextDataFile);
     end
-
-
-case 'sweep'
-    data = varargin{2};
-    time = varargin{3};
-    abstime = varargin{4};
-%     in = get(wc.ai,'SamplesAvailable');
-%     out = get(wc.ao,'SamplesAvailable');
-%     status = sprintf('in: %d / out: %d',in, out); 
-%     SetUIParam('scope','status','String',status);
-    queueStimulus;
-    plotData(data, time, abstime, getScope, wc.control.amplifier.Index);
     
 otherwise
     disp(['Action ' action ' is unsupported by ' me]);
@@ -127,7 +118,19 @@ global wc;
     p.input.choices = GetChannelList(wc.ai);
     ic = get(wc.control.amplifier,'Index');
     p.input.value = ic;
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55555
+function startSweep()
+% Begins a sweep
+global wc;
+stop([wc.ai wc.ao]);
+flushdata(wc.ai);
+fn = get(wc.ai,'LogFileName');
+set(wc.ai,'LogFileName',NextDataFile(fn));    
+SetUIParam('scope','status','String',get(wc.ai,'logfilename'));
+queueStimulus;
+start([wc.ai wc.ao]);
+trigger([wc.ai wc.ao]);
+    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function setupHardware()
 % Sets up the hardware for this mode of acquisition
@@ -179,7 +182,19 @@ if (queued < 0.1 * update)
     c(:,control) = wn;
     putdata(wc.ao, c);
     Spool('stim', 'append', wn');
+    m = lower(get(wc.ai,'LoggingMode'));
+    if ~strcmp('memory',m)
+        lf = get(wc.ai,'Logfilename');
+        writeStimulus(lf, wn,t_res,a_int);
+    end
 end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function writeStimulus(filename, stimulus, time_resolution, analysis_interval)
+% writes stimulus waveform to a mat file for later analysis
+[pn fn ext] = fileparts(filename);
+save([pn filesep fn '.mat'],...
+    'stimulus', 'time_resolution', 'analysis_interval');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
 function updateDisplay(obj, event)
@@ -188,37 +203,42 @@ function updateDisplay(obj, event)
 samp = get(obj,'TimerPeriod');
 sr = get(obj,'SampleRate'); % samp/sec
 d = peekdata(obj,samp*sr);
-sr = 1000/sr; % ms/samp
-t = 0:sr:(length(d)-1)*sr;
-plotData(t,d);
-%queueStimulus;
+if length(d) == samp*sr % short stuff is discarded
+    sr = 1000/sr; % ms/samp
+    t = 0:sr:(length(d)-1)*sr;
+    plotData(t,d);
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function analyze(obj, event)
 % this method analyzes the data, using getdata to clear the latest
 % data from the buffer
 global wc
+window = [-1000 200];
 [data, time, abstime] = getdata(obj);
 index = wc.control.amplifier.Index;
 stim = Spool('stim','retrieve');
 samplerate = get(obj,'SampleRate');
 stimrate = GetParam(me,'t_res','value');
 stimstart = get(wc.ao,'InitialTriggerTime');
-
-bin = samplerate * stimrate / 1000;
-d = bindata(data(:,index)', bin);
-offset = fix((datenum(stimstart) - datenum(abstime)) * 1000 / stimrate); % positive numbers - late stim
-if offset > 0
-    d = d(offset:end);
-elseif offset < 0
-    stim = stim(-offset:end);
+c = revcorr(data(:,index)', stim, samplerate,...
+    stimrate, stimstart, abstime, window);
+s = [me '.analysis'];
+f = findobj('tag', s);
+if isempty(f) | ~ishandle(f)
+    f = figure('tag', s, 'numbertitle', 'off', 'name', s);
 end
-% c = xxxcorr(d, stim);
-% figure,plot(c);
-window = 1000 / stimrate;
-c = xxxcorr(d, stim,-window:2);
-figure,plot((-window:2)*stimrate, c);
+t = window(1):stimrate:window(2);
+figure(f);
+d = get(f,'UserData');
+d = cat(1,d,c);
+a = mean(d,1);
+p = plot(t, [c; a]);
+set(f,'name',[s ' - ' num2str(size(d,1)) ' scans']);
+set(f,'UserData',d);
+Spool('stim','delete');
 
+startSweep;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function scope = getScope()
@@ -267,17 +287,6 @@ Scope('scope',time, data);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function clearPlot(axes)
 Scope('clear');
-
-%%%%%%%%%%%%%%%%%%%%%55
-function c = xxxcorr(stim, resp, window)
-% plots a quick crosscorrelation of the stimulus and response
-stim = stim - mean(stim);
-resp = resp - mean(resp);
-c = xcorr(resp, stim);
-if nargin == 3
-    o = length(c) / 2;
-    c = c(o + window);
-end
 
 %%%%%%%%%%%%%%%%%%%%%%%%5
 function showerr(obj, event)

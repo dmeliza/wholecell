@@ -15,6 +15,9 @@ if nargin == 0
     %out = sprintf('%s\\%s_%i_%i_%i_%i-%i-%02.0f',wc.control.data_dir,wc.control.data_prefix, d(:));
     files = dir(wc.control.data_dir);
     n = {files.name};
+    if isempty(wc.control.data_prefix)
+        wc.control.data_prefix = 'wc';
+    end
     basename = sprintf('%s_%i_%i_%i-',wc.control.data_prefix, d(1:3));
     files = strmatch(basename,n);
     if isempty(files)

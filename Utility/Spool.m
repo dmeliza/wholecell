@@ -4,7 +4,7 @@ function out = Spool(spoolname, action, arg1)
 % void Spool(spoolname,'append',data, [dim]) - data is appended columnwise
 %                                       or along DIM
 % void Spool(spoolname,'delete')
-% data Spool(spoolname,'retrieve')
+% data Spool(spoolname,'retrieve', [samples])
 %
 % $Id$
 global wc
@@ -34,10 +34,14 @@ case 'append'
     eval(sfp);
     
 case 'delete'
-    eval([sf ' = []']);
+    eval([sf '.data = [];']);
+    eval([sf '.offset = 1;']);
     
 case 'retrieve'
     out = eval([sf '.data']);
+    if nargin == 3
+        out = out(end-offset:end);
+    end
 
 otherwise
     error('Please see help SPOOL for usage.');
