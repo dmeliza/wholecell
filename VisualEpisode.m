@@ -141,14 +141,14 @@ function setupHardware()
 global wc
 analyze = @analyze;
 % reset display
-setupVisual;
+% setupVisual;
 % acq params
 sr       = get(wc.ai, 'SampleRate');
 length   = GetParam(me,'ep_length','value');
 len      = length * sr / 1000;
 set(wc.ai,'SamplesPerTrigger',len)
 set(wc.ai,'SamplesAcquiredActionCount',len)
-set(wc.ai,'SamplesAcquiredAction',{me, display}) 
+set(wc.ai,'SamplesAcquiredAction',{me, analyze}) 
 set(wc.ai,'ManualTriggerHwOn','Start')
 set(wc.ao,'SampleRate', 1000)
 % hardware triggering via TTL to PFI0 and PFI6
@@ -166,7 +166,11 @@ if isempty(s)
     error(st)
 else
     for i = 1:size(s.stimulus,3)
-        cgloadarray(i,s.x_res,s_y_res,s.stimulus(:,:,i),s.colmap)
+        stim  = s.stimulus(:,:,i);
+        dim   = size(stim);
+        dim2  = dim .* ceil(100./dim);            % nice integer scaleup
+        stim = reshape(stim',1,prod(dim));
+        cgloadarray(i,s.x_res,s.y_res,stim,s.colmap,dim2(1),dim2(2))
     end
     seq = s.sequence; 
 end
