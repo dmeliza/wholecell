@@ -9,12 +9,12 @@ function [] = STDPWindow(csvfile)
 % 
 % $Id$
 
-WIDTH   = 70;
+WIDTH   = 100;
 YLIM    = [0 2.2];
 SZ      = [3.5 2.9];
 mode    = 'add';
 LTD_WIN = [-60 -1];
-LTP_WIN = [1 20];
+LTP_WIN = [1 40];
 
 z   = csvread(csvfile,0,1);
 s   = size(z,2);
@@ -53,4 +53,4 @@ hline(1)
 vline(0)
 xlabel('Pre/Postsynaptic Time Interval (ms)')
 ylabel('Normalized EPSC Amplitude')
-text(WIDTH * 0.6, YLIM(2) * 0.9, sprintf('(n = %d)',length(STDP)));
+%text(WIDTH * 0.6, YLIM(2) * 0.9, sprintf('(n = %d)',length(STDP)));
