@@ -36,10 +36,14 @@ if strcmpi(movie.type,'s1')
         errordlg('Could not find the frame-generating function','Load Movie Failed')
         error('Could not find the frame-generating function')
     else
-        p        = movie.param(1:a_frames,:);        % number of frames asked for
+        if nargin > 1
+            p        = movie.param(1:a_frames,:);        % number of frames asked for
+        else
+            p       = movie.param;
+        end
         [a b c]  = unique(p,'rows');                 % a(c) = p;
         a_frames = length(b);                        % number of unique frames
-        h = waitbar(0,['Loading unique (' num2str(a_frames) ' frames)']);
+        h = waitbar(0,['Loading unique frames (' num2str(a_frames) '/' num2str(length(c)) ')']);
         for i = 1:a_frames
             Z     = feval(movie.mfile,movie.static{:},p(i,:));
             [X,Y] = size(Z);
@@ -47,6 +51,7 @@ if strcmpi(movie.type,'s1')
             waitbar(i/a_frames,h);
         end
         seq      = c;
+        close(h);
     end
 else
     % for s0 structures, the frames have to be pre-loaded
