@@ -320,19 +320,8 @@ if ~isnumeric(fn2)
     set(h,'string',fn2,'tooltipstring',v)
     s       = SetParam(mod, param, v);
 end
-% make sure the analysis figure has the right number of subplots
-[s st]   = LoadStimulusFile(v);
-if isempty(s)
-    error(st)
-else
-    if isfield(s,'group')
-        n   = size(s.group,1);
-    else
-        n   = size(s.stimulus,3) - 1;
-    end
-    f   = getScope('init', n);                        % number of subplots
-    setpref('wholecell','flasher-rands',[]);          % reset random number sequence
-end
+f       = getScope('init');                       % initialize the graph axes
+setpref('wholecell','flasher-rands',[]);          % reset random number sequence
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function clearDAQ()
@@ -371,14 +360,6 @@ end
 function plotData(data, time, abstime, fnum)
 % plots the data;
 % Have to load the stimulus file (for the umpteenth time) to get grouping data
-stimfile = GetParam(me,'stim','value');
-[s st]   = LoadStimulusFile(stimfile);
-if isfield(s,'group')
-    [i,j]   = find(s.group==fnum);
-    if ~isempty(i)
-        fnum = i + 1;
-    end
-end
 index       = GetParam(me,'input','value');
 data        = data(:,index);
 axes(getScope('get',fnum-1))
@@ -403,36 +384,51 @@ set(gca,'UserData', a);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function a = getScope(action, arg)
-% the scope is a series of plots, one for each frame number
-% action can be 'init' (arg is number of parameters), or 'get' (arg is number of 
+% the scope is a series of plots, one for each frame number (or group)
+% This function is used for two things: If action is 'init', the current
+% stimulus is loaded, and a new window with the correct number of plots is
+% opened.  If the action is 'get' and arg is the number of the frame,
+% getScope will figure out which axes should be used for the plot and
+% return the handle.
 switch lower(action)
 case 'init'
     f       = findfig([me '.scope']);
     set(f,'position',[288 314 738 508],'name','scope','numbertitle','off','doublebuffer','on');
     clf
-    for i = 1:arg
-        a = subplot(arg,1,i);
+    sf      = GetParam(me,'stim','value');
+    [s,st]  = LoadStimulusFile(sf);
+    if isempty(s)
+        num = 4
+    elseif isfield(s,'group')
+        num = size(s.group,1);
+    else
+        num = size(s.stimulus,3) - 1;
+    end
+    for i = 1:num
+        a = subplot(num,1,i);
         set(a,'NextPlot','ReplaceChildren')
         set(a,'XTickMode','Auto','XGrid','On','YGrid','On')%,'YLim',[-5 5])
         ylabel(num2str(i))
     end
     xlabel('Time (ms)')
     a       = f;
-    set(a,'UserData',arg);
+    s.num   = num;
+    set(a,'UserData',s);       % store the stim struct for future use
 otherwise
-    f       = findfig([me '.scope']);
-    num     = get(f,'UserData');
-    if isempty(num)
-        s   = GetParam(me,'stim','value');
-        st  = LoadStimulusFile(s);
-        if ~isempty(st)
-            num = size(st.stimulus,3) - 1;
-        else
-            num = 4;
-        end
-        f   = getScope('init',num);
+    f       = findobj('tag',[me '.scope']);
+    if isempty(f)
+        f   = getScope('init');
+    else
+        figure(f)
     end
-    a       = subplot(num,1,arg);
+    st      = get(f,'UserData');
+    if isfield(st,'group')
+        [i,j]   = find(st.group==arg);
+        if ~isempty(i)
+            arg = i + 1;
+        end
+    end
+    a       = subplot(st.num,1,arg-1);
 end
 
 %%%%%%%%%%55
