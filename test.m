@@ -30,14 +30,22 @@
 
 % try to send a TTL pulse on DAC1OUT
 
-daqreset;
-ao = analogoutput('nidaq');
-addchannel(ao,1);
-set(ao, 'TriggerType', 'Manual');
-set(ao, 'RepeatOutput', inf);
+% daqreset;
+% ao = analogoutput('nidaq');
+% addchannel(ao,1);
+% set(ao, 'TriggerType', 'Manual');
+% set(ao, 'RepeatOutput', inf);
+% 
+% pulse = zeros(1000,1);
+% pulse(1:200,:) = 10;
+% putdata(ao,pulse);
+% start(ao);
+% trigger(ao);
 
-pulse = zeros(1000,1);
-pulse(1:200,:) = 10;
-putdata(ao,pulse);
-start(ao);
-trigger(ao);
+%EpisodeStats('destroy');
+%load daqdata;
+EpisodeStats('init','min','mV','PSR_IR');
+for i = 1:length(abstime)
+    EpisodeStats('plot',abstime(i),data(:,i));
+    pause(0.1);
+end

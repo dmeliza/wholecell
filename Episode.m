@@ -255,13 +255,17 @@ if ~isempty(gain)
 else
     gain = 1;
 end
-data = AutoGain(data(:,index), gain, units);
-%plot(time * 1000, data, 'Parent', scope);
-Scope('plot','plot',time * 1000, data);
 lbl = get(scope,'YLabel');
 set(lbl,'String',['amplifier (' units ')']);
+% plot the data and average response
+data = AutoGain(data(:,index), gain, units);
+avgdata = get(scope,'UserData');
+avgdata = cat(2, avgdata, data); % TODO: catch irregular sized datas
+Scope('plot','plot',time * 1000, [data mean(avgdata,2)]);
+set(scope,'UserData', avgdata);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function clearPlot(axes)
 kids = get(axes, 'Children'); 
 delete(kids);
+set(axes,'UserData',[]);
