@@ -131,7 +131,7 @@ case 'color_trace_callback'
     h = getTraces(i);
     c = get(h(1),'Color');
     c = uisetcolor(c);
-    set(h,'Color',c);
+    set(h,'Color',c,'UserData',c); % UserData holds the trace's "true" color
     updateStats;
     
 case 'save_trace_callback'
@@ -152,7 +152,7 @@ case 'reset_axes_callback'
     % returns the axes to their default state
     a = GetUIHandle(me,'trace_axes');
     axis(a,'auto');
-    updateSlider;
+    updateSliders;
     
 case 'zoom_axes_callback'
     v = GetUIParam(me,'zoom_axes','Value');
@@ -282,16 +282,14 @@ case 'rescale_traces_callback'
         wait('Data rescaled...');
     end
     
-case 'display_stats_callback'
-    disp = GetUIParam(me,'display_stats','Value');
-    if boolean(disp)
-        updateStats;
-    else
-        clearAxes(GetUIHandle(me,'psp_axes'));
-        clearAxes(GetUIHandle(me,'resist_axes'));
-    end
+case 'display_statistics_callback'
+    o = gcbo;
+    rb = findobj('style','radiobutton');
+    set(rb, 'Value', 0);
+    set(o, 'Value', 1);
+    feval(me,'trace_list_callback');
     
-case {'invert_stats_callback', 'show_selected_callback'}
+case 'invert_stats_callback'
     updateStats;
     
 case 'show_marks_callback'
@@ -302,6 +300,23 @@ case 'show_marks_callback'
     else
         set(marks,'Visible','Off');
     end
+    
+case 'clear_legend_callback'
+    l = findobj('tag','legend');
+    if ~isempty(l)
+        ld = get(l,'UserData');
+        c = get(ld.handles,'UserData');
+        if iscell(c)
+            c = cat(1,c{:});
+        end
+        for i = 1:length(c)
+            set(ld.handles(i),'color',c(i,:));
+        end
+        delete(l);
+    end
+    
+case 'ignore_outliers_callback'
+    keyboard;
     
 case 'close_callback'
     delete(gcbf);
@@ -358,7 +373,10 @@ SetUIParam(me,'last_trace','String','0');
 SetUIParam(me,'bin_factor','String','12');
 SetUIParam(me,'smooth_factor','String','1');
 SetUIParam(me,'lp_factor','String','1');
-SetUIParam(me,'display_stats','Value',0);
+SetUIParam(me,'show_all','Value',0);
+SetUIParam(me,'show_selected','Value',0);
+SetUIParam(me,'show_unselected','Value',0);
+SetUIParam(me,'show_none','Value',1);
 SetUIParam(me,'invert_stats','Value',0);
 SetUIParam(me,'show_marks','Value',1);
 
@@ -482,9 +500,12 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function [pspdata, srdata, irdata, abstime, color] = getStats(varargin)
+% Computes statistics based on data in the trace_axes
+% getStats() - returns stats for all traces
+% getStats(tracenums) - returns stats for selected traces
 d = GetUIParam(me,'filename','UserData');
 times = getTimes;
-if nargin > 0
+if nargin == 1
     [data, abstime, color] = getData(varargin{1});
 else
     [data, abstime, color] = getData;
@@ -507,20 +528,25 @@ function updateStats()
 % are included.  This method should be safe to call at any time, even
 % if the times are invalid.
 
-disp = GetUIParam(me,'display_stats','Value');
-if ~boolean(disp)
-    return;
-end
 wait;
 S = 50;
-show = GetUIParam(me,'show_selected','Value');
-if boolean(show)
+disp = get(getSelectedRadioButton, 'tag');
+switch disp
+case 'show_none'
+    clearAxes(GetUIHandle(me,{'psp_axes','resist_axes'}));
+    wait;
+    return;
+case 'show_selected'
     traces = str2num(GetUIParam(me,'trace_list','Selected'));
-    [pspdata, srdata, irdata, abstime, color] = getStats(traces);
-else
-    [pspdata, srdata, irdata, abstime, color] = getStats;
+    [pspdata, srdata, irdata, abstime, color] = getStats(traces);    
+case 'show_unselected'
+    sel = str2num(GetUIParam(me,'trace_list','Selected'));
+    traces = str2num(GetUIParam(me, 'trace_list', 'String'));
+    sel = setdiff(traces, sel);
+    [pspdata, srdata, irdata, abstime, color] = getStats(sel);    
+otherwise % including show_all and any weird conditions
+    [pspdata, srdata, irdata, abstime, color] = getStats;    
 end
-
 
 % plot it
 a = GetUIHandle(me,'psp_axes');
@@ -539,9 +565,12 @@ wait;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function clearAxes(axes_handle)
-axes(axes_handle);
-cla;
-set(axes_handle,'NextPlot','Add');
+for i = 1:length(axes_handle)
+    a = axes_handle(i);
+    axes(a);
+    cla;
+    set(a,'NextPlot','Add');
+end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -639,6 +668,7 @@ if nargin > 0
     abstime = abstime(traces);
     color = color(traces,:);
 end
+abstime = abstime - min(abstime);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
 function h = getTraces(varargin)
@@ -651,13 +681,28 @@ else
     h = [tr(varargin{1}).handle];
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [tracenum, h] = getTraceNum(trace)
+% retrieves the trace number from its handle.
+tr = GetUIParam(me,'trace_axes','UserData');
+h = [tr.handle];
+[c tracenum] = intersect(h, trace);
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function showTraces(tracenum)
 % displays a subset of the traces
 h = getTraces;
-set(h,'Visible','off');
-set(h(tracenum),'Visible','on');
+disp = get(getSelectedRadioButton, 'tag');
+switch disp
+case 'show_unselected'
+    set(h,'Visible','on');
+    set(h(tracenum),'Visible','off');
+otherwise
+    set(h,'Visible','off');
+    set(h(tracenum),'Visible','on');
+end
 updateStats;
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function deleteTrace(tracenum)
@@ -713,14 +758,41 @@ function highlightTrace(trace)
 if isempty(trace)
     return;
 end
-currentcolor = get(trace,'Color');
-if (strcmp(currentcolor,'red'))
-    newcolor = 'black';
+[tracenum traces] = getTraceNum(trace);
+SetUIParam(me,'status','String',...
+    ['Trace ' num2str(tracenum) ' selected.']);
+l = findobj('tag','legend');
+if isempty(l)
+    c = get(trace,'color');
+    set(trace,'color',hsv(1));
+    set(trace,'userdata',c);
+    legend(trace, num2str(tracenum));
 else
-    newcolor = 'red';
+    ld = get(l,'UserData');
+    delete(l);
+    i = intersect(ld.handles, trace);
+    if isempty(i) % trace is unlabelled - label with next value in hsv
+        cm = hsv(length(traces));
+        c = cm(length(ld.handles)+1,:);
+        co = get(trace,'color');
+        set(trace,'Color',c);
+        set(trace,'UserData',co);
+        legend([ld.handles trace], ld.lstrings{:}, num2str(tracenum));
+    else %trace is already labelled - reset to "true" color
+        c = get(trace,'UserData');
+        if isempty(c)
+            c = [0 0 0];
+        end
+        set(trace,'Color',c);
+        [rem i] = setdiff(ld.handles, trace);
+        if ~isempty(i)
+            legend(ld.handles(i), ld.lstrings{i});
+        end
+    end
 end
-set(trace,'Color',newcolor);
+    
 updateStats;
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function wait(varargin)
@@ -744,25 +816,46 @@ function showSummary(pspdata,irdata,srdata,abstime)
 SP = 0.1;
 
 a = GetUIHandle(me,'psp_axes');
+[pspspline t] = TimeWeight(pspdata, abstime, SP,100);
+plot(t, pspspline, 'b', 'Parent', a, 'Linewidth', 2)
 pspmean = mean(pspdata);
-t = sprintf('Mean: %2.4f +/- %2.2f %%', pspmean, (std(pspdata) / pspmean * 100));
+t = sprintf('Mean: %2.4f +/- %2.2f %%', pspmean, (std(pspspline) / pspmean * 100));
 y = get(a, 'YLim');
 x = get(a, 'XLim');
 x = diff(x) * 0.80 + x(1);
 text(x, diff(y) * 0.2 + y(1), t, 'Parent',a, 'Color', 'blue', 'FontWeight', 'bold');
-[pspspline t] = TimeWeight(pspdata, abstime, SP,100);
-plot(t, pspspline, 'b', 'Parent', a, 'Linewidth', 2)
 
 a = GetUIHandle(me,'resist_axes');
-srmean = mean(srdata);
-irmean = mean(irdata);
-t = sprintf('SR: %2.4f +/- %2.2f %%', srmean, (std(srdata) / srmean * 100));
-y = get(a, 'YLim');
-text(x, diff(y) * 0.2 + y(1), t, 'Parent', a, 'Color', 'blue', 'FontWeight', 'bold');
-t = sprintf('IR: %2.4f +/- %2.2f %%', irmean, (std(irdata) / irmean * 100));
-text(x, diff(y) * 0.8 + y(1), t, 'Parent', a, 'Color', 'red', 'FontWeight', 'bold');
 [srspline t] = TimeWeight(srdata, abstime, SP, 100);
 plot(t, srspline, 'b', 'Parent', a, 'Linewidth', 2);
 [irspline t]= TimeWeight(irdata, abstime, SP, 100);
 plot(t, irspline, 'r', 'Parent', a, 'Linewidth', 2);
+srmean = mean(srdata);
+irmean = mean(irdata);
+t = sprintf('SR: %2.4f +/- %2.2f %%', srmean, (std(srspline) / srmean * 100));
+y = get(a, 'YLim');
+text(x, diff(y) * 0.2 + y(1), t, 'Parent', a, 'Color', 'blue', 'FontWeight', 'bold');
+t = sprintf('IR: %2.4f +/- %2.2f %%', irmean, (std(irspline) / irmean * 100));
+text(x, diff(y) * 0.8 + y(1), t, 'Parent', a, 'Color', 'red', 'FontWeight', 'bold');
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+function handle = getSelectedRadioButton()
+% returns a handle to the (first) selected radio button
+rb = findobj('style', 'radiobutton');
+v = get(rb,'Value');
+v = [v{:}];
+s = find(v==1);
+handle = rb(s(1));
+
+
+
+% --------------------------------------------------------------------
+function varargout = ignore_outliers_Callback(h, eventdata, handles, varargin)
+% Stub for Callback of the uicontrol handles.ignore_outliers.
+disp('ignore_outliers Callback not implemented yet.')
+
+
+% --------------------------------------------------------------------
+function varargout = outlier_tolerance_Callback(h, eventdata, handles, varargin)
+% Stub for Callback of the uicontrol handles.outlier_tolerance.
+disp('outlier_tolerance Callback not implemented yet.')
