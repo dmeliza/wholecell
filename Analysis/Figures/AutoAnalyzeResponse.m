@@ -47,6 +47,11 @@ if nargin > 1
     cd(curdir)    
 end
 
+% write parameters
+if WRITE_PARAMETERS
+    writeparameters(pre, pst)
+end
+
 % print results
 printresults(fid, pre, pst)
 
@@ -145,7 +150,8 @@ function [results] = analyzedirectory(fid, times);
 % wrapper function loops through all r0 files in the directory
 empty = struct('resp',[],'ir',[],'sr',[],'time',[],'units',[],...
     'start',[],'trace',[],'time_trace',[],'t_peak',[],'t_onset',[],'t_sr',[],...
-    't_ir',[]);
+    't_ir',[],'stim_electrical',[],'stim_start',[],...
+    'mode_currentclamp',[]);
 d   = dir('*.r0');
 dd  = {d.name};
 for ifile = 1:length(dd)
@@ -171,15 +177,9 @@ WINDOW_RESP     = 0.5;      % no data past this is analyzed for the response
 STIM_VISUAL     = 0.2;      % start time for visual stimulation
 DO_FILTER       = 1;
 FILTER_LP       = 1000;     % lowpass filter cutoff (Hz)
-FILTER_ELEC     = 200;      % lowpass cutoff for electrical
-FILTER_VIS      = 100;      % lowpass cutoff for finding peak of response
 FILTER_ORDER    = 3;
-THRESH_ONSET    = 3;        % X standard deviations away from mean defines onset
-LENGTH_VIS      = 0.040;    % events must be at least 20 ms long
-LENGTH_ELEC     = 0.010;    % electrical thresh can be lower
 WINDOW_BASELN   = 0.05;     % length of the baseline to use in computing the response
 WINDOW_PEAK     = 0.001;    % amount of time on either side of the peak to use
-ARTIFACT_WIDTH  = 0.0015;   % width of the artifact to cut out for certain analyses
 DEBUG_LOC       = 0;    
 
 % load the r0 file, using the accompanying selector file if needed
@@ -194,9 +194,9 @@ avg         = mean(R.data,2);
 % determine which direction we expect the response to go
 switch lower(R.y_unit{1})
     case {'v','mv'}
-        iscurrentclamp = 1;
+        isCC = 1;
     otherwise
-        iscurrentclamp = 0;
+        isCC = 0;
 end
 
 % if there is electrical stimulation we want to align all the
@@ -231,6 +231,66 @@ fig     = figure;
 set(fig,'name',pwd,'visible','off'),hold on
 h       = plot(time,avg,'b');
 
+[t_onset, t_peak, filtavg] = findEvents(avg, time, R.t_rate, times,...
+    isCC, iselectrical, WINDOW_RESP);
+
+if ~isempty(t_onset) & ~isempty(t_peak)
+    % draw the onset and peak times
+    vline(t_onset,'k:')
+    vline(t_peak,'k')
+    % and now we can actually compute the response, if we found an event
+    sel_baseline    = time<t_onset & time>(t_onset-WINDOW_BASELN);
+    if iselectrical
+        sel_artifact= time>-ARTIFACT_WIDTH & time < ARTIFACT_WIDTH;
+        sel_baseline= sel_baseline & ~sel_artifact;
+    end
+    sel_response    = time>=(t_peak-WINDOW_PEAK) & time<=(t_peak+WINDOW_PEAK);
+    baseline        = mean(resp(sel_baseline,:),1);
+    response        = (mean(resp(sel_response,:),1) - baseline)';
+    if ~isCC
+        response    = -response;
+    end
+    
+    % the mean event is packaged up for later fun, though setting the
+    % number of points to extract is tricksy...
+    %sel_trace       = time>(t_onset(ifile)-WINDOW_BASELN) & time < STIM_VISUAL;
+    sel_trace       = time >= -0.1 & time <= 0.5;
+    sel_trace_bl    = time>(t_onset-WINDOW_BASELN) & time < t_onset;
+    trace           = filtavg(sel_trace) - mean(filtavg(sel_trace_bl));
+    time_trace      = time(sel_trace);
+else
+    response    = [];
+    trace       = [];
+    time_trace  = [];
+end
+
+%%% now calculate IR and SR
+[ir, sr, t_sr, t_ir]    = computeResistance(R, ind_resist, isCC, time(1));
+
+writefigure(fig, dd, WRITE_FIGURES, DEBUG_LOC);
+warning on MATLAB:divideByZero
+units   = R.y_unit{1};
+% package in a structure
+at              = R.abstime(:);
+results = struct('resp',response,'ir',ir,'sr',sr,'time',at,'units',units,...
+    'start',R.start_time,'trace',trace,'time_trace',time_trace,...
+    't_peak',num2cell(t_peak),'t_onset',num2cell(t_onset),'t_sr',t_sr,...
+    't_ir',t_ir,'stim_electrical',iselectrical,'stim_start',-time(1),...
+    'mode_currentclamp',isCC);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [t_onset, t_peak, filtavg] = findEvents(avg, time, Fs, times, isCC, isElec, WINDOW_RESP)
+% this function finds the onset and peak times for the response (or tries
+% to, anyway)
+FILTER_ELEC     = 200;      % lowpass cutoff for electrical
+FILTER_VIS      = 100;      % lowpass cutoff for finding peak of response
+FILTER_ORDER    = 3;
+THRESH_ONSET    = 3;        % X standard deviations away from mean defines onset
+LENGTH_VIS      = 0.040;    % events must be at least 20 ms long
+LENGTH_ELEC     = 0.010;    % electrical thresh can be lower
+ARTIFACT_WIDTH  = 0.0015;   % width of the artifact to cut out for certain analyses
+t_onset         = [];
+t_peak          = [];
 % first we try to locate the event using the statistics of the average
 % response.
 ind_baseline        = find(time<-0.005 & time>-0.08);
@@ -245,25 +305,28 @@ t_sel = time>0.002 & time < WINDOW_RESP;
 % than 60 Hz anyway) to get around the noise problem.  So for
 % electrical stimuli we cut out the artifact and filter at ~500 Hz,
 % and for visual stimuli filter at around 50
-if ~iselectrical
+if ~isElec
     fp              = FILTER_VIS;
     LENGTH_EVENT    = LENGTH_VIS;
-    filtavg     = filterresponse(avg,fp,FILTER_ORDER,R.t_rate);
+    filtavg         = filterresponse(avg,fp,FILTER_ORDER,Fs);
 else
     fp              = FILTER_ELEC;
     THRESH_ONSET    = THRESH_ONSET * 0.66; % this may be a bad idea
     LENGTH_EVENT    = LENGTH_ELEC;
-    sel_artifact= time>-ARTIFACT_WIDTH & time < ARTIFACT_WIDTH;
-    in          = avg;
+    sel_artifact    = time>-ARTIFACT_WIDTH & time < ARTIFACT_WIDTH;
+    in              = avg;
     in(sel_artifact)    = deal(mu);  % this isn't perfect but it's easy
     filtavg     = filterresponse(in,fp,FILTER_ORDER,R.t_rate);
 end
 h               = plot(time,filtavg,'k:');
 legend('Response',sprintf('Filtered (%4.0f Hz)',fp));
 
-% this stuff gets skipped if the user specified times
-if isempty(times)
-    if iscurrentclamp
+% all the hard work gets skipped if the user specifies times
+if ~isempty(times)
+    t_onset         = times(1);
+    t_peak          = times(2);    
+else
+    if isCC
         threshed        = filtavg > (mu + sigma * THRESH_ONSET) & t_sel;
         hline(mu + sigma * THRESH_ONSET,'r:');
     else
@@ -278,25 +341,19 @@ if isempty(times)
     % particular the 60 Hz can be a real bitch.  Rather than try to
     % filter this out, we'll set a minimum crossing time for the onset
     % to count.  If this fails the user needs to set event times manually
-    if ~isempty(above)
-        diffabove       = diff(above);
-        evbegs          = above([ 1; find(diffabove>1)+1 ]);
-        evends          = above([ find(diffabove>1); length(above) ])+1;
-        % eliminate events that are too long or short
-        select          = (evends-evbegs)>=(LENGTH_EVENT*R.t_rate);
-        evtimes         = evbegs(select);
-        if ~isempty(evtimes)
-            t_onset     = time(evtimes(1));
-        else
-            fprintf(fid, 'Err: Unable to detect event onset\n');
-            writefigure(fig, dd, WRITE_FIGURES, DEBUG_LOC);
-            return
-        end
-    else
-        fprintf(fid, 'Err: Unable to detect event onset\n');
-        writefigure(fig, dd, WRITE_FIGURES, DEBUG_LOC);
+    if isempty(above)
         return
-    end            
+    end
+    diffabove       = diff(above);
+    evbegs          = above([ 1; find(diffabove>1)+1 ]);
+    evends          = above([ find(diffabove>1); length(above) ])+1;
+    % eliminate events that are too long or short
+    select          = (evends-evbegs)>=(LENGTH_EVENT * Fs);
+    evtimes         = evbegs(select);
+    if isempty(evtimes)
+        return
+    end
+    t_onset     = time(evtimes(1));
     % now we try to locate the peak of the event. This is *tough* to do,
     % especially with visually evoked responses, since what we really want
     % is the *first* peak, not the maximum value. Finding the peak with
@@ -314,35 +371,12 @@ if isempty(times)
     t_sel           = time>=t_onset & time<=WINDOW_RESP;
     ind             = find(diff(filtavg) >= 0 & t_sel(2:end));
     t_peak          = time(ind(1));
-else
-    t_onset         = times(1);
-    t_peak          = times(2);
-end
-% draw the onset and peak times
-vline(t_onset,'k:')
-vline(t_peak,'k')
-% and now we can actually compute the response
-sel_baseline    = time<t_onset & time>(t_onset-WINDOW_BASELN);
-if iselectrical
-    sel_artifact= time>-ARTIFACT_WIDTH & time < ARTIFACT_WIDTH;
-    sel_baseline= sel_baseline & ~sel_artifact;
-end
-sel_response    = time>=(t_peak-WINDOW_PEAK) & time<=(t_peak+WINDOW_PEAK);
-baseline        = mean(resp(sel_baseline,:),1);
-response        = (mean(resp(sel_response,:),1) - baseline)';
-if ~iscurrentclamp
-    response    = -response;
-end
-at              = R.abstime(:);
-% the mean event is packaged up for later fun, though setting the
-% number of points to extract is tricksy...
-%sel_trace       = time>(t_onset(ifile)-WINDOW_BASELN) & time < STIM_VISUAL;
-sel_trace       = time >= -0.1 & time <= 0.5;
-sel_trace_bl    = time>(t_onset-WINDOW_BASELN) & time < t_onset;
-trace           = filtavg(sel_trace) - mean(filtavg(sel_trace_bl));
-time_trace      = time(sel_trace);
 
-%%% now calculate IR and SR
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [ir, sr, t_sr, t_ir] = computeResistance(R, ind_resist, isCC, t_offset)
 % we need to use unfiltered, unaligned data to ensure the transients
 % line up
 resp            = double(R.data(ind_resist,:));
@@ -354,7 +388,7 @@ avg             = mean(resp,2);
 % leading to wild outliers for SR and dividing by zero for IR (because
 % the transients can't be found)
 warning off MATLAB:divideByZero
-if ~iscurrentclamp
+if ~isCC
     offset          = 100;
     filtresp        = hpfilterresponse(resp, 1000, 3, R.t_rate);
     [m,i]           = min(filtresp(offset:end,:),[],1);
@@ -379,10 +413,11 @@ if ~iscurrentclamp
         IR(i)           = mean(resp(ind_baseline,i),1) - mean(resp(ind_ir,i),1);
     end
     
-    t_sr         = r_time(median(ind_trans)) + time(1);
+    t_sr         = r_time(median(ind_trans)) + t_offset;
     if ~isempty(IR) & ~all(isnan(IR))
         ir           = IR(:);
-        t_ir         = r_time([ind_baseline(1) ind_baseline(end) ind_ir(1) ind_ir(end)]) + time(1);
+        t_ir         = r_time([ind_baseline(1) ind_baseline(end),...
+                               ind_ir(1) ind_ir(end)]) + t_offset;
         vline(t_ir);
     else
         ir       = [];
@@ -390,20 +425,10 @@ if ~iscurrentclamp
     end
 else
     % to do: write analysis for current clamp
-    ir  = [];
-    sr  = [];
+    ir         = [];
+    sr         = [];
     t_sr       = [];
     t_ir       = [];
-end
-writefigure(fig, dd, WRITE_FIGURES, DEBUG_LOC);
-warning on MATLAB:divideByZero
-units   = R.y_unit{1};
-% package in a structure (which turns the cell arrays into elements of
-% a structure array)
-results = struct('resp',response,'ir',ir,'sr',sr,'time',at,'units',units,...
-    'start',R.start_time,'trace',trace,'time_trace',time_trace,...
-    't_peak',num2cell(t_peak),'t_onset',num2cell(t_onset),'t_sr',t_sr,...
-    't_ir',t_ir);
 end
 
 function [] = writefigure(fig, dd, WRITE_FIGURES, DEBUG_LOC)
@@ -421,6 +446,38 @@ if ~DEBUG_LOC
 else
     set(fig,'visible','on')
 end
+
+function [] = writeparameters(pre, pst)
+% stores the timing data in some nice parameters
+n   = 1;
+for i = 1:length(pre)
+    if ~isempty(pre(i).t_onset) & ~isempty(pre(i).t_peak)
+        % mark time has to be adjusted for start of episode, not stimulus
+        marks        = [pre(i).t_onset pre(i).t_peak] + pre(i).stim_start;
+        params(n)    = struct('marks',marks,...
+                         'name',sprintf('Pre %d', i),...
+                         'action','-difference',...
+                         'binning',0,...
+                         'channel',1);
+        n       = n + 1;
+     end
+end
+for i = 1:length(pst)
+    if ~isempty(pst(i).t_onset) & ~isempty(pst(i).t_peak)
+        marks        = [pst(i).t_onset pst(i).t_peak] + pst(i).stim_start;
+        params(n)    = struct('marks',marks,...
+                         'name',sprintf('Post %d', i),...
+                         'action','-difference',...
+                         'binning',0,...
+                         'channel',1);
+        n       = n + 1;
+     end
+end
+% ignore the IR and SR parameters for now, as episodeanalysis can't handle
+% the 4-mark parameters
+% write to disk
+fn  = fullfile(pwd,'auto.p0');
+save(fn,'params','-mat');
 
 function out = filterresponse(data, cutoff, order, Fs)
 % lowpass filter
