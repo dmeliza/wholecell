@@ -12,9 +12,18 @@ function seq = CgQueueMovie(movie, a_frames)
 %         but in the case of an s1 structure, will be an index into the set of unique
 %         images in the sequence
 %
-% Note that the movie's colormap is loaded into slots 1-255, meaning that the movie
-% can only contain 254 CLUT values.  Futhermore, entry 255 will be set to [1 1 1],
-% so non-grayscale movies that use 255 will give unexpected results.
+% Prior to version 1.10, the graphics card was accessed in palette mode.  However,
+% truecolor operations, in particular, scaling, seem to be a lot faster, so all color
+% lookup operations have been replaced by truecolor references.  Movies are still
+% sent with a colormap, but the main difference is that there are no longer any restrictions
+% on the size of the colormap.
+%
+% An additional side effect of switching to truecolor is that the scaling invoked by
+% cgdrawsprite uses a different interpolation algorhythm (Palette mode uses a
+% nearest-neighbor method that preserves sharp boundaries nicely).  This is probably
+% a function of the directx backend as I can find no way to turn it off.  Thus, in order
+% to avoid severely distorting the frames, we have to use the cgloadsprite scaler to
+% scale images up to at least 100 pixels.
 %
 % SEE ALSO:
 %
@@ -23,12 +32,6 @@ function seq = CgQueueMovie(movie, a_frames)
 %
 % $Id$
 
-% setup colormap:
-if size(movie.colmap,1) > 255
-    movie.colmap = movie.colmap(:,1:255);
-end
-cgcoltab(1,movie.colmap);
-cgnewpal;
 if strcmpi(movie.type,'s1')
     % for s1 structs, we want to load all the unique images into video memory,
     % then return the sequence in which those images ought to be displayed
@@ -46,8 +49,9 @@ if strcmpi(movie.type,'s1')
         h = waitbar(0,['Loading unique frames (' num2str(a_frames) '/' num2str(length(c)) ')']);
         for i = 1:a_frames
             Z     = feval(movie.mfile,movie.static{:},p(i,:));
-            [X,Y] = size(Z);
-            cgloadarray(i,X,Y,reshape(Z',1,X*Y),movie.colmap,1);   % load sprites
+            dim   = size(Z);
+            dim2  = dim .* ceil(100./dim);            % nice integer scaleup
+            cgloadarray(i,dim(1),dim(2),reshape(Z',1,prod(dim)),movie.colmap,dim2(1),dim2(2));
             waitbar(i/a_frames,h);
         end
         seq      = c;
@@ -61,8 +65,11 @@ else
     end
     h = waitbar(0,['Loading movie (' num2str(a_frames) ' frames)']);
     for i = 1:a_frames
+        s = movie.stimulus(:,:,i);
+        dim   = size(s);
+        dim2  = dim .* ceil(100./dim);            % nice integer scaleup
         s = cgremap(movie.stimulus(:,:,i));
-        cgloadarray(i,movie.x_res,movie.y_res,s,movie.colmap,1);
+        cgloadarray(i,movie.x_res,movie.y_res,s,movie.colmap,dim2(1),dim2(2));      % dc mode
         waitbar(i/a_frames,h);
     end
     seq = 1:a_frames;

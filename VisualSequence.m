@@ -27,6 +27,7 @@ function [] = VisualSequence(varargin)
 % Changes: 
 % 1.1:     Adapted from RevCorr_2D.
 % 1.5:     Added support for s1 files
+% 1.10:    16 bit display now used, much faster
 %
 % $Id$
 
@@ -197,7 +198,8 @@ if ~isempty(movfile)
     % reset display toolkit
     disp     = GetParam(me,'display','value');
     cgshut;
-    cgopen(1,8,0,disp);
+    %cgopen(1,8,0,disp);
+    cgopen(1,16,0,disp);        % dc mode
     % run the mfile or load the .s0 file
     stim     = LoadMovie(movfile);
     stim.seq = CgQueueMovie(stim);                      % the sequence of sprites
@@ -247,9 +249,6 @@ function analyze(obj, event)
 % if the data is being written to disk the timing data must also be written
 % ASAP
 stop(obj);
-% blank out display
-cgflip(0);
-cgflip(0);
 param     = GetParam(me);
 
 lfn       = get(obj,'LogFileName');
