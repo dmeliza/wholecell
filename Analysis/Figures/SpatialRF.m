@@ -74,8 +74,12 @@ if iscell(A)
     post_err    = computeError(B,I,bbase);
 end
 
+if nargout > 0
+    return
+end
+
 f       = figure;
-set(f,'color',[1 1 1]);
+set(f,'color',[1 1 1],'name',pre);
 ResizeFigure(f,SZ);
 hold on
 
