@@ -41,7 +41,14 @@ resp  = getfield(r,fn{1});
 switch lower(ext)
 case '.r0'
     try
-%        resp    = r.r0;
+        % if a text files accompanies the r0 file, use it to select
+        % episodes:
+        seqfile     = fullfile(pn,[fn '.txt']);
+        if exist(seqfile)
+            S               = load('-ascii',seqfile);
+            resp.data       = resp.data(:,S,:);
+            resp.abstime    = resp.abstime(S);
+        end
         [N M P] = size(getfield(resp,'data'));
         [T]     = size(getfield(resp,'time'),1);
         [AT]    = size(getfield(resp,'abstime'),1);
