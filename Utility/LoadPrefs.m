@@ -19,6 +19,6 @@ if (isfield(wc.control,'data_dir'))
     SetUIParam('protocolcontrol','data_dir','String',wc.control.data_dir);
 end
 if isfield(wc.control,'data_prefix')
-    SetUIParam('protocolcontrol','data_dir','String',wc.control.data_prefix);
+    SetUIParam('protocolcontrol','data_prefix','String',wc.control.data_prefix);
 end
 set(wc.ai,'LogFileName',NextDataFile);
