@@ -41,7 +41,7 @@ if nargin < 4
     bin = 0;
 end
 
-initFigure;
+%initFigure;
 analyze(stim, resp, window, bin);
 
 function [] = initFigure()
@@ -88,33 +88,13 @@ if bin > 1
     h1_est    = BinData(h1_est,bin,2);
     R         = BinData(R,bin,2);
 end
-set(gcf,'UserData',struct('p',P,'r',R));    % store the data necessary to look up
-                                            % responses to any one parameter
-
-% plot ON responses
-cb      = @clickme;
-subplot(1,2,1)
-R       = h1_est(ind_on,:);
-[X Y]   = getIndices(size(R));
-h       = imagesc(X,Y,R);
-%set(gca,'XTick',[]);
-xlabel('Time (s)')
-title('ON');
-ylabel('Parameter');
-set(gca,'UserData',struct('k',R,'i',ind_on));                   % the indices of the ON parameters
-set(h,'ButtonDownFcn',cb);
-% plot OFF responses
-subplot(1,2,2)
-R       = h1_est(ind_off,:);
-[X Y]   = getIndices(size(R));
-h       = imagesc(X,Y,R);
-%set(gca,'XTick',[]);
-xlabel('Time (s)')
-title('OFF');
-colormap(gray);
-set(gca,'UserDAta',struct('k',R,'i',ind_off));
-set(h,'ButtonDownFcn',cb);
-%parameters = stimulus;
+cb       = @clickme;
+frate    = getpref('strfGUI','srate');
+PlotParams(struct('data',{h1_est(ind_on,:),h1_est(ind_off,:)},...
+                  'title',{'ON','OFF'},...
+                  'frate',{frate frate},...
+                  'cb',{{cb,R,P,ind_on},{cb,R,P,ind_off}}));
+movegui(gcf,'northwest');              
 
 % generate STRF and plot it
 fprintf('Computing STRF...\n');
@@ -125,9 +105,9 @@ OFF      = Param2STRF(h1_est(ind_off,:), stimulus(ind_off,:,:));
 frate    = getpref('strfGUI','srate');
 pos      = get(gcf,'Position');
 PlotSTRF(struct('data',{ON,OFF},'title',{'ON','OFF'},'frate',{frate,frate}));
-movegui(gcf,[pos(1) pos(2)])
+movegui(gcf,[pos(1) pos(2)-340])
 
-function [] = clickme(obj, event)
+function [] = clickme(obj, event, R, P, ind)
 % handles double clicks on sparse analysis window
 type    = get(gcf,'selectiontype');
 if strcmpi(type,'open');
@@ -141,10 +121,8 @@ if strcmpi(type,'open');
     delete(h);
     line([lim(1) lim(end)],[y y]);
     % look up the parameter
-    r       = get(gcf,'UserData');
-    s       = get(gca,'UserData');
-    param   = s.i(y);
-    resp    = Parameterize(r.p,r.r,param);
+    param   = ind(y);
+    resp    = Parameterize(P,R,param);
     figure
     movegui(gcf,'southeast');
     str     = ['Parameter ' num2str(param)];
