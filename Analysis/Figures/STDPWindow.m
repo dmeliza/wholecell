@@ -15,7 +15,10 @@ SZ      = [3.5 2.9];
 mode    = 'add';
 LTD_WIN = [-60 -1];
 LTP_WIN = [1 40];
-LEGEND  = 0;            % label each cell
+LEGEND  = 0;            % label each cell\
+XLABEL  = 'Pre/post synaptic activity interval (ms)';
+YLABEL  = 'Normalized EPSC amplitude (%)';
+FIT     = 0;            % if 1, try to fit each side of the graph with a single exp
 
 % use textread so we can get the names of the experiments
 %textread(file,'%s%*[^\n]','delimiter',',')
@@ -53,10 +56,6 @@ f   = figure;
 set(f,'color',[1 1 1]);
 ResizeFigure(f,SZ);
 
-%    div = repmat(' - ',length(STDP),1);
-%    leg = [char(names) div num2str(STDP,'%3.2f')];
-%    h   = gscatter(delay,STDP .* 100,1:length(delay),[],[],[],'off');
-%    legend(h,leg);
 h   = plot(delay,STDP,'ko');
 if LEGEND
     h   = text(delay, STDP, names);
@@ -65,6 +64,30 @@ end
 set(gca,'XLim',[-WIDTH WIDTH],'YLim',YLIM)
 hline(100,'r:')
 vline(0,'r:')
-xlabel('Pre/Postsynaptic Time Interval (ms)')
-ylabel('Change in EPSC amplitude (%)')
+xlabel(XLABEL)
+ylabel(YLABEL)
 %text(WIDTH * 0.6, YLIM(2) * 0.9, sprintf('(n = %d)',length(STDP)));
+
+if FIT
+    expr    = '100 + b(1) * exp(-abs(x)/b(2))';
+    % LTP
+    XY      = [delay(delay > 0), STDP(delay > 0)];
+    XY      = sortrows(XY);
+    beta0   = [ltp_m, LTP_WIN(2)];  % guess
+    fun     = inline(expr,'b','x');
+    betaP   = nlinfit(XY(:,1), XY(:,2), fun, beta0);
+    fprintf('LTP fit: A+ = %3.2f%%, t+ = %3.2f ms\n', betaP(1)+100, betaP(2));
+    % LTD
+    XY      = [delay(delay < 0), STDP(delay < 0)];
+    XY      = sortrows(XY);
+    beta0   = [ltd_m, abs(LTD_WIN(1))];  % guess
+    betaD   = nlinfit(XY(:,1), XY(:,2), fun, beta0);
+    fprintf('LTD fit: A- = %3.2f%%, t- = %3.2f ms\n', betaD(1)+100, betaD(2));
+    % plot
+    fun     = inline(expr,'x','b');
+    hold on
+    fplot(fun,[0 WIDTH],[],[],[],betaP);
+    fplot(fun,[-WIDTH 0],[],[],[],betaD);
+    set(gca,'xlim',[-WIDTH WIDTH]);
+end
+    
