@@ -577,13 +577,15 @@ fn  = fullfile(pwd,'auto.p0');
 save(fn,'params','-mat');
 
 function out = filterresponse(data, cutoff, order, Fs)
-% lowpass filter
+% 60 Hz notch followed by lowpass filter
+out     = NotchFilter(data, 60, Fs, 20);
+
 Wn      = cutoff/(Fs/2);
 if Wn >= 1
     Wn = 0.999;
 end
 [b,a]   = butter(order,Wn);
-out     = filtfilt(b,a,data);
+out     = filtfilt(b,a,out);
 
 function out = hpfilterresponse(data, cutoff, order, Fs)
 % from Matteo Carandini's findspikes.m
