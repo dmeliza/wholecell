@@ -111,6 +111,7 @@ if (~isempty(i))
 end
 % Now we have to find overlapping plots
 kids = get(scope,'Children');
+kids = findobj(kids,'Type','line');
 if (~isempty(kids))
     xdata = get(kids,'XData');
     if (iscell(xdata))

@@ -1,4 +1,4 @@
-function varargout = TelegraphSetup(varargin)
+function varargout = TelegraphSetup(action,linename)
 % TELEGRAPHSETUP Application M-file for TelegraphSetup.fig
 %    TELEGRAPHSETUP(action,lineName) invoke the named callback.
 %   
@@ -26,62 +26,18 @@ function varargout = TelegraphSetup(varargin)
 %
 % $Id$
 
+error(nargchk(2,2,nargin))
+
 global wc
 
-if nargin > 0
-	action = lower(varargin{1});
-else
-	action = 'init';
-end
-
-switch action
+switch lower(action)
 
 case 'init'
-    fig = OpenGuideFigure(me);
-    set(fig,'WindowStyle','modal');
-    
-    if nargin > 1
-        linename = varargin{2};
-        InitParam(me,'linename', linename);
-    end
-
-
-    c = GetParam('control.telegraph', linename);
-    if (~isempty(c))
-        currentchannel = wc.ai.Channel(c).HwChannel;
-        availableChannels = [setdiff(wc.control.ai.channels, wc.control.ai.usedChannels)];
-        channels = char(num2str(currentchannel),num2str(availableChannels'));
-    else
-        currentchannel = 1;
-        availableChannels = setdiff(wc.control.ai.channels, wc.control.ai.usedChannels);
-        channels = char(' ',num2str(availableChannels'));
-    end
-
-    SetUIParam(me,'channels',{'String', 'Value'}, {channels, 1});
-    SetUIParam(me,'line','String', GetParam(me,'linename'));
-    
-	% Wait for callbacks to run and window to be dismissed:
-	uiwait(wc.telegraphsetup.fig);
-    
-    
-
-case 'ok_callback'
-    % when the user presses OK this module opens the channel
-    % or if it already exists, reconfigures it
-    choice = GetUIParam(me, 'channels','Value');
-    channels = GetUIParam(me, 'channels', 'String');
-    choice = channels(choice,:);
-    if (isempty(choice))
-        % do nothing
-    else
-        makeTelegraph(choice);
-    end
-    uiresume(wc.telegraphsetup.fig);
-    DeleteFigure(me);
-    
-case {'cancel_callback' 'close_callback'}
-    uiresume(wc.telegraphsetup.fig);
-    DeleteFigure(me);
+    c = GetParam('control.telegraph', linename);   
+    p = defaultParams(linename, c);
+    clfcn = @close_callback;
+    fig = OpenParamFigure(me, p, clfcn);
+    uiwait(fig);
     
 otherwise
 
@@ -91,30 +47,59 @@ end
 % private functions
 function out = me()
 out = mfilename;
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function channels = getChannels()
-% returns a vector of hardware channels in use
-global wc
-channels = wc.control.ai.usedChannels;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function p = defaultParams(linename, channel);
+global wc;
+f_l = {'description','fieldtype','value','choices'};
+f_s = {'description','fieldtype','value'};
+
+if (~isempty(channel))
+    currentchannel = wc.ai.Channel(channel).HwChannel;
+    availableChannels = [setdiff(wc.control.ai.channels, wc.control.ai.usedChannels)];
+    channels = cellstr(char(num2str(currentchannel),num2str(availableChannels')));
+else
+    currentchannel = 1;
+    availableChannels = setdiff(wc.control.ai.channels, wc.control.ai.usedChannels);
+    channels = cellstr(char(' ',num2str(availableChannels')));
+end
+
+p.channel = cell2struct({'Channel','list',1,channels},f_l,2);
+p.linename = cell2struct({'Line','fixed',linename},f_s,2);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+function close_callback(varargin)
+% save the info in a param
+r = GetParam(me,'channel');
+choice = r.value;
+l = GetParam(me,'linename','value');
+f_s = {'description','fieldtype','value'};
+s = cell2struct({l,'value',choice},f_s,2);
+% when the user presses OK this module opens the channel
+% or if it already exists, reconfigures it
+if (isempty(choice))
+    % do nothing
+else
+    makeTelegraph(choice);
+end
+InitParam('control.telegraph',l,s);
+uiresume;
+DeleteFigure(me);
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function c = makeTelegraph(channelName)
 global wc
-
-    % figure out whether to make a channel
-    channelHW = str2num(channelName);
-    linename = GetParam(me,'linename');
-    c = GetParam('control.telegraph', linename);
-    if (~isempty(c))
-        currentchannel = wc.ai.Channel(c);
-        c = ReassignChannel(currentchannel, channelHW);
-    else
-        c = CreateChannel(wc.ai, channelHW);
-    end
-    % set up the channel
-    set(c, 'ChannelName', [GetParam(me, 'linename') ' telegraph']);
-    range = [-10 10];
-    set(c, {'InputRange','SensorRange','UnitsRange'}, {range, range, range});
-    InitParam('control.telegraph', GetParam(me, 'linename'), c.Index);
-%     sf = sprintf('wc.control.telegraph.%s=c.Index;',GetParam(me, 'linename'));
-%     eval(sf,'disp(sf)');
+channelHW = str2num(channelName);
+linename = GetParam(me,'linename','value');
+c = GetParam('control.telegraph', linename,'value');
+if (~isempty(c))
+    currentchannel = wc.ai.Channel(str2num(c));
+    c = ReassignChannel(currentchannel, channelHW);
+else
+    c = CreateChannel(wc.ai, channelHW);
+end
+% set up the channel
+set(c, 'ChannelName', [linename ' telegraph']);
+range = [-10 10];
+set(c, {'InputRange','SensorRange','UnitsRange'}, {range, range, range});

@@ -186,7 +186,7 @@ EpisodeStats('plot', abstime, data);
 function setupScope();
 % sets up the scope properties
 scope = getScope;
-clearPlot(scope);
+clearPlot;
 set(scope, 'XLim', [0 1000]);
 set(scope, 'NextPlot', 'replacechildren');
 lbl = get(scope,'XLabel');

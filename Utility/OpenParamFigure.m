@@ -1,4 +1,4 @@
-function fig = OpenParamFigure(module, params)
+function fig = OpenParamFigure(module, params, close_callback)
 % Opens a parameter figure window.  This consists of some nice entry fields
 % with appropriate tags and callbacks so that when the user edits the value in
 % the GUI the corresponding value in WC is altered
@@ -35,7 +35,11 @@ y_pad = 5;
 % generate function handles for callbacks
 fn_read_params = @readParams;
 fn_write_params = @writeParams;
-fn_close = @closeFigure;
+if nargin == 3
+    fn_close = close_callback;
+else
+    fn_close = @closeFigure;
+end
 
 name = [module '.param'];
 fig = findobj('tag',name);
@@ -43,9 +47,9 @@ if ishandle(fig)
     return % need to load new values if this happens...
 end
 fig = figure('numbertitle','off','name',name,'tag',name,...
-    'DoubleBuffer','off','menubar','none');
+    'DoubleBuffer','off','menubar','none','closerequestfcn',fn_close);
 set(fig,'Color',get(0,'defaultUicontrolBackgroundColor'));
-%set(fig,'Visible','off');
+
 
 % init fig
 paramNames = fieldnames(params);
@@ -96,7 +100,8 @@ for i = 1:paramCount
     t = [module '.' name];
     u = uicontrol(fig,'position',p,st{:},'tag', t,...
         'callback',{fn_ui, module, name, s});
-    setValue(u,s);
+    s.value = setValue(u,s);
+    params = setfield(params,name,s);
 end
 
 function paramChanged(varargin)
@@ -155,6 +160,7 @@ case 'list'
     end
     if ~isempty(v)
         set(handle,'Value',v);
+        v = struct.choices{v};
     end
 otherwise
     v = num2str(struct.value);
@@ -175,4 +181,4 @@ end
 save(pnfn,fns{:});
 
 function closeFigure(varargin)
-close(gcbf);
+delete(gcbf);
