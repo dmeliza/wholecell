@@ -813,7 +813,7 @@ end
 d = GetUIParam(me,'filename','UserData');
 ds.time = d.time;
 ds.info = d.info;
-ds.abstime = shiftdim(d.abstime,1);
+
 bf = GetUIParam(me,'bin_factor','StringVal');
 if bf > 1
     ds.info.binfactor = 1;
@@ -824,7 +824,7 @@ ds.data = shiftdim(data,1);
 ds.pspdata = shiftdim(pspdata,1);
 ds.irdata = shiftdim(irdata,1);
 ds.srdata = shiftdim(srdata,1);
-
+ds.abstime = shiftdim(abstime,1);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function saveData(filename, varargin)
