@@ -21,7 +21,8 @@ function [] = ProcessResponse(signals)
 
 error(nargchk(0,1,nargin))
 
-filters = {'highpass','bandpass','lowpass','bin','framebin','spikes','null'};
+filters = {'highpass','bandpass','lowpass','custom','bin','framebin','threshhold',...
+           'clip','dcblock','static','null'};
 
 initFigure;
 initValues(filters);
@@ -58,10 +59,12 @@ h = uicontrol(gcf, 'style', 'text', 'position',[250 350 120 15],'String','Active
     'backgroundcolor',BG);
 h = InitUIControl(me, 'activefilters', 'style','list',...
     'position', [250 260 120 90],'backgroundcolor',BG, 'callback', cb.activefilters);
-h = InitUIControl(me, 'filterup', 'style', 'pushbutton', 'position', [380 310 25 25],...
+h = InitUIControl(me, 'filterup', 'style', 'pushbutton', 'position', [380 325 25 25],...
     'String','up', 'callback', cb.filterup);
-h = InitUIControl(me, 'filterdown', 'style', 'pushbutton', 'position', [380 280 25 25],...
+h = InitUIControl(me, 'filterdown', 'style', 'pushbutton', 'position', [380 295 25 25],...
     'String','dn', 'callback', cb.filterdown);
+h = InitUIControl(me, 'filterview', 'style', 'pushbutton', 'position', [380 265 25 25],...
+    'String','vw','callback',cb.filterview);
 % filter description field
 h = InitUIControl(me,'filterdesc','style','text','backgroundcolor',BG,...
     'position', [420 260 160 100], 'HorizontalAlignment', 'left', 'String', '');
@@ -91,6 +94,10 @@ end
 if ~isstruct(signals)
     error('Signal argument must be an r1 structure or an r1 file name');
 end
+% convert data to double, otherwise filters break
+for i = 1:length(signals)
+    signals(i).data = double(signals(i).data);
+end
 a = GetUIHandle(me,'input');            % axes handle
 set(a,'UserData',signals);
 plotSignals(a,signals);
@@ -104,7 +111,7 @@ if ~exist(str)
     SetUIParam(me,'filterdesc','String','Filter not implemented');
     param = [];
 else
-    if nargin == 3
+    if nargin == 2
         param = feval(str, 'params', parameters);
     else
         param = feval(str, 'params');
@@ -122,12 +129,16 @@ end
 
 function [] = plotSignals(axesHandle, signals)
 axes(axesHandle)
-for i = 1:length(signals)
+hold on;
+q    = length(signals);
+c    = hsv(q);
+for i = 1:q
     len = length(signals(i).data);
     t   = linspace(0,len/signals(i).t_rate,len);
-    plot(t,signals(i).data)
+    plot(t,signals(i).data,'color',c(i,:))
 end
 ylabel(signals(1).y_unit)
+hold off
 
 function signals = executeChain(signals);
 % executes the filter chain on an r1 structure, returning another r1 structure
@@ -145,7 +156,12 @@ if ~isempty(filtername)
 else
     signals = [];
 end
-    
+   
+function [] = showFilterDetails(filter, parameters)
+str = sprintf('Filter_%s',filter);
+if exist(str)
+    feval(str, 'view', parameters);
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Callbacks:
@@ -155,6 +171,9 @@ sel = GetUIParam(me,'filters','selected');
 val = GetUIParam(me,'activefilters','String');
 par = GetUIParam(me,'activefilters','UserData');
 param   = getParameters(sel);
+if isempty(param)
+    return
+end
 if isempty(val)
     val = {sel};
     par = {param};
@@ -185,17 +204,19 @@ function [] = activefilters(obj, event)
 % allows the user to edit the parameters for the filter with a double-click
 % for single clicks, displays a summary of the settings in a text box
 click = get(gcf,'SelectionType');
-switch lower(click)
-case 'open'
-    % double click
-otherwise
-    str   = GetUIParam(me,'activefilters','String');
-    par   = GetUIParam(me,'activefilters','UserData');
-    if ~isempty(str)
-        sel = GetUIParam(me,'activefilters','Value');
-        desc = getFilterDescription(str{sel},par{sel});
-        SetUIParam(me,'filterdesc','String',desc);
+str   = GetUIParam(me,'activefilters','String');
+par   = GetUIParam(me,'activefilters','UserData');
+sel   = GetUIParam(me,'activefilters','Value');
+if ~isempty(str)
+    if strcmpi(click,'open')
+        param = getParameters(str{sel},par{sel});
+        if ~isempty(param)
+            par{sel} = param;
+            SetUIParam(me,'activefilters','UserData',par);
+        end
     end
+    desc = getFilterDescription(str{sel},par{sel});
+    SetUIParam(me,'filterdesc','String',desc);
 end
 
 function [] = filterup(obj, event)
@@ -221,9 +242,18 @@ if ~isempty(str)
     if sel < length(str)
         i = [1:sel-1, sel+1, sel, sel+2:length(str)];
         SetUIParam(me,'activefilters','String',str(i));
-        SetUIParam(me,'activefilters','String',par(i));
+        SetUIParam(me,'activefilters','UserData',par(i));
         SetUIparam(me,'activefilters','Value',sel+1);
     end
+end
+
+function [] = filterview(obj, event)
+% calls the "view" function on the filter so the user can examine its effects
+str   = GetUIParam(me,'activefilters','String');
+par   = GetUIParam(me,'activefilters','UserData');
+sel   = GetUIParam(me,'activefilters','Value');
+if ~isempty(str)
+    showFilterDetails(str{sel},par{sel});
 end
 
 function [] = loadchain(obj, event)
@@ -289,7 +319,7 @@ function out = getCallbacks()
 % returns a structure with function handles to functions in this mfile
 % no introspection in matlab so we have to do this by hand
 fns = {'addfilter','removefilter','activefilters','filterup','filterdown', 'savechain',...
-        'savesignal','loadchain','applychain','clickaxes'};
+        'savesignal','loadchain','applychain','clickaxes','filterview'};
 out = [];
 for i = 1:length(fns)
     sf = sprintf('out.%s = @%s;',fns{i},fns{i});
