@@ -5,6 +5,8 @@ function MtrialPlot(varargin)
 % mtrialplot([x], y, [options])
 % options can be 'correct', which subtracts out the baseline of the y traces
 %
+% 1.4: Plots to gca now
+%
 % $Id$
 error(nargchk(1,3,nargin))
 x = [];
@@ -27,23 +29,26 @@ else
     end
 end
     
+[LEN REP] = size(y);
 % correct baseline
 y = double(y);
 switch options
 case 'correct'
-    y_m = repmat(mean(y,1),length(y),1);
+    y_m = repmat(mean(y,1),LEN,1);
     y = y - y_m;
 end
 
 % plot results
-figure;
-set(gcf,'color',[1 1 1]);
-if isempty(x)
-    p = plot(y);
-else
-    p = plot(x,y);
+%figure;
+%set(gcf,'color',[1 1 1]);
+if REP > 1
+    if isempty(x)
+        p = plot(y);
+    else
+        p = plot(x,y);
+    end
+    set (p,'color',[0.7 0.7 0.7]);
 end
-set (p,'color',[0.7 0.7 0.7]);
 hold on;
 y_mean = mean(y,2);
 if isempty(x)
