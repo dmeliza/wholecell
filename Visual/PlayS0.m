@@ -1,16 +1,16 @@
-function [] = PlayMovie(movie)
+function [] = PlayS0(movie)
 % Plays a movie using the matlab display commands.  This function
 % is not designed for actual stimulus presentation, only to preview
 % what a movie will look like when it is played (for instance, with CgQueueMovie
 % and CgPlayMovie)
 %
-% Usage: PlayMovie(movie)
+% Usage: PlayS0(movie)
 %
-% movie - a stimulus as described by the stim_struct.m file
+% movie - a stimulus as described by the s0_struct.m file
 %
 % See Also:
 %
-% stim_struct.m
+% s0_struct.m
 % CgPlayMovie.m
 %
 %
