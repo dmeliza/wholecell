@@ -87,7 +87,7 @@ if nargout == 0                        % no display if output values are assigne
     cb       = @clickme;
     PlotParams(struct('data',a1.kern,...
         'title','Parameters',...
-        'frate',frate,...
+        'frate',a1.frate,...
         'cb',{{cb,R,P}}));
     movegui(gcf,'northwest');
 end
@@ -126,7 +126,7 @@ a1.strf = reshape(strf,stim.x_res,stim.y_res,size(a1.kern,2));
 
 % display only if output values are unassigned
 if nargout == 0                                         
-    PlotSTRF(struct('data',strf,'title','STRF','frate',frate));
+    PlotSTRF(struct('data',a1.strf,'title','STRF','frate',a1.frate));
     pos      = get(gcf,'Position');
     movegui(gcf,[pos(1) pos(2)-340])
 end
