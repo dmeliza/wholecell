@@ -12,10 +12,11 @@ global wc
 
 param = lower(param);
 module = lower(module);
+out = [];
 
 % find out if the object exists
 if ~isfield(wc, module)
-    disp(['no such module ' module]);
+    %disp(['no such module ' module]);
     return;
 end
 sfp = sprintf('isfield(wc.%s.param,''%s'')',module,param);
@@ -23,8 +24,7 @@ if (eval(sfp))
     sf = sprintf('wc.%s.param.%s', module, param);
     out = eval(sf);
 else
-    out = [];
-    disp(['no such field ' param ' in module ' module]);
+    %disp(['no such field ' param ' in module ' module]);
 end
 
 if nargin > 2
