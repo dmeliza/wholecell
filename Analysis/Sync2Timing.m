@@ -12,9 +12,27 @@ function [timing, avg] = Sync2Timing(sync)
 % In these cases it's better to determine the timing from the original sync
 % signal and use those offsets to bin the data.
 %
+% In addition, because the photocell signal is not a square wave (often has
+% a toe on the OFF transition because of residual phosphor glow or whatever)
+% the timing can wind up alternating between two different values.  The current
+% solution is to only use the ON transitions and interpolate the OFF values,
+% though this is only a satisfactory solution if we're not trying to account
+% for dropped frames.
+%
 % $Id$
-sq = zeros(size(sync));
-on = find(sync > sync(1));
+[r c] = size(sync);
+sq    = zeros([r c]);
+on    = find(sync > sync(1));
 sq(on) = 1;                     % square wave representing on and off states
-timing = find(diff(sq));        % timing of transitions between on and off
+timing = find(diff(sq)>0);      % timing of transitions between on and off
+timing = interp(timing,2);      % interpolate OFF/ON transition times
+timing = timing(timing<=r);     % remove bad values
 avg = mean(diff(timing));       % the average frame rate
+
+function Y = interp(X, rate)
+% linear interpolator, uses midpoint between supplied values (ignore rate)
+d       = [diff(X);0] / 2;
+Y       = repmat(X,1,2);
+Y(:,2)  = d + Y(:,1);
+Y       = reshape(Y',prod(size(Y)),1);
+Y       = round(Y(1:end-1));      % toss last value, which is extrapolated
