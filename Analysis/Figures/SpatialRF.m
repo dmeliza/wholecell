@@ -1,14 +1,17 @@
-function [pre_rf, post_rf] = SpatialRF(pre, post, induction, peak)
+function [pre_rf, post_rf] = SpatialRFDir(pre, post, induction, peak)
 %
 % Generates a figure comparing two spatial RFs (either two cells or
 % before/after).
 %
-% [pre_rf, post_rf] = SPATIALRF(pre, post, [induction])
+% [pre_rf, post_rf] = SPATIALRF(pre, post, [induction], peak, start_time, end_time)
 %
-% pre and post can be matfiles or directories.  If directories, all the
-% daqdata-?.r0 files will be loaded, and the individual trials used to
-% generate error bars on the final plot (although these are usually quite
-% small)
+% pre and post must be directories.  All the daqdata-?.r0 files will be loaded, 
+% and the individual trials used to determine the error in the RF and in
+% the center of mass measurement.
+%
+% In directory mode, if the file daqdata-n.txt exists, it should contain 
+% a list of times which are usable.  These will be used instead of the
+% whole set.
 %
 % The spatial RF is defined as the average of the 20 ms on either side of
 % the maximum response.
@@ -70,18 +73,27 @@ switch lower(u)
         post_rf = -post_rf;
 end
 
+
 % compute error bars
 if iscell(A)
-    pre_err     = computeError(A,I,abase);
-    post_err    = computeError(B,I,bbase);
+    [pre_SD, pre_sem, pre_err]       = computeError(A,I,abase);
+    [post_SD, post_sem, post_err]    = computeError(B,I,bbase);
+    [precm,precm_err]               = centroid(pre_rf, pre_err);
+    [postcm,postcm_err]             = centroid(post_rf, post_err);
+    fprintf('%3.2f +/- %3.2f (pre); %3.2f +/- %3.2f (post)\n',...
+        precm, precm_err, postcm, postcm_err)
+else
+    precm   = centroid(pre_rf);
+    postcm  = centroid(post_rf);
+    fprintf('%3.2f (pre); %3.2f (post)\n',...
+        precm, postcm)
 end
+
 
 if nargout > 0
-    return
+    %return
 end
-
-precm   = centroid(pre_rf);
-postcm  = centroid(post_rf);
+    
 
 f       = figure;
 set(f,'color',[1 1 1],'name',pre);
@@ -99,9 +111,9 @@ if iscell(A)
     p(3:4) = errorbar(X,post_rf, post_err, 'r');
 else
     p       = plot(X,pre_rf,'k',X,post_rf,'r');
-    vline(precm,'k:');
-    vline(postcm,'r:');
 end
+vline(precm,'k:');
+vline(postcm,'r:');
 set(p,'LineWidth',2);
 
 Xd  = mean(diff(X));
@@ -109,11 +121,12 @@ Xd  = mean(diff(X));
 set(gca,'XLim', [X(1) - 0.2 * Xd, X(4) + 0.2 * Xd],'Box','On')
 xlabel('Bar Position (degrees)')
 ylabel('Response (pA)')
-title(pre)
+%title(pre)
 if nargin > 2
     hold on
+    ylim    = get(gca,'YLim');
     mx  = max([pre_rf(induction) post_rf(induction)]);
-    h   = plot(X(induction), mx * 1.2, 'kv');
+    h   = plot(X(induction), mx * 1.4, 'kv');
     set(h,'MarkerFaceColor',[0 0 0])
 end
 
@@ -125,8 +138,16 @@ wd      = cd(directory);
 dd      = dir('*.r0');
 fls     = {dd.name};
 for i = 1:length(fls)
-    r0       = load('-mat',fls{i});
-    d{i}     = double(r0.r0.data(win,:,1));
+    [pn fn ext] = fileparts(fls{i});
+    seqfile     = fullfile(pn,[fn '.txt']);
+    r0          = load('-mat',fls{i});
+    D           = double(r0.r0.data(win,:,1));
+    if exist(seqfile)
+        S       = load('-ascii',seqfile);
+        d{i}    = D(:,S,:);
+    else
+        d{i}    = D;
+    end
 end
 t       = double(r0.r0.time(win,:)) * 1000 - 200;
 u       = r0.r0.y_unit{1};
@@ -140,18 +161,15 @@ for i = 1:length(in)
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function e = computeError(in, win, base)
-% computes the standard error of the mean value in the window
+function [SD, SEM, CL] = computeError(in, win, base)
+% computes the 95% Cl of the mean value in the window
 for i = 1:length(in)
     d       = in{i};
     d       = d(win,:) - base;
     tc      = mean(d,2);                    % time course of mean
-    e(i)    = std(tc)/sqrt(length(tc));
+    tval    = tinv(0.975,length(tc)-1);
+    SD(i)   = std(tc);
+    SEM(i)  = SD(i) / sqrt(length(tc));
+    CL(i)   = SEM(i) * tval;
 end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [x] = centroid(rf)
-% computes the center of mass of a one-parameter receptive field
-rf  = rf - min(rf);
-M   = sum(rf);
-x   = sum(rf .* (1:length(rf)))/M;
+    
