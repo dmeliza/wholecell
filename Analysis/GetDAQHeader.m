@@ -1,4 +1,4 @@
-function info = GetDAQHeader(filename)
+function [info, str] = GetDAQHeader(filename)
 % Retrieves header information from a daq file.
 %
 % Usage: info = GetDAQHeader(filename)
@@ -16,9 +16,17 @@ function info = GetDAQHeader(filename)
 %                   .mode       -   index of mode telegraph channel (if there is one)
 %                   .gain       -   index of gain telegraph channel (if there is one)
 %
+%   1.2: Generate friendly string description, catch unreadable files
+%
 %   $Id$
-
-d = daqread(filename,'info');
+info = [];
+str  = '';
+try
+    d = daqread(filename,'info');
+catch
+    str = [filename ': Invalid DAQ file'];
+    return
+end
 info.t_unit = 's';
 info.t_rate = d.ObjInfo.SampleRate;
 info.start_time = d.ObjInfo.InitialTriggerTime;
@@ -33,3 +41,5 @@ info.gain = strmatch('gain',cnames);
 if isempty(info.amp)
     info.amp = 1;
 end
+
+str = sprintf('%s: %d channels, %d samples',filename,length(cnames),info.samples);
