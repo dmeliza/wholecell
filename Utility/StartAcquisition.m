@@ -9,7 +9,6 @@ global wc
 
 stop(devices);
 flushdata(wc.ai); % can we make this more general? only works with ainputs
-set(wc.ai,'SamplesAcquiredAction',{'SweepAcquired',module});
 wc.control.protocol = module;
 start(devices);
 trigger(devices);
