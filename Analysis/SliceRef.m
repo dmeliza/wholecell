@@ -15,6 +15,7 @@ function out = SliceRef(A, dim, slice)
 %
 %   out     - the slice or slices
 %
+% $Id$
 error(nargchk(3,3,nargin))
 dims = ndims(A);
 
