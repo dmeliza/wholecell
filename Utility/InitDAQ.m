@@ -1,5 +1,12 @@
-function out = InitDAQ(sampleRate)
-% Initializes the first data acquisition hardware found in the system
+function [] = InitDAQ(sampleRate)
+% Initializes the first data acquisition hardware found in the system, creating
+% the analoginput, analogoutput, and digitalio objects.
+% This is horribly inflexible, but I don't anticipate using two nidaq boards
+% (or anything other than nidaq boards) for some time to come.
+%
+% Usage:  [] = InitDAQ(sampleRate)
+%
+% sampleRate - the sample rate, in Hz, of the analog input and output objects.
 %
 % $Id$
 global wc
@@ -29,11 +36,3 @@ a = setverify(wc.ai,'InputType','SingleEnded');
 wc.control.Coupling = a;
 a = setverify([wc.ai wc.ao],'SampleRate', sampleRate);
 wc.control.SampleRate = a{1};
-
-% set up triggering for simultaneous use
-set([wc.ai wc.ao], 'TriggerType', 'Manual');
-% this is problematic.  I can't use peekdata if this is on,
-% but the synchronization of input and output is off by at
-% least 20 ms if I don't use it.  It's not a big deal for
-% SealTest, but it will be for STDP stuff.
-set(wc.ai, 'ManualTriggerHwOn', 'Trigger');
