@@ -73,11 +73,12 @@ else
         Z     = feval(s1.mfile,s1.static{:},s1.param(frame,:));
         [X,Y] = size(Z);
         cgloadarray(2,X,Y,reshape(Z',1,X*Y),s1.colmap,1);
-        for i = 1:frate
-            cgdrawsprite(2,x,y, pw, ph);
-            cgrect(sr(1),sr(2),sr(3),sr(4),syncmap(sync+1));
-            cgtext(num2str(frame),t(1),t(2));
-            cgflip(0);
+        cgdrawsprite(2,x,y, pw, ph);
+        cgrect(sr(1),sr(2),sr(3),sr(4),syncmap(sync+1));
+        cgtext(num2str(frame),t(1),t(2));
+        cgflip(0);
+        for i = 1:frate-1
+            cgnewpal;                   % this should be sync'd with the display
         end
         sync = ~sync;
     end
