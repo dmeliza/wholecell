@@ -2,6 +2,7 @@ function [filt, stimulus, resp] = ComputeFilter(filename, window, stimchannel)
 %
 % computes temporal filter from stimulus and response data
 % if stimchannel is supplied, this is used instead of the .mat file
+% use a window of [0 0] to get all points
 %
 % $Id$
 

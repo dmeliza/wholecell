@@ -43,8 +43,8 @@ function c = xxxcorr(stim, resp, window)
 % plots a quick crosscorrelation of the stimulus and response
 stim = stim - mean(stim);
 resp = resp - mean(resp);
-c = xcorr(resp, stim(1:length(resp)),'coeff');
+c = xcorr(stim(1:length(resp)), resp,'coeff');
 if nargin == 3
-    o = length(c) / 2;
+    o = length(resp);
     c = c(o + window);
 end
