@@ -10,7 +10,9 @@ function varargout = EpisodeAnalysis(varargin)
 % A lot of data is stored in UserData fields of various objects.
 % filename.UserData - .data, .time, .abstime, .info (original .mat data)
 % trace_list.UserData - handles of traces in the trace_axes
-% trace_axes.UserData - abstime, binned to correspond to the traces in the axes
+% trace_axes.UserData - the trace structure array, which contains
+%   .handle - the handle of the trace
+%   .abstime, binned to correspond to the traces in the axes
 % (x|y)slider.UserData - original XLim and YLim of the data in trace_axes
 % adjust_baseline.UserData - limits of data to be averaged for baseline
 % lp_factor.UserData - original sampling rate of data
@@ -106,13 +108,27 @@ case 'daq_converter_callback'
     
 case 'trace_list_callback'
     % handles user selections from the trace list
-    i = GetUIParam(me, 'trace_list', 'Value');
-    if (i > 0)
-        h = GetUIParam(me, 'trace_list', 'UserData');
-        set(h,'Visible','off');
-        set(h(i),'Visible','on');
-    end
-
+    i = str2num(GetUIParam(me, 'trace_list', 'Selected'));
+    showTraces(i);
+    
+case 'delete_trace_callback'
+    % deletes selected traces in the trace window
+    i = str2num(GetUIParam(me, 'trace_list', 'Selected'));
+    deleteTrace(i);
+    i = str2num(GetUIParam(me, 'trace_list', 'Selected'));
+    showTraces(i);
+    updateStats;
+    
+case 'color_trace_callback'
+    % retrieves current color of trace(s)
+    % allows user to set a new color
+    i = str2num(GetUIParam(me, 'trace_list', 'Selected'));
+    h = getTraces(i);
+    c = get(h(1),'Color');
+    c = uisetcolor(c);
+    set(h,'Color',c);
+    updateStats;
+    
 case 'property_changed_callback'
     % redraws the traces if the post-processing properties change
     updateDisplay;
@@ -220,21 +236,13 @@ case 'save_analysis_callback'
 case 'align_episodes_callback'
     % calls AlignEpisodes on the complete data set
     d = GetUIParam(me,'filename','UserData');
+    setptr(gcf,'watch');
     SetUIParam(me,'status','String','Aligning episodes...');
     [d.data d.time] = AlignEpisodes(d.data, d.time, 1000:5000);
     SetUIParam(me,'filename','UserData',d);
     updateDisplay;
     SetUIParam(me,'status','String','Episodes realigned.');
-    
-case 'delete_trace_callback'
-    % deletes selected traces in the trace window
-    i = GetUIParam(me, 'trace_list', 'Value');
-    if (i > 0)
-        h = GetUIParam(me, 'trace_list', 'UserData');
-        t = GetUIParam(me, 'trace_list', 'String');
-        delete(h(i));
-        updateStats;
-    end    
+    setptr(gcf,'arrow');
     
 case 'close_callback'
     delete(gcbf);
@@ -349,33 +357,29 @@ plotMarks;
 updateStats;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function varargout = plotTraces(varargin)
+function varargout = plotTraces(data, time, info, abstime)
 % plots the traces in the trace axes, setting the correct callbacks, etc
 % stores the times of the traces in UserData
 % void plotTraces(data, time, info, abstime)
-% void plotTraces(data, time, info) [uses existing values for abstime]
-data = varargin{1};
-time = varargin{2};
-info = varargin{3};
-if (nargin > 3)
-    abstime = varargin{4};
-else
-    abstime = GetUIParam(me,'trace_axes','UserData');
-end
+
 a = GetUIHandle(me,'trace_axes');
 axes(a);
 traces = plot(time, data,'k');
 xlabel(['time (' info.t_unit ')'],'FontSize', 12);
 ylabel(info.y_unit, 'FontSize',12);
 
+trace = struct([]); % the empty trace struct
 for i = 1:length(traces)
-    click_handler = sprintf('%s(''trace_click_callback'')', me);
-    set(traces,'ButtonDownFcn',click_handler);
+    trace(i).handle = traces(i);
+    trace(i).abstime = abstime(i);
+    %trace(i).number = i;
 end
+
+click_handler = sprintf('%s(''trace_click_callback'')', me);
+set(traces,'ButtonDownFcn',click_handler);
 set(a,'ButtonDownFcn',[me '(''trace_axes_callback'')']);
-set(a, 'UserData', abstime);
+set(a, 'UserData', trace);
 % then update the trace list
-SetUIParam(me,'trace_list','UserData',traces);
 tr = 1:length(traces);
 SetUIParam(me,'trace_list','String',num2str(tr'));
 SetUIParam(me,'trace_list','Value',tr);
@@ -416,10 +420,10 @@ function [pspdata, srdata, irdata, abstime] = updateStats()
 % and the traces in the window. Deleted traces are ignored, but hidden ones
 % are included.  This method should be safe to call at any time, even
 % if the times are invalid.
+S = 50;
 d = GetUIParam(me,'filename','UserData');
 times = getTimes;
-[data, abstime] = getData;
-tracehandles = GetUIParam(me, 'trace_list', 'UserData');
+[data, abstime, color] = getData;
 dt = 1 / d.info.t_rate;
 w = warning('off');
 pspdata = ComputeSlope(data, [times.pspbs times.pspbe], times.pspm, dt) / 1000;
@@ -429,14 +433,14 @@ warning(w);
 % plot it
 a = GetUIHandle(me,'psp_axes');
 clearAxes(a);
-ph = scatter(abstime, pspdata);
+ph = scatter(abstime, pspdata, S, color);
 ylabel('PSP Slope (mV/ms)');
 
 a = GetUIHandle(me,'resist_axes');
 clearAxes(a);
-sh = scatter(abstime, srdata);
-ih = scatter(abstime, irdata,'*');
-set([ph ih sh], 'ButtonDownFcn',[me '(''stats_click_callback'')'],'EdgeColor','black');
+sh = scatter(abstime, srdata, S, color);
+ih = scatter(abstime, irdata, S, color, '*');
+set([ph ih sh], 'ButtonDownFcn',[me '(''stats_click_callback'')']);
 xlabel('Time (min)'),ylabel('R (M\Omega)');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -449,9 +453,11 @@ set(axes_handle,'NextPlot','Add');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [data, abstime] = binTraces(data, abstime, binfactor)
 % bins traces and times;
-data = BinData(data, binfactor);
-abstime = BinData(abstime, binfactor);
-abstime = abstime';
+if (binfactor > 1)
+    data = BinData(data, binfactor);
+    abstime = BinData(abstime, binfactor);
+    abstime = abstime';
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function data = smoothTraces(data, smoothfactor)
@@ -515,10 +521,12 @@ updateDisplay;
 SetUIParam(me,'status','String','Baseline adjusted.');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [data, abstime] = getData()
+function [data, abstime, color] = getData()
 % this function extracts (binned) Y data from the trace axes
 % and the associated binned relative start times
-tracehandles = GetUIParam(me, 'trace_list', 'UserData');
+trace = GetUIParam(me,'trace_axes','UserData');
+tracehandles = [trace.handle];
+abstime = [trace.abstime];
 ydata = get(tracehandles,'YData');
 if iscell(ydata)
     data = cat(1,ydata{:});
@@ -526,7 +534,45 @@ else
     data = ydata;
 end
 data = data';
-abstime = GetUIParam(me,'trace_axes','UserData');
+color = get(tracehandles,'Color');
+color = cat(1,color{:});
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
+function h = getTraces(varargin)
+% retrieves a trace handle by number (or all trace handles)
+% works with arrays (if you don't go out of bounds)
+tr = GetUIParam(me, 'trace_axes', 'UserData');
+if nargin == 0
+    h = [tr.handle];
+else
+    h = [tr(varargin{1}).handle];
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function showTraces(tracenum)
+% displays a subset of the traces
+h = getTraces;
+set(h,'Visible','off');
+set(h(tracenum),'Visible','on');
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function deleteTrace(tracenum)
+% deletes a trace from various locations
+% works with arrays if you don't go out of bounds
+tr = GetUIParam(me,'trace_axes', 'UserData');
+% delete traces (with valid handles)
+h = [tr(tracenum).handle];
+h = h(find(ishandle(h)));
+delete(h);
+% delete references in trace struct and trace_list
+n = setdiff(1:length(tr), tracenum);
+tr = tr(n);
+SetUIParam(me,'trace_axes','UserData',tr);
+n = 1:length(tr);
+SetUIParam(me,'trace_list','String', num2str(n'));
+SetUIParam(me,'trace_list','Value', n);
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function highlightTrace(traceindex)
