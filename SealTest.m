@@ -24,9 +24,12 @@ case 'standalone'
 case 'init'
     OpenGuideFigure(me);
 
-    InitParam(me,'pulse',5); % 5 mV
-    InitParam(me,'pulse_length', .040);  % s
-    InitParam(me,'n_sweeps',3);
+%     InitParam(me,'pulse',5); % 5 mV
+%     InitParam(me,'pulse_length', .040);  % s
+%     InitParam(me,'n_sweeps',3);
+    wc.sealtest.pulse = 5;
+    wc.sealtest.pulse_length = 0.40;
+    wc.sealtest.n_sweeps = 3;
     wc.sealtest.scaling = [1 0 0 0];  % auto
 
     SetUIParam(me,'axes','NextPlot','ReplaceChildren');
@@ -58,7 +61,7 @@ case 'sweeps_callback'
 case 'pulse_length_callback'
     try
         pulse_length = str2num(GetUIParam(me, 'pulse_length','String'));
-        SetParam(me,'pulse_length', pulse_length / 1000);
+        wc.sealtest.pulse_length = pulse_length / 1000;
     catch
         SetUIParam(me,'pulse_length','String',num2str(wc.sealtest.pulse_length));
     end
@@ -67,9 +70,9 @@ case 'pulse_length_callback'
 case 'pulse_callback'
     try
         pulse = str2num(GetUIParam(me,'pulse','String'));
-        SetParam(me,'pulse', pulse);
+        wc.sealtest.pusle =  pulse;
     catch
-        SetUIParam(me, 'pulse','String',num2str(GetParam(me,'pulse')));
+        SetUIParam(me, 'pulse','String',num2str(wc.sealtest.pulse));
     end
     run(me,'reset');
     
@@ -132,7 +135,6 @@ switch num2str(find(wc.sealtest.scaling))
         SetUIParam(me,'axes','YLim',[-1 1]);
     otherwise
         SetUIParam(me,'axes',{'YLimMode','XLimMode'},{'manual','manual'});
-    end
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
@@ -167,7 +169,7 @@ set(wc.ao,'RepeatOutput',inf);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [start, finish, total] = pulseTimes;
 global wc
-len = fix(GetParam(me,'pulse_length') .* wc.control.SampleRate);
+len = fix(wc.sealtest.pulse_length .* wc.control.SampleRate);
 total = 2 .* len;
 start = fix(.3 .* len);
 finish = start + len;
