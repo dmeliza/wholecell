@@ -43,10 +43,10 @@ if nargin > 5
     a   = a(:,pos);
     b   = b(:,pos);
 end
-ma  = mean(a(1:200,:),1);
-mb  = mean(b(1:200,:),1);
-% ma  = mean(A.data([(t(1)-NORM):t(1) t(end):(t(end)+NORM)],:),1);
-% mb  = mean(B.data([(t(1)-NORM):t(1) t(end):(t(end)+NORM)],:),1);
+ma  = mean(a(1:NORM,:),1);
+mb  = mean(b(1:NORM,:),1);
+% ma  = mean(A.data([(t(1)-NORM):t(1)+NORM],:),1);
+% mb  = mean(B.data([(t(1)-NORM):t(1)+NORM],:),1);
 a   = a - repmat(ma,length(t),1);
 b   = b - repmat(mb,length(t),1);
 d   = b - a;
@@ -57,12 +57,23 @@ end
 % normalization is tricky because these are relative values.
 % find the point of largest absolute difference, then use the ratio
 % at that point. It may be better to use the peak of the pre-induction response?
-[m, i] = max(abs(d));
-[m, j] = max(abs(m));
-i      = i(j);
-val    = [a(i,j) b(i,j)];
-rat    = max(abs(val)) / min(abs(val));
-d      = d ./ m .* rat;
+NORMDIFF    = 0;
+if NORMDIFF
+    [m, i] = max(abs(d));
+    [m, j] = max(abs(m));
+    i      = i(j);
+    val    = [a(i,j) b(i,j)];
+    rat    = max(abs(val)) / min(abs(val));
+    d      = d ./ m .* rat;
+else
+    [m, i] = max(abs(a));
+    [m, j] = max(abs(m));
+    i      = i(j);
+    val    = abs(a(i,j));
+    a      = a ./ val;
+    b      = b ./ val;
+    d      = d ./ val;
+end
 
 if nargout > 0
     return
@@ -93,32 +104,37 @@ if size(a,2) == 1
 else
     [a,T] = smoothRF(a,T,BINRATE,INTERP);
     b     = smoothRF(b,T,BINRATE,INTERP);
-    mx  = max(max(abs([a b])));
+    mx    = max(max([a b]));
+    mn    = min(min([a b])); 
     colormap(redblue(0.45,200))
     if IMAGE
         n   = 2;        
-        if strcmpi(u,'pa')
-            a   = -a;
-            b   = -b;
-        end 
+%         if strcmpi(u,'pa')
+%             a   = -a;
+%             b   = -b;
+%         end 
         subplot(n+1,1,1)
-        imagesc(T,1:size(a,2),a',[-mx mx]);
-        [t,x] = centroid(a.*(a>0) ,T);
-        fprintf('Centroid (pre) = %3.2f, %3.4f\n',x,t);
-        hold on,scatter(t, x, 10, 'k', 'filled')
-        colorbar
-        set(gca,'YTick',[],'XTickLabel',[]);
+%        imagesc(T,1:size(a,2),a',[-mx mx]);
+        p   = plot(T,a');
+        axis tight
+        set(p(pos),'LineWidth',2);
+        vline(bar,'k:');
+%        colorbar
+        set(gca,'XTickLabel',[],'YLim',[mn mx]);
+        xlim    = get(gca,'XLim');
         vline(0,'k');
         ylabel('Pre');
+        title(rf1)
         
         subplot(n+1,1,2)
-        imagesc(T,1:size(b,2),b',[-mx mx]);
-        [t,x] = centroid(b.*(b>0) ,T);
-        fprintf('Centroid (post) = %3.2f, %3.4f\n',x,t);
-        hold on,scatter(t, x, 10, 'k', 'filled')
-        colorbar
+%        imagesc(T,1:size(b,2),b',[-mx mx]);
+        p   = plot(T,b');
+        axis tight
+        set(p(pos),'LineWidth',2);        
+        vline(bar,'k:');
+%        colorbar
         vline(0,'k');
-        set(gca,'YTick',[],'XTickLabel',[]);
+        set(gca,'XTickLabel',[],'Xlim',xlim, 'YLim',[mn mx]);
         ylabel('Post');
     else
         n = size(a,2);
@@ -138,16 +154,19 @@ else
     %d     = thresholdRF(d,THRESH);
     mx1   = max(max(abs(d)));
     if IMAGE
-        imagesc(T,1:size(d,2),d',[-mx1 mx1]);
-        set(gca,'Ytick',[]);
-        colorbar
-        if nargin < 5
-            vline(bar,'w');
-        else
-            hold on
-            pos     = pos * INTERP;
-            plot(bar, pos,'k*')
-        end
+%        imagesc(T,1:size(d,2),d',[-mx1 mx1]);
+        p   = plot(T,d');
+        axis tight
+        set(p(pos),'LineWidth',2);
+        set(gca,'XLim',xlim);
+%        colorbar
+%         if nargin < 5
+            vline(bar,'k:');
+%         else
+%             hold on
+%             pos     = pos * INTERP;
+%             plot(bar, pos,'k*')
+%         end
     else
         plot(T,d)
         vline(bar,'k:');
