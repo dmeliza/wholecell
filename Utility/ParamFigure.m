@@ -2,25 +2,29 @@ function fig = ParamFigure(module, params, close_callback)
 % Opens or updates a parameter figure window.  This consists of some nice entry fields
 % with appropriate tags and callbacks so that when the user edits the value in
 % the GUI the corresponding value in WC is altered.
-% void ParamFigure(module,[properties,[close_callback]])
+%
+% USAGE: fig = ParamFigure(module,[properties,[close_callback]])
+%
+% module     - the module (string tag) responsible for these parameters
+% properties - properties is a structure of structures; each of the subordinate 
+%              structures should conform to the param_struct header, and the name
+%              of each of these fields is the tag for the parameter.  Thus, for a
+%              struct with the following structure
+%
+%              s.test = struct('fieldtype','String','value','test')
+%
+%              the call GetParam(module, 'test', 'value') will return 'test')
+%
+% close_callback  - this callback is attached to the CloseRequestFcn callback of the Param
+%                   window, allowing the user/programmer to specify some action to take
+%                   when the parameter window is closed
 %
 % If ParamFigure is called without the properties argument, the properties
 % already in the wc structure are used to update/open the figure.
 %
-% properties is a structure with the following fields:
-% s.description - a friendly string to put atop the list of params
-% s.fieldname.fieldtype - {'String', 'Value', 'List', 'Hidden', or 'Fixed'}
-%            .description - String that describes field
-%            [.choices] - required for Lists
-%            [.value] - String or number that describes initial value
-%                       for lists, numbers are indices, and strings are selections
-%                       otherwise the value in wc is used
-%            [.units] - String describing units of the value
-%            [.callback] - if this is supplied for 'Value' or 'String',
-%                          altering the value in the field will call the callback
-%                          for fixed, a button will be created with the callback
-%                          
-
+% See Also:
+%       headers/param_struct.m
+%
 % $Id$ 
 global wc
 
