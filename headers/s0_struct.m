@@ -4,6 +4,7 @@ function [s, fields] = s0_struct()
 %
 % Required fields:
 %
+% m.type   - must be 's0'
 % m.colmap - the color mappings for each value in the stimulus 
 %            (Nx3 array, N == max(max(m.stimulus)))
 % m.stimulus - the movie, which should be an x_res by y_res by n_frames array of doubles
@@ -16,6 +17,6 @@ function [s, fields] = s0_struct()
 %
 % $Id$
 
-fields = {'colmap','stimulus','x_res','y_res','parameters'};
-C      = cell(length(fields),1);
-s      = cell2struct(C, fields, 1);
+fields = {'type','colmap','stimulus','x_res','y_res','parameters'};
+C      = {'s1',[],[],[],[],[]};
+s      = cell2struct(C, fields, 2);

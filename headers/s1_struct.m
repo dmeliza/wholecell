@@ -10,6 +10,7 @@ function [s, fields] = s1_struct()
 %
 % Required fields:
 %
+% m.type   - must be 's1'
 % m.mfile  - the mfile which should be executed.
 % m.static - a cell array of static parameters (e.g. stimulus size)
 % m.param  - an MxN array, with N parameters and M frames
@@ -23,6 +24,6 @@ function [s, fields] = s1_struct()
 %
 % $Id$
 
-fields = {'mfile','static','param','x_res','y_res','colmap'};
-C      = {'',{},[],[],[],[]};
+fields = {'type','mfile','static','param','x_res','y_res','colmap'};
+C      = {'s1','',{},[],[],[],[]};
 s      = cell2struct(C, fields, 2);
