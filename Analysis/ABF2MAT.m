@@ -30,5 +30,5 @@ r0.data = single(r0.data);
 r0.time = single(r0.time);
 
 [path basename] = fileparts(filename);
-fn              = [basename '.mat'];
+fn              = [basename '.r0'];
 writestructure(fn, r0);
