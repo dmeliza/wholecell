@@ -1,16 +1,17 @@
-function [] = corr_repeats(data)
+function [] = corr_repeats(data, frate)
 
 %  CORR_REPEATS derive correlations between repeated responses to a single stimulus
 %
-%    [] = corr_repeats(response)
+%    [] = corr_repeats(response, [frate])
 %
 %     Computes the correlation between all repeats in the response array 
 %     The correlations are between all repeats and between each repeats and the
 %     exclusive mean.
 %
 %    INPUTS
-%     files   - array of responses (NxM, M responses).  Binned to frame rate,
-%               preferably
+%     data   - array of responses (NxM, M responses)
+%     frate  - the frame rate of the response, as multiples of the stimulus frame rate
+%              Used to figure out how many lags to include
 %
 %    OUTPUTS
 %     []      - none at present time
@@ -24,16 +25,22 @@ function [] = corr_repeats(data)
 %
 %   $Id$
 
-error(nargchk(1,1,nargin))
+error(nargchk(1,2,nargin))
 
 %%% Initialize Constants %%% 
-LAGS = 25;
+if nargin < 2
+    frate = 1;
+end
+LAGS = 25 * frate;
 
 % Size of response
 [FRAMES REPEATS] = size(data);
 % Initialize results vector
 C       = zeros([LAGS*2+1, REPEATS, REPEATS]);
 stats   = zeros([3, REPEATS, REPEATS]);
+
+% Make response zero-mean
+data    = data - repmat(mean(data,1),FRAMES,1);
 
 fprintf('Calculating correlations...');
 for i = 1:REPEATS
@@ -78,7 +85,7 @@ findfig('xcorr_repeats');
 set(gcf,'Position',[300 300 800 600],'Color',[1 1 1]);
 clf
 
-TOP = .05;
+TOP = 0.5;
 BOTTOM = -0.02;
 x_values = -LAGS:LAGS;
 
