@@ -8,6 +8,7 @@ function [pre, pst] = AutoAnalyzeResponse(pre_dir, post_dir, fid, t_pre, t_post)
 %
 % the calling function can provide times, in which case all of the magic
 % event detection algorhythms are ignored
+%
 
 % Now, there are about 50000 ways to measure the response.  We'll start by
 % doing something that doesn't duplicate what I've done by hand; that is,
@@ -15,8 +16,19 @@ function [pre, pst] = AutoAnalyzeResponse(pre_dir, post_dir, fid, t_pre, t_post)
 % against the baseline, which...  This is done for each r0 file in the pre
 % and post directories.
 %
+% Measuring the peak before and after induction may not work well if it
+% shifts significantly (more than 1 ms or so).  If the parameter SAME_PEAK
+% is set, then the analysis of the second directory will use the same time
+% points as the first directory.
+%
 % $Id$
 global WRITE_PARAMETERS WRITE_FIGURES WRITE_RESULTS
+
+% this parameter controls whether peaks are located for both directories or
+% just the first
+SAME_PEAK   = 1;
+% this parameter controls whether analysis is performed on all the r0 files
+% in the directory, or only the induced one (TODO)
 
 % check arguments and set default values
 error(nargchk(1,5,nargin));
@@ -39,7 +51,19 @@ cd(curdir)
 % analyze second directory
 if nargin > 1
     cd(post_dir)
-    if nargin > 4
+    if SAME_PEAK
+        % here we have to assemble the t_post matrix from the timing data
+        % returned from the first directory. If the time value in pre is
+        % empty, the time is set to zero in t_post
+        for i = 1:length(pre)
+            if ~isempty(pre(i).t_onset)
+                t_post(i,:) = [pre(i).t_onset pre(i).t_peak];
+            else
+                t_post(i,:) = [0 0];
+            end
+        end
+        pst   = analyzedirectory(fid, t_post);                
+    elseif nargin > 4
         pst   = analyzedirectory(fid, t_post);
     else
         pst   = analyzedirectory(fid, []); 
@@ -472,8 +496,8 @@ if ~isCC
             IR(i)       = NaN;
             continue
         end
-        ind_baseline    = IND_B;
-        ind_ir          = IND_R;
+        ind_baseline    = fix(IND_B(IND_B>0));
+        ind_ir          = fix(IND_R(IND_R>0));
         IR(i)           = mean(resp(ind_baseline,i),1) - mean(resp(ind_ir,i),1);
     end
     
