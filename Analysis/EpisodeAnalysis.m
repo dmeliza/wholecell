@@ -223,6 +223,19 @@ case 'export_figure_callback'
     
 case 'analysis_module_callback'
     % runs an analysis m-file using the current dataset
+    if nargin > 1
+        module = varargin{2};
+    else
+        [fn pn] = uigetfile([pwd filesep '*.m'],'Select a module...');
+        module = fullfile(pn,fn);
+    end
+    try
+        feval(module,getData)
+    catch
+        disp(lasterr);
+    end
+    
+        
     
 case 'save_analysis_callback'
     % stores a complete analysis in one file
@@ -369,7 +382,7 @@ SetUIParam(me,'select_button','Value',1);
 function s = loadData(d)
 % loads data from a data structure, which can obtained from
 % a .mat file or anywhere else
-s = 1
+s = 1;
 if isempty(d)
     return;
 elseif ~isfield(d,'abstime')
@@ -382,10 +395,10 @@ SetUIParam(me,'lp_factor','UserData',d.info.t_rate);
 if (isfield(d.info,'binfactor'))
     SetUIParam(me,'bin_factor','StringVal',d.info.binfactor);
 end
+updateDisplay;
 if (isfield(d,'times'))
     setTimes(d.times);
 end
-updateDisplay;
 s = 0;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
@@ -775,7 +788,7 @@ SetUIParam(me,'trace_list','String', num2str(n'));
 SetUIParam(me,'trace_list','Value', n);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function [data, time, abstime, info, pspdata, srdata, irdata, times] = getData(varargin)
+function ds = getData(varargin)
 % retrieves all the useful data from the figure in preparation for saving
 % or passing it to another module
 if nargin == 0
@@ -786,26 +799,32 @@ else
     [pspdata, srdata, irdata, abstime] = getStats(varargin{1});
 end
 d = GetUIParam(me,'filename','UserData');
-time = d.time;
-info = d.info;
+ds.time = d.time;
+ds.info = d.info;
 bf = GetUIParam(me,'bin_factor','StringVal');
 if bf > 1
-    info.binfactor = 1;
+    ds.info.binfactor = 1;
 end
-times = getTimes;
+ds.times = getTimes;
 
-data = shiftdim(data,1);
-pspdata = shiftdim(pspdata,1);
-irdata = shiftdim(irdata,1);
-abstime = shiftdim(abstime,1);
+ds.data = shiftdim(data,1);
+ds.pspdata = shiftdim(pspdata,1);
+ds.irdata = shiftdim(irdata,1);
+ds.srdata = shiftdim(srdata,1);
+ds.abstime = shiftdim(abstime,1);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function saveData(filename, varargin)
 % saves the analysis, either all traces [saveData(filename)]
 % or specific traces [saveData(filename,tracenums)]
 wait('Saving data...');
+if nargin > 1
+    d = getData(varargin{1});
+else
+    d = getData;
+end
 [data, time, abstime, info, pspdata, srdata, irdata, times]...
-    = getData(varargin{:});
+    = deal(d.data,d.time,d.abstime,d.info,d.pspdata,d.srdata,d.irdata,d.times);
 save(filename,'data','time','abstime','info','pspdata',...
     'srdata','irdata','times');
 wait(['Data saved in ' filename]);
