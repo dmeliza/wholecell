@@ -6,15 +6,17 @@ function fig = OpenParamFigure(module, params, close_callback)
 %
 % properties is a structure with the following fields:
 % s.description - a friendly string to put atop the list of params
-% s.fieldname.fieldtype - {'String', 'Value', 'List','External' or 'Fixed'}
+% s.fieldname.fieldtype - {'String', 'Value', 'List', or 'Fixed'}
 %            .description - String that describes field
 %            [.choices] - required for Lists
 %            [.value] - String or number that describes initial value
 %                       for lists, numbers are indices, and strings are selections
 %                       otherwise the value in wc is used
 %            [.units] - String describing units of the value
-%            [.callback] - required for Externals - which are represented by
-%                          a button (not implemented yet)
+%            [.callback] - if this is supplied for 'Value' or 'String',
+%                          altering the value in the field will call the callback
+%                          for fixed, a button will be created with the callback
+%                          
 
 % $Id$ 
 global wc
@@ -82,16 +84,16 @@ for i = 1:paramCount
         p_u = [w_fn + w_f + x_pad + x_pad, y + 1, w_units, 18];
         u = uicontrol(fig,'position',p_u,'style','text',...
             'String',s.units);
-    elseif strcmp(lower(s.fieldtype),'file_in')
-        p_u = [w_fn + w_f + x_pad + x_pad, y + 2, w_units/2, 18];
-        cb = @file_in_btn;
-        u = uicontrol(fig,'position',p_u,'style','pushbutton',...
-            'String','','Callback', {cb, module, name, s});        
     end
 %    p = [w_fn + x_pad, y, w_f + x_pad + w_units, h];
     if ~isfield(s,'value')
         wc_param = GetParam(module, name);
         s.value = wc_param.value;
+    end
+    % first deal with pre-defined custom types ('file_in')
+    switch lower(s.fieldtype)
+    case 'file_in'
+        s.callback = @file_in_btn;
     end
     switch lower(s.fieldtype)
     case {'string','value'}
@@ -101,6 +103,13 @@ for i = 1:paramCount
         st = {'style','popupmenu','string',s.choices,'BackgroundColor','white'};
     case {'fixed','file_in'}
         st = {'style','edit','enable','inactive'};
+        % create button if .callback is specified
+        if isfield(s,'callback')
+            p_u = [w_fn + w_f + x_pad + x_pad, y + 2, w_units/2, 18];
+            cb = s.callback;
+            u = uicontrol(fig,'position',p_u,'style','pushbutton',...
+                'String','','Callback', {cb, module, name, s});        
+        end        
     end
     t = [module '.' name];
     u = uicontrol(fig,'position',p,st{:},'tag', t,...
@@ -127,6 +136,7 @@ end
 
 function paramChanged(varargin)
 % when a parameter changes, we have to update the wc structure
+% and call the callback, if one is specified in the structure.
 mod = varargin{3};
 param = varargin{4};
 s = varargin{5};
@@ -134,6 +144,9 @@ s = varargin{5};
 h = varargin{1};
 v = getValue(h, lower(s.fieldtype));
 s = SetParam(mod, param, v);
+if isfield(s,'callback')
+    feval(s.callback, mod, param, s);
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%
 function v = getValue(h, fieldtype)
