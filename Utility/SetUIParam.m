@@ -17,12 +17,16 @@ module = lower(module);
 out = [];
 
 % find out if the object exists
-sfp = sprintf('isfield(wc.%s.handles,''%s'')',module,param);
-if (eval(sfp))
-    sf = sprintf('wc.%s.handles.%s', module, param);
-    set(eval(sf), field, value);
-    out = get(eval(sf), field);
+if (isfield(wc, module))
+    sfp = sprintf('isfield(wc.%s.handles,''%s'')',module,param);
+    if (eval(sfp))
+        sf = sprintf('wc.%s.handles.%s', module, param);
+        set(eval(sf), field, value);
+        out = get(eval(sf), field);
+    else
+        %disp(['no such field ' param ' in module ' module]);
+    end
 else
-    disp(['no such field ' param ' in module ' module]);
+    %disp(['module ' module ' has not been loaded']);
 end
     
