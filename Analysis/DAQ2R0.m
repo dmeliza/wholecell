@@ -3,7 +3,7 @@ function [out] = daq2r0(files, channels)
 % DAQ2R0: Reads in a list of daq files and generates an r0 structure
 % (this function supercedes the DAQ2MAT('stack') function)
 %
-% Usage: r0 = daq2r1(files,respchannel,syncchannel)
+% Usage: r0 = daq2r0(files, channels)
 %
 % files        - cell array of file names to be read in
 % channels     - index of the channels to keep
