@@ -9,12 +9,13 @@ function out = FrameShift(y, timing, window, option)
 % y         - Nx1 input vector
 % timing    - If a scalar, each row will be frame-shifted by a fixed amount
 % timings   - Mx1 vector defining the start points (indices) for each row
-% window    - J number of points per row
+% window    - J number of points per row, or [negwindow poswindow] to center around
+%             timings (not implemented)
 % option    - can be 'correct', in which case the baseline will be subtracted for each row
 %           - or 'correctstart', where the first value is subtracted for each row
 %           - or 'correctprev', where the correction value is the bin before the frame
 %
-% out       - MxN array
+% out       - MxJ array
 %
 % $Id$
 
