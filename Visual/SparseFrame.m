@@ -24,15 +24,21 @@ ON  = 3;
 NEU = 2;
 OFF = 1;
 
-val = (param > 0)*ON + (param==0)*NEU + (param < 0)*OFF;    % pick the value to assign
 
 if pixsize == 1                         % fast generate the simplest case
     Z        = repmat(NEU,dim);
-    Z(param) = val;
+    if param > 0
+        Z(param) = ON;
+    elseif param < 0
+        Z(-param) = OFF;
+    end
 else
     p       = pixsize - 1;
     sz      = dim + p;                  % correct for larger pixels
     Z       = repmat(NEU,sz);
+    if param == 0
+        return
+    end
     [i,j]   = ind2sub(dim,abs(param));  % convert to i,j indices
-    Z(i:i+p,j:j+p) = val;
+    Z(i:i+p,j:j+p) = (param > 0)*ON + (param < 0)*OFF;
 end
