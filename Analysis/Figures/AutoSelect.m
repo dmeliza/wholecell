@@ -104,8 +104,8 @@ for i = 1:length(sel)
     % only select IR values in post measurement interval
     pst_r   = mean(getFromInterval(Z(i).pst,field,POST_INTERVAL));
     shift_ir = pst_r / pre_r;        
-    thresh   = [1 - POST_IR, 1 + POST_IR];
     if ~isempty(POST_IR)
+        thresh   = [1/(1 - POST_IR), 1/(1 + POST_IR)];
         if shift_ir > thresh(1) | shift_ir < thresh(2)
             fprintf('%s/%s - rejected; IR bad (%3.2f %s %3.2f; %3.2f%%)\n',...
                 Z(i).rat,Z(i).cell,...
@@ -120,8 +120,8 @@ for i = 1:length(sel)
     % only select IR values in post measurement interval
     pst_r   = mean(getFromInterval(Z(i).pst,field,POST_INTERVAL));
     shift_sr = pst_r / pre_r;
-    thresh   = [1 - POST_SR, 1 + POST_SR];
     if ~isempty(POST_SR)
+        thresh   = [1/(1 - POST_SR), 1/(1 + POST_SR)];
         if shift_sr > thresh(1) | shift_sr < thresh(2)
             fprintf('%s/%s - rejected; SR bad (%3.2f %s %3.2f; %3.2f%%)\n',...
                 Z(i).rat,Z(i).cell,...
@@ -154,5 +154,5 @@ value = [];
 for j = 1:length(structure)
     t       = structure(j).time;
     ind     = find(t>=interval(1) & t<=interval(2));
-    value   = cat(1,value,structure(j).(field)
+    value   = cat(1,value,structure(j).(field))
 end
