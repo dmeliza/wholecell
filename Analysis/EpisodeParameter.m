@@ -58,6 +58,7 @@ end
 
 function [out, units] = compute(action, data, ind, units, dt)
 % Makes the calculations
+DEF_WIN = 0.001;        % default window to measure if a single mark, s
 out = [];
 switch lower(action)
 case 'none'
@@ -68,18 +69,22 @@ case {'amplitude','difference','-difference','slope','-slope'}
     % if four marks, 2nd value is mean of values between 2nd two
     switch length(ind)
     case 4
-        bs  = mean(data(ind(1):ind(2),:),1);
-        vl  = mean(data(ind(3):ind(4),:),1);
-        out = (vl - bs);
+        bsw = ind(1):ind(2);
+        v1w = ind(3):ind(4);
         dt  = dt * (ind(3) - ind(2));
     case 3
-        bs  = mean(data(ind(1):ind(2),:),1);
-        out = (data(ind(3),:) - bs);
+        bsw = ind(1):ind(2);
+        v1w = (ind(3)-fix(DEF_WIN/dt)):(ind(3)+fix(DEF_WIN/dt));
         dt  = dt * (ind(3) - ind(2));
     case 2
-        out = (diff(data(ind,:)));
+        bsw = (ind(1)-fix(DEF_WIN/dt)):(ind(1)+fix(DEF_WIN/dt));
+        v1w = (ind(2)-fix(DEF_WIN/dt)):(ind(2)+fix(DEF_WIN/dt));
         dt  = dt * (ind(2) - ind(1));
     end
+    bs  = mean(data(bsw,:),1);
+    vl  = mean(data(v1w,:),1);
+    out = (vl - bs);
+    
     switch lower(action)
     case '-difference'
         out = -out;
