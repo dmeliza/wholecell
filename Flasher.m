@@ -191,10 +191,15 @@ else
     z       = size(s.stimulus,3);
     % pick a random frame
     picks   = str2num(GetParam(me,'play_frames','value'));
-    if picks ~= 0
-        fnum    = picks(unidrnd(length(picks),1,1)) + 1;
-    else
-        fnum    = unidrnd(z-1,1,1) + 1;             % random frame > 1 (1 is the background)
+    fnum    = unidrnd(z-1,1,1) + 1;             % random frame > 1 (1 is the background)
+    % now we have to deal with the case where the user only wants certain images played
+    picks   = intersect(picks,1:z-1) + 1;           % if this is empty, keep the image
+    while ~isempty(picks)
+        if ismember(fnum,picks)
+            picks = [];                         % valid frame, exit loop
+        else
+            fnum = unidrnd(z-1,1,1) + 1;
+        end
     end
     % rescale and load the frame
     loadFrame(s,1,1);
