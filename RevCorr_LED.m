@@ -46,12 +46,11 @@ case {'init','reinit'}
 case 'start'
     setupHardware;
     setupScope;
-    SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
-    SetUIParam('scope','status','String','Not recording');
     llf = get(wc.ai,'LogFileName');
     [dir newdir] = fileparts(llf);
     set(wc.ai,'LogFileName',fullfile(dir, '0000.daq'));    
     startSweep;
+    SetUIParam('wholecell','status','String',get(wc.ai,'Running'));    
     
 case 'record'
     switch get(wc.ai,'Running')
@@ -60,19 +59,20 @@ case 'record'
     end
     setupHardware;
     setupScope;
-    SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
     llf = get(wc.ai,'LogFileName');
     [dir newdir] = fileparts(llf);
     s = mkdir(dir, newdir);
     set(wc.ai,'LogFileName',fullfile(dir,newdir, '0000.daq'));    
     set(wc.ai,{'LoggingMode','LogToDiskMode'}, {'Disk&Memory','Overwrite'});
     startSweep;
+    SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
     
 case 'stop'
-    stop([wc.ai wc.ao]);
+    ClearAO(wc.ao);
     if (isvalid(wc.ai))
-        set(wc.ai,'SamplesAcquiredAction','');
-        set(wc.ai,'TimerAction','');
+        stop(wc.ai);
+        set(wc.ai,'SamplesAcquiredAction',{});
+        set(wc.ai,'TimerAction',{});
         SetUIParam('wholecell','status','String',get(wc.ai,'Running'));        
         set(wc.ai,'LoggingMode','Memory');
         set(wc.ai,'LogFileName',NextDataFile);
@@ -137,7 +137,6 @@ function setupHardware()
 global wc
 display = @updateDisplay;
 analyze = @analyze;
-stop = @stopAO;
 sr = get(wc.ai, 'SampleRate');
 u_rate = GetParam(me,'d_rate','value');
 a_int = sr * GetParam(me,'a_int','value');
@@ -148,8 +147,9 @@ set(wc.ai,'TimerAction',{me,display})
 set(wc.ai,'SamplesAcquiredActionCount',a_int);
 set(wc.ai,'SamplesAcquiredAction',{me,analyze});
 set(wc.ai,'DataMissedAction',{me,'showerr'});
-set(wc.ao,'StopAction',{me,stop});
 set(wc.ai,'UserData',update);
+set([wc.ai wc.ao],'TriggerType','Manual');
+set(wc.ai,'ManualTriggerHwOn','Trigger');
 
 t_res = GetParam(me,'t_res','value');
 sr = 1000 / t_res ;
@@ -294,12 +294,3 @@ Scope('clear');
 %%%%%%%%%%%%%%%%%%%%%%%%5
 function showerr(obj, event)
 keyboard;
-
-%%%%%%%%%%%%%%%%%%%%%%%%%
-function stopAO(obj, event)
-% clears the state of the analog output object
-set(obj,'StopAction',{});
-c = get(obj,'Channel');
-putdata(obj,zeros(length(c)));
-start(obj);
-trigger(obj);
