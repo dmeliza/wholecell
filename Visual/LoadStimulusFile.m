@@ -32,22 +32,41 @@ catch
 end
 
 % Load Required Parameters
+[pn fn ext] = fileparts(filename);
 try
-    stimulus = getfield(stim,'stimulus');
-    [X Y T] = size(stimulus);
-    colmap = getfield(stim,'colmap');
-    [pn fn ext] = fileparts(filename);
-    str = sprintf('%d frames\n%d x %d x %d\n',T, X, Y, size(colmap,1));
+    switch lower(ext)
+    case '.s0'
+        stimulus = getfield(stim,'stimulus');
+        [X Y T] = size(stimulus);
+        colmap = getfield(stim,'colmap');
+        str = sprintf('s0: %d frames\n%d x %d x %d\n',T, X, Y, size(colmap,1));
+    case '.s1'
+        param   = getfield(stim,'param');
+        xres    = getfield(stim,'x_res');
+        yres    = getfield(stim,'y_res');
+        mfile   = getfield(stim,'mfile');
+        static  = getfield(stim,'static');
+        colmap  = getfield(stim,'colmap');
+        count   = size(unique(param,'rows'),1);
+        str     = sprintf('s1: %d frames\n%d x %d x %d\n %d inst %d params\n',...
+                          size(param,1),xres,yres,size(colmap,1),count,size(param,2));
+    otherwise
+        err     = 'Unknown stimulus type';
+    end
 catch
-    err = 'File lacks proper structure';
+    err  = 'File lacks proper structure';
+end
+
+if ~isempty(err)
+    stim = [];
+    str  = err;
+    return
 end
 
 % Load Optional Parameters
-if ~isempty(err)
-    str = err;
-elseif isfield(stim,'parameters')
+if strcmpi(ext,'.s0') & isfield(stim,'parameters')
     params = getfield(stim,'parameters');
-    count = size(unique(params,'rows'));
+    count = size(unique(params,'rows'),1);
     str = sprintf('%s%d params\n',str,count);
     str = str(1:end-1);
 end
