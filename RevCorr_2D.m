@@ -137,11 +137,11 @@ global wc;
     f_s = {'description','fieldtype','value'};
     f_l = {'description','fieldtype','value','choices'};
 
-    p.load_me = cell2struct({'if true reload stim before run','value',1},f_s,2);
     p.p1 = cell2struct({'Param 1','value',2,cb},f_sb,2);
     p.a_frames = cell2struct({'Stimulus Frames','value',1000,cb},f_sb,2);
     p.y_res = cell2struct({'Y Pixels','value',4,cb},f_sb,2);
     p.x_res = cell2struct({'X Pixels','value',4,cb},f_sb,2);
+    p.load_me = cell2struct({'if true reload stim before run','hidden',1},f_s,2);
 
     p.t_res = cell2struct({'Frame rate (1/x)', 'value', 2},f_s,2);
     p.repeat = cell2struct({'Repeats (0=inf)','value',1},f_s,2);
