@@ -20,6 +20,7 @@ function [results] = AutoAnalyzePlasticity(fid)
 %   .dirs       - 3x1 array with the INDICES of the dirs to use
 %   .t_pre      - Nx2 array of times specifying the onset and peak latency
 %   .t_post     - as with t_pre, but for post-induction
+%   .t_spike    - manually set the time of the spike
 %   .induced    - the index of the bar used for spatial induction
 %
 % $Id$
@@ -50,6 +51,9 @@ results         = [];
 if exist(LOCAL_CONTROL) ~= 0
     control     = load(LOCAL_CONTROL);
     fprintf(fid, '[%s] - loaded control file\n', LOCAL_CONTROL);
+    if isfield(control,'comment')
+        fprintf(fid,'[%s] - %s\n', LOCAL_CONTROL, control.comment);
+    end
 else
     control     = struct([]);
 end
@@ -172,10 +176,14 @@ end
 [pre,pst]   = feval(ANALYSIS_FN_RESP,dd{1},dd{3}, fid, control.t_pre, control.t_post);
 
 fprintf(fid, '----\n');
-if induced ~= -1
-    [t_post, var, n, spikes]       = feval(ANALYSIS_FN_SPIKE,dd{2}, fid);
+if isfield(control,'t_spike')
+    t_spike                         = control.t_spike;
+    fprintf(fid,'[%s] - spike timing %3.1f', LOCAL_CONTROL, t_spike * 1000);
+    [var, n, spikes]               = deal([]);
+elseif induced ~= -1
+    [t_spike, var, n, spikes]       = feval(ANALYSIS_FN_SPIKE,dd{2}, fid);
 else
-    [t_post, var, n, spikes]       = deal([]);
+    [t_spike, var, n, spikes]       = deal([]);
 end
 
 % now we plot and write data to disk, if the correct global variables are
@@ -185,8 +193,8 @@ if isempty(pst) | isempty(pre)
 end
 % generate the figures for each stimulus
 for i = 1:length(pre)
-    fig     = plotdata(pre(i),pst(i),t_post);
-    set(fig,'Name',sprintf('Stimulus %d',i));
+    fig     = plotdata(pre(i),pst(i),t_spike);
+    set(fig,'Name',sprintf('%s: Stimulus %d',pwd,i));
     if WRITE_FIGURES
         set(fig,'visible','on');
         fn  = sprintf('resp-%1.0f',i);
@@ -205,6 +213,7 @@ end
 if nargout > 0
     results = struct('pre',pre,...
                      'pst',pst,...
+                     't_spike',t_spike,...
                      'spikes',spikes,...
                      'pre_dir',dd{1},...
                      'pst_dir',dd{3},...
@@ -212,7 +221,7 @@ if nargout > 0
                      'induced',induced);
 end
 
-function figh   = plotdata(pre, pst, t_post)
+function figh   = plotdata(pre, pst, t_spike)
 % the summary figure for this plot is going to depend on whether the
 % stimulus was electrical or visual. For electrical stimulation, we'll
 % plot the response, sr, and ir as a function of trace start time.
@@ -266,21 +275,31 @@ title('Temporal RF')
 if ~isempty(tr1) & ~isempty(tr2)
     set(gca,'XTickLabel',[])
     ax      = subplot(4,3,6);
-    % this may break...
-    if length(tr1) > length(tr2)
-        d       = tr1(1:length(tr2)) - tr2;
-        h       = plot(pst.time_trace,d,'k');
-    else
-        d       = tr1 - tr2(1:length(tr1));
-        h       = plot(pre.time_trace,d,'k');
-    end
+    [tr_t, tr1, tr2]   = align(pre.time_trace, tr1, pst.time_trace, tr2);
+    h            = plot(tr_t, tr1 - tr2, 'k');
     
-    set(gca,'Xlim',xlim)
-    if ~isempty(t_post)
-        vline(t_post,'k:'),hline(0)
+    set(ax,'Xlim',xlim)
+    if ~isempty(t_spike)
+        vline(t_spike,'k:'),hline(0)
     end
 end
 xlabel('Time (s)')
+
+function [time, a, b] = align(time1, data1, time2, data2)
+start   = max([time1(1), time2(1)]);
+finish  = min([time1(end), time2(end)]);
+sel_1   = find(time1 >= start & time1 <= finish);
+sel_2   = find(time2 >= start & time2 <= finish);
+time    = time1(sel_1);
+a       = data1(sel_1);
+b       = data2(sel_2);
+% clip vector that's too long
+if length(a) > length(b)
+    a       = a(1:length(b));
+    time    = time2(sel_2);
+elseif length(b) > length(a)
+    b   = b(1:length(a));
+end
 
 
 function [] = plotTimeCourse(ax, pre_time, pre_data, pst_time, pst_data, binsize)
@@ -294,7 +313,8 @@ if nargin > 5
         [t,d,n,st]  = TimeBin(pre_time,pre_data,binsize);
         mn          = nanmean(d);
         h           = errorbar(t,d,st./sqrt(n),'k.');
-        h           = hline([mn * 1.3, mn * .7]);
+        %h           = hline([mn * 1.3, mn * .7]);
+        h           = hline([mn / 0.7, mn / 1.3]);
     end
 else
     if ~isempty(pst_time)

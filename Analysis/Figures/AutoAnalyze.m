@@ -10,7 +10,7 @@ function [] = AutoAnalyze(reportfilename)
 % in their directories
 global WRITE_PARAMETERS WRITE_FIGURES WRITE_RESULTS SKIP_COMPLETED
 
-WRITE_PARAMETERS = 0;    % if this is set, write .p0 files 
+WRITE_PARAMETERS = 1;    % if this is set, write .p0 files 
 WRITE_FIGURES    = 1;    % if this is set, write .fig files
 WRITE_RESULTS    = 1;    % if this is set, write .mat files
 SKIP_COMPLETED   = 0;    % if set, ignore directories with .fig files in them

@@ -101,17 +101,21 @@ function [] = printcomparison(fid,pre,pst,i)
 pre         = destruct(pre);
 pst         = destruct(pst);
 prefix      = sprintf('R%d:',i);
-if isempty(pre)
-    prefix  = sprintf('%s (post; %3.0f ms)', prefix, pst.t_peak*1000);
+if isempty(pre) & isempty(pst)
+    fprintf(fid,'%s No event detected.\n',prefix);
+elseif isempty(pre)
+    prefix  = sprintf('%s (post; %3.0f/%3.0f ms)', prefix, pst.t_onset*1000,...
+        pst.t_peak*1000);
     printresult(fid, prefix, pst.resp, pst.units);
     fprintf(' (%3.1f %s)\n', pst.time(end) - pst.time(1), 'min');
 elseif isempty(pst)
-    prefix  = sprintf('%s (pre; %3.0f ms)', prefix, pre.t_peak*1000);
+    prefix  = sprintf('%s (pre; %3.0f/%3.0f ms)', prefix, pre.t_onset*1000,...
+        pre.t_peak*1000);
     printresult(fid, prefix, pre.resp, pre.units);
     fprintf(' (%3.1f %s)\n', pre.time(end) - pre.time(1), 'min');    
 else
-    prefix  = sprintf('%s (%3.0f -> %3.0f ms)', prefix,...
-        pre.t_peak*1000, pst.t_peak*1000);
+    prefix  = sprintf('%s (%3.0f/%3.0f -> %3.0f/%3.0f ms)', prefix,...
+        pre.t_onset*1000, pre.t_peak*1000, pst.t_onset*1000,pst.t_peak*1000);
     printdifference(fid, prefix, pre.resp, pst.resp, pre.units);
     fprintf(fid,' (%3.1f ; %3.1f %s)\n',...
         pre.time(end) - pre.time(1),...

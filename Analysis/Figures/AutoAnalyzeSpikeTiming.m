@@ -19,6 +19,7 @@ WINDOW_RESP     = 0.5;      % no data past this is analyzed for the response
 STIM_VISUAL     = 0.2;      % start time for visual stimulation
 THRESH_SPIKE    = 15;       % the threshhold for spike detection
 LENGTH_SPIKE    = [0.001 0.004];    % spikes in this length range (in seconds)
+MAX_SPIKE_TIME  = 0.150;    % maximum time interval between spike and event (sort of)
 DEBUG           = 0;
 
 error(nargchk(1,3,nargin));
@@ -95,7 +96,7 @@ thresh_step    = 0.5;
 % end
 % keyboard
 iter           = 1;
-itermax        = 4;
+itermax        = 5;
 domore         = 1;
 while domore
     spikes         = findspikes(clean_resp, thresh, LENGTH_SPIKE, R.t_rate);
@@ -104,7 +105,9 @@ while domore
         domore  = 0;
     elseif length(nspikes) >= itermax
         if all(diff(nspikes(end-itermax+1:end)) == 0)
-            domore = 0;
+            if nspikes(end) ~= 0
+                domore = 0;
+            end
         end
     end
     if domore
@@ -118,14 +121,19 @@ THRESH_SPIKE    = thresh;
 if ~any(sptime)
     fprintf(fid,'Spike timing: no spikes detected (thresh = %2.1f).\n',THRESH_SPIKE);
     med         = [];
-    var         = [];
+    sigma       = [];
     n           = [];
+    sptimes     = [];
 else
     timepdf     = full(sum(spikes,2));
     sptimes     = time(sptime);
     
     mu          = mean(sptimes);
+    % calculate this in two cycles to only get spikes within a reasonable
+    % distance from the event
     med         = median(sptimes);
+    sp_pick     = sptimes>=med-MAX_SPIKE_TIME & sptimes<=med+MAX_SPIKE_TIME;
+    med         = median(sptimes(sp_pick));
     sigma       = std(sptimes);
     n           = length(sptimes);
     fprintf(fid,'Spike timing: %3.2f +/- %3.2f (n = %d, thresh = %2.1f)\n',...
@@ -134,7 +142,8 @@ else
     % plot some more debug info:
     % raw responses
     subplot(2,1,1)
-    vline(med,'k')
+    h   = vline(med,'k');
+    set(h,'linewidth',2);
     % filtered traces with detected spikes
     subplot(2,1,2)
     cdf     = cumsum(timepdf);
