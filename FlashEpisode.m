@@ -73,6 +73,7 @@ end
 switch action
 
 case {'init','reinit'}
+    CGDisplay(action)
     p = defaultParams;
     fig = ParamFigure(me, p);
     Scope('init');
@@ -145,7 +146,7 @@ p.vis_len = cell2struct({'Visual Length','value', 300, 'ms'},f,2);
 p.vis_delay = cell2struct({'Visual Delay','value', 200, 'ms'},f,2);
 p.vis_image = cell2struct({'Visual Image','fixed','',loadStim},...
     {'description','fieldtype','value','callback'},2);
-p.vis_disp = cell2struct({'Display', 'value', 2},f_s,2);
+%p.vis_disp = cell2struct({'Display', 'value', 2},f_s,2);
 p.sync_val = cell2struct({'Sync Voltage','value',2,'V'},f,2);
 p.sync_c = cell2struct({'Sync Channel','list',1,GetChannelList(wc.ai)},f_l,2);
 
@@ -161,25 +162,25 @@ p.input_channel = cell2struct({'Input','list',1,GetChannelList(wc.ai)},f_l,2);
 function setupHardware()
 % Sets up the hardware for this mode of acquisition
 global wc
-display = @updateDisplay;
+display  = @updateDisplay;
 % reset display
 setupVisual;
 % acq params
-sr = get(wc.ai, 'SampleRate');
-length = GetParam(me,'ep_length','value');
-len = length * sr / 1000;
+sr       = get(wc.ai, 'SampleRate');
+length   = GetParam(me,'ep_length','value');
+len      = length * sr / 1000;
 set(wc.ai,'SamplesPerTrigger',len)
 set(wc.ai,'SamplesAcquiredActionCount',len)
 set(wc.ai,'SamplesAcquiredAction',{me, display}) 
 set(wc.ai,'ManualTriggerHwOn','Start');
 set(wc.ao,'SampleRate', 1000)
 % hardware triggering:
-sync = GetParam(me,'sync_c','value');
-sync_v = GetParam(me,'sync_val','value');
+sync     = GetParam(me,'sync_c','value');
+sync_v   = GetParam(me,'sync_val','value');
 sync_off = GetParam(me,'vis_delay','value') / 1000;
-curr = getsample(wc.ai);
-curr = curr(sync); % current value of sync detector
-ao_sync = @aoTrigger;
+curr     = getsample(wc.ai);
+curr     = curr(sync); % current value of sync detector
+ao_sync  = @aoTrigger;
 set(wc.ai,'TriggerDelayUnits','seconds');
 set(wc.ai,'TriggerDelay',-sync_off);
 set(wc.ai,'TriggerType','Software');
@@ -189,17 +190,12 @@ set(wc.ai,'TriggerChannel',wc.ai.Channel(sync));
 set(wc.ai,'TriggerAction',{me,ao_sync});
 
 function setupVisual()
-% visual output: the stimulus file has four fields:
-% xres, yres - the dimensions of the image
-% stim - the values for each pixel
-% colmap - the colormap
-disp = GetParam(me,'vis_disp','value');
-cgloadlib;
-cogstd('spriority','high');
-cgshut;
-cgopen(5,8,85,disp);
+% visual output: loads a .s0 file into video memory
 stimfile = GetParam(me,'vis_image','value');
-s = load(stimfile);
+[s st]   = LoadStimulusFile(stimfile);
+if isempty(st)
+    error(st)
+end
 cgcoltab(0,s.colmap);
 cgnewpal;
 cgloadarray(1,s.xres,s.yres,s.stim,s.colmap,0);
@@ -212,57 +208,47 @@ function queueStimulus()
 % visual delay.
 global wc
 
-len = GetParam(me,'ep_length','value'); %ms
-trigger_delay = GetParam(me,'vis_delay','value'); %ms
-dt = 1000 / get(wc.ao,'SampleRate'); %ms/sample
-len = len - trigger_delay;
-p = zeros(len / dt, length(wc.ao.Channel));
+len         = GetParam(me,'ep_length','value');                 %ms
+trig_delay  = GetParam(me,'vis_delay','value');                 %ms
+dt          = 1000 / get(wc.ao,'SampleRate');                   %ms/sample
+len         = len - trig_delay;
+p           = zeros(len / dt, length(wc.ao.Channel));
 % stimulator
-ch = GetParam(me,'stim_channel','value');
-del = (GetParam(me,'stim_delay','value') - trigger_delay) / dt; %samples
-i = del+1:(del+ GetParam(me,'stim_len','value'));
-p(i,ch) = GetParam(me,'stim_gain','value');
+ch          = GetParam(me,'stim_channel','value');
+del         = (GetParam(me,'stim_delay','value') - trig_delay) / dt; %samples
+i           = del+1:(del+ GetParam(me,'stim_len','value'));
+p(i,ch)     = GetParam(me,'stim_gain','value');
 % injection
-ch = GetParam(me,'inj_channel','value'); 
-del = (GetParam(me,'inj_delay','value') - trigger_delay) / dt; %samples
-dur = GetParam(me,'inj_length','value') / dt; %samples
-gain = GetParam(me,'inj_gain','value');
-i = del+1:del+dur;
-p(i,ch) = gain;
+ch          = GetParam(me,'inj_channel','value'); 
+del         = (GetParam(me,'inj_delay','value') - trig_delay) / dt; %samples
+dur         = GetParam(me,'inj_length','value') / dt;               %samples
+gain        = GetParam(me,'inj_gain','value');
+i           = del+1:del+dur;
+p(i,ch)     = gain;
 putdata(wc.ao,p);
 % visual: setup event callback and load the flash frame into video memory
-stim_off = @imageOff;
-gprimd = cggetdata('gpd');
-cgdrawsprite(1,0,0, gprimd.PixWidth, gprimd.PixHeight)
-dur = GetParam(me,'vis_len','value') / 1000; % s
+stim_off    = @imageOff;
+[x y pw ph] = CGDisplay_Position;
+cgdrawsprite(1, x, y, pw, ph)
+dur         = GetParam(me,'vis_len','value') / 1000; % s
 set(wc.ai,'TimerPeriod', dur);
 set(wc.ai,'TimerAction', {me,stim_off}); 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function loadStimulus(varargin)
-mod = varargin{3};
-param = varargin{4};
-s = varargin{5};
-t = [mod '.' param];
-h = findobj(gcbf,'tag',t);
-v = get(h,'tooltipstring');
+mod         = varargin{3};
+param       = varargin{4};
+s           = varargin{5};
+t           = [mod '.' param];
+h           = findobj(gcbf,'tag',t);
+v           = get(h,'tooltipstring');
 [pn fn ext] = fileparts(v);
-[fn2 pn2] = uigetfile([pn filesep '*.mat']);
+[fn2 pn2]   = uigetfile([pn filesep '*.mat']);
 if ~isnumeric(fn2)
-    v = fullfile(pn2,fn2);
+    v       = fullfile(pn2,fn2);
     set(h,'string',fn2,'tooltipstring',v)
-    s = SetParam(mod, param, v);
+    s       = SetParam(mod, param, v);
 end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
-function stim = getStimulus(filename)
-% loads a mat file and returns the first (numeric) variable in the file
-d = load(filename);
-n = fieldnames(d);
-if length(n) < 1
-    error('No data in stimulus file');
-end
-stim = getfield(d,n{1});
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function imageOn()
