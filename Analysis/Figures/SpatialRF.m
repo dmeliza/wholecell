@@ -1,12 +1,24 @@
-function [rf, cm, rf_err, cm_err] = SpatialRF(files, peak)
+function [rf, cm, rf_err, cm_err, sigma] = SpatialRF(files, sigma)
 %
-% Computes the spatial portion of a receptive field. Basically this
-% consists of the amplitude of the EPSCs for each position, measured at the
-% time of the peak amplitude (of the strongest response).  The user needs
-% to determine this time by hand, as it's somewhat troublesome to do
-% algorithmically.
+% Computes the spatial portion of a receptive field. This involves picking
+% a window for analysis.  We can set this window to be broad or narrow,
+% with the disadvantage of narrow windows being that responses in different
+% areas of space peak at different times.  We have a choice of using the
+% maximum value of each response, or the mean value.  The second method
+% tends to improve the performance of weak but sustained functions.
 %
-% [rf, cm, rf_err, cm_err] = SPATIALRF(files, peak)
+% Further complications arise when setting the baseline.  Currently this is
+% done by measuring the mean and standard deviation of each response before
+% the stimulus appears, then excluding from analysis the parts of the
+% response that don't exceed some threshhold.  This works fairly well if
+% the noise is reasonably low/fast/periodic and the baseline is not
+% trending. When two RFs are being compared, the threshhold needs to be the
+% same for both RFs, or the RF with the lower noise (more trials) will
+% appear to have larger responses - very problematic with weak responses.
+% Thus, the user can set the sigma value of the baseline with an argument.
+%
+% USAGE:
+% [rf, cm, rf_err, cm_err, sigma] = SPATIALRF(files, sigma)
 %
 % FILES can be a .mat file or a directory.  If a single file, it should
 % contain at least a .time and .data field.  The data field should be a
@@ -18,10 +30,11 @@ function [rf, cm, rf_err, cm_err] = SpatialRF(files, peak)
 %
 % RF is a 1xN vector, of which CM is the center of mass.  RF_ERR and
 % CM_ERR, if applicable, are 2xN and 2x1 vectors defining the 95%
-% confidence levels of RF and CM.
+% confidence levels of RF and CM. (currently, probably broken)
 %
-% The spatial RF is defined as the average of the 20 ms on either side of
-% the maximum response.
+% SIGMA, if supplied, is used to set the threshhold against which responses
+% are compared.  If not supplied, SIGMA is computed from the response
+% before time 0 and returned.
 %
 % $Id$
 global SPATIALRF_WIN RFWIN BASELINE_THRESH
@@ -34,6 +47,9 @@ NBOOT   = 1000;
 CI      = [2.5  97.5];      % confidence interval
 X       = [-47.25 -33.75 -20.25 -6.75];
 %X       = [];
+if nargin < 2
+    sigma = [];
+end
 
 type    = exist(files);
 if type==2
@@ -42,13 +58,13 @@ if type==2
     t   = double(A.time(win,:)) * 1000 - 200;
     a   = double(A.data(win,:));
     u   = A.units;
-    rf  = computeResponse(t,u,a);
-    %rf  = computeAmplitude(t,u,peak,a);
+    [rf,sigma]  = computeResponse(t,u,a,sigma);
     rfcm  = Centroid(rf);
     cm  = rfcm(1);
     rf_err  = [rf;rf];
     cm_err  = [cm;cm];
 else
+    % hideously broken as of 1.10, don't use
     [d,t,u]     = loadFiles(files);
     rf          = computeAmplitude(t,u,peak,d);
     % nonparametric bootstrap, split rf into columns first
@@ -64,7 +80,7 @@ else
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
-function rf = computeResponse(t, u, a)
+function [rf,sigma] = computeResponse(t, u, a, sigma)
 % Computes the size of the response by integrating over the points that
 % exceed some threshhold above the baseline.  We compute the properties of
 % the baseline over the points before the stimulus appears, then uses the
@@ -74,16 +90,30 @@ global BASELINE_THRESH
 % not sure what to do here for multiple trials, so this is probably broken
 i       = find(t<=0);
 mu      = mean(a(i,:,:),1);
-sigma   = std(a(i,:,:),0,1);
+if isempty(sigma)
+    sigma   = std(a(i,:,:),0,1);
+end
 % compute values of each point relative to threshhold (zero if below)
 val     = a(i(end)+1:end,:,:);
 thresh  = repmat(mu - sigma * BASELINE_THRESH, [size(val,1), 1, 1]);
 val     = (thresh - val) .* (val < thresh);
-rf      = mean(val,1);
-% rf      = sum(val,1);
-% % scale to meaningful units (pA * s)
-% dt      = mean(diff(t)) / 1000;
-% rf      = rf * dt;
+% and then we need to define a cutoff to avoid interference from other PSCs
+onset   = find(val > 0);
+onset   = min(min(ind2sub(size(val),onset)));
+dt      = mean(diff(t));
+m       = fix(onset + 180 / dt);
+if m > size(val,1)
+    m   = size(val,1);
+end
+% compute the maximum displacement from the baseline
+[rf,j]  = max(val(1:m,:));
+%rf      = mean(val,1);
+% some debugging code
+if 0
+    figure, plot(t,a);
+    hline(thresh(1,:),{'b:','g:','r:','c:'});
+    vline(t(j+i(end)),{'b:','g:','r:','c:'});
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function rf = computeAmplitude(t,u,peak,a)
