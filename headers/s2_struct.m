@@ -8,7 +8,7 @@ function [s, fields] = s2_struct()
 % m.colmap - the color mappings for each value in the stimulus 
 %            (Nx3 array, N == max(max(m.stimulus)))
 % m.stimulus - the movie, which should be an x_res by y_res by n_frames array of doubles
-% m.sequence - a row vector of indices into the stimulus field (0 is valid == blank)
+% m.sequence - a row vector of indices into the stimulus field (0 is not valid)
 %
 % Optional fields:
 %
