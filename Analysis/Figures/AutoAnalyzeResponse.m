@@ -132,14 +132,14 @@ elseif isempty(pre)
     printresult(fid, prefix, pst.(field), pst.([field '_units']));
     % compute slope of response
     [z, s]  = polyfit(pst.time, pst.(field),1);
-    fprintf(fid,' (%2.1f %s/%s) \n', z(1), pst.units, 'min');
+    fprintf(fid,' (%2.1f %s/%s) \n', z(1), pst.([field '_units']), 'min');
 elseif isempty(pst)
     prefix  = sprintf('%s (pre) [%3.0f/%3.0f ms]', prefix, pre.t_onset*1000,...
         pre.t_peak*1000);
     printresult(fid, prefix, pre.(field), pre.([field '_units']));
     % compute slope of response
     [z, s]  = polyfit(pre.time, pre.(field),1);
-    fprintf(fid,' (%2.1f %s/%s) \n', z(1), pre.units, 'min');
+    fprintf(fid,' (%2.1f %s/%s) \n', z(1), pre.([field '_units']), 'min');
 else
     prefix  = sprintf('%s [%1.0f/%1.0f %s %1.0f/%1.0f ms]', prefix,...
         pre.t_onset*1000, pre.t_peak*1000, ARR, pst.t_onset*1000,pst.t_peak*1000);
