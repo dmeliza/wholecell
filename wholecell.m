@@ -33,11 +33,13 @@ case 'setpath'
         rmpath([pwd filesep 'Utility']);
         rmpath([pwd filesep 'Analysis']);
         rmpath([pwd filesep 'Visual']);
+        rmpath([pwd filesep 'headers']);
         
         path(path,pwd);
         path(path,[pwd filesep 'Utility']);
         path(path,[pwd filesep 'Analysis']);
         path(path,[pwd filesep 'Visual']);
+        path(path,[pwd filesep 'headers']);
         disp('Set up path for wholecell.');
     end
     warning on;
