@@ -42,7 +42,7 @@ set(gca,'xlim',[1 movie.x_res],'ylim',[1 movie.y_res]);
 setpref('wholecell_PlayMovie','Running',1);
 for i = 1:frames
     Z    = feval(mfile,movie.static{:},param(i,:));
-    h    = imagesc(Z);
+    h    = image(Z);
     set(h,'buttondownfcn',stop);
     text(1.5,1.5,num2str(i))
     if ~getpref('wholecell_PlayMovie','Running')
