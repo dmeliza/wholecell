@@ -34,10 +34,16 @@ width   = 20;
 c       = 1;                              % state variable
 makesprite(length, width, angle, ScrDep); % initialize the first sprite
 step    = 2;
+dots    = [];                             % click locations
 
 while c
     % first draw the sprite
     [x,y,bs,bp]  = cgmouse;
+    if bs
+        dots = cat(1,dots,[x y]);
+    end
+    drawDots(dots)
+    cgpencol(1,1,1)
     drawInstructions(-ScrWid/2, ScrHgh/2 - 40);
     cgalign('c','c')
     cgdrawsprite(1,x,y)
@@ -60,6 +66,8 @@ while c
             length   = hmdim(length, -step);
         elseif ks(72)
             length   = hmdim(length, step);
+        elseif ks(46)
+            dots     = [];
         elseif ks(1)
             c        = 0;
         end
@@ -92,23 +100,24 @@ instr = {'Instructions:',...
          ' (dn)  = shorten',...
          '  >    = rotate CW',...
          '  <    = rotate CCW',...
+         '  c    = clear marks',...
          '  ESC  = exit'};
- step = -11;
- cgalign('l','t')
- for i = 1:length(instr)
+step = -11;
+cgalign('l','t')
+for i = 1:length(instr)
      cgtext(instr{i}, x, y);
      y = y + step;
- end
+end
 
-% cgtext('Instructions:', -ScrWid/2, ScrHgh/2 -20)
-% cgtext(' (rt)  = widen',, -ScrWid/2, ScrHgh/2 -20)
-% cgtext(' (lft) = narrow', -ScrWid/2, ScrHgh/2 -20)
-% cgtext(' (up)  = lengthen', -ScrWid/2, ScrHgh/2 -20)
-% cgtext(' (dn)  = shorten', -ScrWid/2, ScrHgh/2 -20)
-% cgtext('  >    = rotate CW', -ScrWid/2, ScrHgh/2 -20)
-% cgtext('  <    = rotate CCW', -ScrWid/2, ScrHgh/2 -20)
-% cgtext('  ESC  = exit', -ScrWid/2, ScrHgh/2 -20)
-
+function [] = drawDots(dots)
+% draws cute little red dots at all the supplied locations (Nx2 array)
+[rows cols] = size(dots);
+if cols == 2
+    cgpencol(1,0,0)
+    for i = 1:rows
+        cgellipse(dots(i,1),dots(i,2),5,5)
+    end
+end
 
 function [] = makesprite(length, width, angle, bpp)
 % generates the sprite for the bar and loads it into video memory
