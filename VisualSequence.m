@@ -103,7 +103,7 @@ global wc;
 %     p.a_frames = cell2struct({'Stimulus Frames','value',1000,cb},f_sb,2);
 %     p.y_res = cell2struct({'Y Pixels','value',4,cb},f_sb,2);
 %     p.x_res = cell2struct({'X Pixels','value',4,cb},f_sb,2);
-%     p.load_me = cell2struct({'if true reload stim before run','hidden',1},f_s,2);
+    p.load_me = cell2struct({'if true reload stim before run','hidden',1},f_s,2);
 
     p.analysis = cell2struct({'Analysis','file_in','',},f_s,2);
     p.t_res = cell2struct({'Frame rate (1/x)', 'value', 2},f_s,2);
@@ -191,26 +191,26 @@ end
 len  = size(stim.stimulus,3);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
-function stim = queueStimulus()
+function [] = queueStimulus()
 % Loads a "movie" in the form of sprites.  Once the sprites are loaded into
 % video memory they can be rapidly accessed.
-
-% reset display toolkit
-disp     = GetParam(me,'display','value');
-cgshut;
-cgopen(1,8,0,disp);
-% these parameters are only used if the movfile is an mfile
-a_frames = GetParam(me,'a_frames','value');
-x_res    = GetParam(me,'x_res','value');
-y_res    = GetParam(me,'y_res','value');
-p1       = GetParam(me,'p1','value');
-% run the mfile or load the .s0 file
 movfile  = GetParam(me,'stim','value');
-stim     = LoadMovie(movfile, x_res, y_res, a_frames, p1);
-SetUIParam('protocolcontrol','status','UserData',stim);
-CgQueueMovie(stim);
-SetParam(me,'load_me',0);
-
+if ~isempty(movfile)
+    % reset display toolkit
+    disp     = GetParam(me,'display','value');
+    cgshut;
+    cgopen(1,8,0,disp);
+    % these parameters are only used if the movfile is an mfile
+%     a_frames = GetParam(me,'a_frames','value');
+%     x_res    = GetParam(me,'x_res','value');
+%     y_res    = GetParam(me,'y_res','value');
+%     p1       = GetParam(me,'p1','value');
+    % run the mfile or load the .s0 file
+    stim     = LoadMovie(movfile);
+    SetUIParam('protocolcontrol','status','UserData',stim);
+    CgQueueMovie(stim);
+    SetParam(me,'load_me',0);
+end    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function pickStimulus(varargin)
 % callback for the stimulus field, allows user to select
@@ -222,19 +222,24 @@ t           = [mod '.' param];
 h           = findobj(gcbf,'tag',t);
 v           = get(h,'tooltipstring');           % this is the file to load
 [pn fn ext] = fileparts(v);
-[fn2 pn2]   = uigetfile({[pn filesep '*.m'],'MFiles (*.m)';...
-                         [pn filesep '*.s0'],'Stimulus Files (*.s0)';...
-                         [pn filesep '*.*'],'All Files (*.*)'});
+od          = pwd;
+if ~isempty(pn)
+    cd(pn)
+end
+[fn2 pn2]   = uigetfile({'*.m;*.s0','Stimulus Files (*.m,*.s0)';...
+%                         '*.s0','Stimulus Files (*.s0)';...
+                         '*.*','All Files (*.*)'});
+cd(od)                 
 if ~isnumeric(fn2)
     v       = fullfile(pn2,fn2);
     set(h,'string',fn2,'tooltipstring',v)
     s       = SetParam(mod, param, v);
 end
-stim        = queueStimulus;
-SetParam(me,'x_res',stim.x_res);
-SetParam(me,'y_res',stim.y_res);
-SetParam(me,'a_frames',size(stim.stimulus,3));
-ParamFigure(me);
+queueStimulus;
+% SetParam(me,'x_res',stim.x_res);
+% SetParam(me,'y_res',stim.y_res);
+% SetParam(me,'a_frames',size(stim.stimulus,3));
+% ParamFigure(me);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function clearDAQ()
