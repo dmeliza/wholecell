@@ -26,7 +26,7 @@ function [h1_est] = danlab_revcor(u,y,lags,Fs,options)
 
 %%%%%%%%%%%% SETTINGS %%%%%%%%%%%
 MEX_CODE = 1;       % Use Mex Code When Multipying Matrices (Uses Less Memory) [1 = yes, 0 = no]
-PLOT_RESULT = 1;    % Plot Estimated Kernel [1 = yes, 0 = no]
+PLOT_RESULT = 0;    % Plot Estimated Kernel [1 = yes, 0 = no]
 
 %%% Check Input Arguments %%%
 if nargin < 3
