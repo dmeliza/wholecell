@@ -55,6 +55,14 @@ function varargout = FlashEpisode(varargin)
 % frame rate (e.g. 200, 300, 400 ms for 60 Hz).  If you want a 300 ms flash, pick
 % 292 ms (300 ms minus half the frame rate)
 %
+% 1.21:
+% Some changes implemented in order to take advantage of TTL triggering.  On the one
+% hand, TTL signals can be used to trigger both analog input and output, allowing everything
+% to be nicely synchronized; on the other, no preacquisition is available with hardware
+% triggers, so we have to implement this manually by sending a signal to the photocell
+% when we want acquisition to actually start.  We're still using pause() calls, which can
+% be jittery.
+%
 % $Id$
 
 global wc
@@ -147,7 +155,6 @@ p.vis_len     = cell2struct({'Visual Length','value', 300, 'ms'},f,2);
 p.vis_delay   = cell2struct({'Visual Delay','value', 200, 'ms'},f,2);
 p.vis_image   = cell2struct({'Visual Image','fixed','',loadStim},...
                             {'description','fieldtype','value','callback'},2);
-p.sync_val    = cell2struct({'Sync Voltage','value',2,'V'},f,2);
 p.sync_c      = cell2struct({'Sync Channel','list',1,GetChannelList(wc.ai)},f_l,2);
 
 p.stim_len      = cell2struct({'Stim Length','value', 300, 'ms'},f,2);
@@ -172,22 +179,11 @@ len      = length * sr / 1000;
 set(wc.ai,'SamplesPerTrigger',len)
 set(wc.ai,'SamplesAcquiredActionCount',len)
 set(wc.ai,'SamplesAcquiredAction',{me, display}) 
-set(wc.ai,'ManualTriggerHwOn','Start');
+set(wc.ai,'ManualTriggerHwOn','Start')
 set(wc.ao,'SampleRate', 1000)
-% hardware triggering:
-sync     = GetParam(me,'sync_c','value');
-sync_v   = GetParam(me,'sync_val','value');
-sync_off = GetParam(me,'vis_delay','value') / 1000;
-curr     = getsample(wc.ai);
-curr     = curr(sync); % current value of sync detector
-ao_sync  = @aoTrigger;
-set(wc.ai,'TriggerDelayUnits','seconds');
-set(wc.ai,'TriggerDelay',-sync_off);
-set(wc.ai,'TriggerType','Software');
-set(wc.ai,'TriggerCondition','Rising');
-set(wc.ai,'TriggerConditionValue',curr+sync_v);
-set(wc.ai,'TriggerChannel',wc.ai.Channel(sync));
-set(wc.ai,'TriggerAction',{me,ao_sync});
+% hardware triggering via TTL to PFI0 and PFI6
+set(wc.ai,'TriggerDelay',0)
+set([wc.ai wc.ao], 'TriggerType','HwDigital')
 
 function setupVisual()
 % visual output: loads a .s0 file into video memory
@@ -209,34 +205,23 @@ function queueStimulus()
 global wc
 
 len         = GetParam(me,'ep_length','value');                 %ms
-trig_delay  = GetParam(me,'vis_delay','value');                 %ms
+%trig_delay  = GetParam(me,'vis_delay','value');                 %ms
 dt          = 1000 / get(wc.ao,'SampleRate');                   %ms/sample
-len         = len - trig_delay;
+%len         = len - trig_delay;
 p           = zeros(len / dt, length(wc.ao.Channel));
 % stimulator
 ch          = GetParam(me,'stim_channel','value');
-del         = (GetParam(me,'stim_delay','value') - trig_delay) / dt; %samples
+del         = GetParam(me,'stim_delay','value') / dt; %samples
 i           = del+1:(del+ GetParam(me,'stim_len','value'));
 p(i,ch)     = GetParam(me,'stim_gain','value');
 % injection
 ch          = GetParam(me,'inj_channel','value'); 
-del         = (GetParam(me,'inj_delay','value') - trig_delay) / dt; %samples
+del         = GetParam(me,'inj_delay','value') / dt; %samples
 dur         = GetParam(me,'inj_length','value') / dt;               %samples
 gain        = GetParam(me,'inj_gain','value');
 i           = del+1:del+dur;
 p(i,ch)     = gain;
 putdata(wc.ao,p);
-% visual: setup event callback and load the flash frame into video memory
-stim_off    = @imageOff;
-[x y pw ph] = CGDisplay_Position;
-cgdrawsprite(1, x, y, pw, ph)
-cgrect(-320,-240,100,100,[1,1,1])
-% code like this would be used if we wanted to use the DAQ timer instead
-% of pause().  This is not as reliable as it might sound, because
-% there is no guarantee of the TimerAction actually being called.
-% dur         = GetParam(me,'vis_len','value') / 1000 % s
-% set(wc.ai,'TimerPeriod', dur);
-% set(wc.ai,'TimerAction', {me,stim_off}); 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%55555
 function startSweep()
@@ -260,7 +245,7 @@ t           = [mod '.' param];
 h           = findobj(gcbf,'tag',t);
 v           = get(h,'tooltipstring');
 [pn fn ext] = fileparts(v);
-[fn2 pn2]   = uigetfile([pn filesep '*.mat']);
+[fn2 pn2]   = uigetfile([pn filesep '*.s0']);
 if ~isnumeric(fn2)
     v       = fullfile(pn2,fn2);
     set(h,'string',fn2,'tooltipstring',v)
@@ -269,27 +254,29 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function imageOn()
+% handles display of triggering rectangle and stimulus
 % gets called for each episode. waits delay and flips
 % display for duration (which is what triggers acquisition)
 del = GetParam(me,'vis_delay','value'); % ms
 dur = GetParam(me,'vis_len','value') / 1000;
+[x y pw ph] = CGDisplay_Position;
+% displays sync rectangle & pause
+cgrect(-320,-240,100,100,[1,1,1])
+cgflip(0,0,0)       
 pause(del/1000)
+% display frame
+cgdrawsprite(1, x, y, pw, ph)
+cgrect(-320,-240,100,100,[0,0,0])
 cgflip(0,0,0)
+% remove stimulus
 pause(dur)
+cgrect(-320,-240,100,100,[1,1,1])
 cgflip(0,0,0)
-
-function imageOff(obj,event)
-% turns off stimulus
-cgflip(0);
-set(obj,'TimerAction',{});
-
-function aoTrigger(obj,event)
-% triggers the analog output
-global wc
-trigger(wc.ao);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function updateDisplay(obj, event)
+% clear the stimulus display
+cgflip(0,0,0)
 % plots and analyzes the data
 [data, time, abstime] = getdata(obj);
 plotData(data, time, abstime);
