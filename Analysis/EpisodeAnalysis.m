@@ -20,7 +20,7 @@ function [] = EpisodeAnalysis()
 %
 % 
 % A second major change is designed to speed up the display of data.  Normally the user
-% will be presented by an average trace, while analysis functions will operate on single
+% will be presented with an average trace, while analysis functions will operate on single
 % sweeps.  The final results will be binned at whatever rate the user specifies.  Binning
 % will only function over the final output of the analysis filters, reducing the amount of
 % computation time used for displaying binned traces.
@@ -52,8 +52,6 @@ h = uicontrol(gcf,'style','frame','backgroundcolor',BG,'position',[10 430 200 80
 h = InitUIControl(me,'files','style','list',...
     'Callback',cb.pickfiles,'Max',2,...
     'position',[20 440 180 60],'backgroundcolor',BG);
-% Frame 0.5: Trace information
-% h = uicontrol(gcf,'style','frame','backgroundcolor',BG,'position',[255 430 480 80]);
 % Frame 1: Trace selection
 h = uicontrol(gcf, 'style', 'frame','backgroundcolor',BG,'position',[10 155 200 270]);
 h = uicontrol(gcf, 'style','text','backgroundcolor',BG,'position',[25 395 160 20],...
@@ -85,6 +83,7 @@ h = InitUIControl(me,'parametername','style','edit','Callback',cb.editparameter,
     'enable','off');
 h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[20 30 40 20],...
     'horizontalalignment','left','String','Action:');
+% These are the available parameter types:
 t = {'none','amplitude','difference','-difference','slope','mean'};
 h = InitUIControl(me,'parameteraction','style','popup','Callback',cb.editparameter,...
     'position', [100 35 100 20],'backgroundcolor',BG,'String',t,'enable','off');
@@ -127,7 +126,6 @@ m    = uimenu(op, 'Label', '&Filter...', 'Callback', cb.menu, 'tag', 'm_filter')
 m    = uimenu(op, 'Label', '&Trace Properties...', 'Callback', cb.menu, 'tag', 'm_traceprop');
 
 % toolbar:
-
 z   = load('gui_icons');
 f   = {'ClickedCallback','ToolTip','CData','Tag'};
 
@@ -170,7 +168,6 @@ setappdata(gcf,'dir',pwd)       % current directory
 setappdata(gcf,'r0',[])         % response file
 setappdata(gcf,'parameters',[]) % parameter data
 setappdata(gcf,'param_handles',[])
-setappdata(gcf,'param_mark_handles',[]);
 setappdata(gcf,'ds',[]);        % dataselector
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -460,10 +457,7 @@ case 'm_export'
             results = p;
             save(fullfile(pn,fn),'results')
         case '.csv'
-            % store in columns. no easy way to provide column headers
-            res = cat(1,p.results);
-            d   = [r0.abstime' res'];
-            csvwrite(fullfile(pn,fn),d);
+            csvWriteResults(fullfile(pn,fn),p);
         end
         SetUIParam(me,'status','String',sprintf('Wrote results to %s',fn));
     end
@@ -851,7 +845,76 @@ if ~isempty(ds)
     if lbl & ~isempty(str)
         legend(h,str);
     end
-end 
+end
+
+function [] = csvWriteResults(filename, p)
+% writes the results structure to a csv file.  Because CSVWRITE is
+% pretty inflexible we have to do this by hand.  The timing data is
+% merged into a single column, while each parameter is given a set of
+% columns for each of the datasets
+n       = length(p);
+m       = length(p(1).results);
+r       = [p.results];
+t       = {p(1).results.abstime};       % cell array of column vectors (m)
+d       = {r.value};                    % cell array of column vectors (n * m)
+ind     = reshape(1:prod([n m]),n,m);   % rows index datasets, columns parameters
+% now generate a sparse array that we will resort
+nzmax       = sum(cellfun('prodofsize',d));
+at          = cat(1,t{:});
+s           = spalloc(length(at),prod([n m]),nzmax);
+ct          = 0;
+for i = 1:m
+    toff    = 1;
+    for j = 1:n
+        ct  = ct + 1;
+        v   = fixzeros(d{ind(j,i)});    % we have to fix any zero values or they will
+                                        % be lost in the sparse array
+        len = length(v) - 1;
+        s(toff:toff+len,ct) = v(:);
+        toff = toff + len + 1;
+    end
+end
+% now sort the time offsets
+[t,i,j] = unique(at);
+if length(i)==length(j)
+    v       = s(i,:);       % this works if no time values are shared between datasets
+else
+    % hand-sort
+    v   = spalloc(length(t),prod([n m]),nnz(s));
+    for z = 1:length(t)
+        zz      = find(j==z);       % all rows which correspond to time t(z)
+        v(z,:)  = sum(s(zz,:),1);   % this should work b/c only one row has a value
+    end
+end
+% now write the data
+%fid = 1;           % debug to stdout
+fid = fopen(filename,'wt');
+fprintf(fid,'%s','Time (min)');
+% generate column headers
+for i = 1:n
+    for j = 1:m
+        fprintf(fid,',%s: %s (%s)', p(i).name, p(i).results(j).fn, p(i).results(j).units);
+    end
+end
+fprintf(fid,'\n');
+% output csv data
+for i = 1:length(t)
+    fprintf(fid,'%f',t(i));
+    for j = 1:prod([n m])
+        val = v(i,j);
+        if val
+            fprintf(fid,',%f',val);
+        else
+            fprintf(fid,',');
+        end
+    end
+    fprintf(fid,'\n');
+end
+fclose(fid);
+
+function d = fixzeros(d)
+% removes zeros by adding 1e-9 to them
+d   = d + (d == 0) * 1e-9;
 
 function out = me()
 out = mfilename;
