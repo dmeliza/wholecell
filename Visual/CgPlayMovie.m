@@ -35,8 +35,7 @@ end
 a_frames = a_pix * frate;
 
 % reset timing data and clear screen
-timing = zeros(a_frames,1);
-frame = 1;
+timing = zeros(a_pix,frate);
 sync = 1;
 cgflip(0);
 cgflip(0);
@@ -50,13 +49,14 @@ end
 sr = (syncrect + [-1 -1 0 0]) .* [pw/2 ph/2 pw ph];
 if nargin < 3
     syncmap = [0 1];
+end
 % bombs away
 for i = 1:a_frames;
-    cgdrawsprite(frame+2,0,0, pw, ph)
-    cgrect(sr(1),sr(2),sr(3),sr(4),syncmap(sync+1))
-    if mod(i,frate) == 0
-        frame = frame + 1;
-        sync = ~sync;
+    for i = 1:frate
+        cgdrawsprite(frame,0,0, pw, ph);
+        cgrect(sr(1),sr(2),sr(3),sr(4),syncmap(sync+1));
+        timing(frame,i) = cgflip;
     end
-    timing(i) = cgflip;
 end
+cgflip(0);
+cgflip(0);
