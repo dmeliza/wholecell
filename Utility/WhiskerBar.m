@@ -36,13 +36,15 @@ hold on
 for i = 1:length(h1)
     xdata   = get(h1(i),'XData');
     xc      = mean(xdata,1);        % each column is a bar
-    h       = errorbar(xc, Y(:,i), YCI_L(:,i), YCI_U(:,i));
-    set(h(2),'LineStyle','none');       % kill the tee
-    h2       = [h2,h(1)];
+    hh       = errorbar(xc, Y(:,i), YCI_L(:,i), YCI_U(:,i));
+    delete(hh(2));                  % kill the connectors
+    h2       = [h2,hh(1)];
 end
 
 set(h2,'Color',ec,'LineWidth',2);
 hold off
 
-h   = [h1;h2];
+if nargout > 0
+    h   = [h1;h2];
+end
 
