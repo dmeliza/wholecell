@@ -250,8 +250,22 @@ set(lbl,'String',[get(amp, 'ChannelName') ' (' get(amp,'Units') ')']);
 function varargout = plotData(data, time, scope, index)
 % plots the data
 
-data = data(:,index);
+mode = GetParam('control.telegraph', 'mode');
+gain = GetParam('control.telegraph', 'gain');
+if ~isempty(mode)
+    units = TelegraphReader('units',mean(data(:,mode)));
+else
+    units = 'V';
+end
+if ~isempty(gain)
+    gain = TelegraphReader('gain',mean(data(:,gain)));
+else
+    gain = 1;
+end
+data = AutoGain(data(:,index), gain, units);
 plot(time * 1000, data, 'Parent', scope);
+lbl = get(scope,'YLabel');
+set(lbl,'String',['amplifier (' units ')']);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function clearPlot(axes)
