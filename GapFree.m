@@ -7,6 +7,7 @@ function varargout = GapFree(varargin)
 %
 %
 %
+%
 % $Id$
 global wc
 
