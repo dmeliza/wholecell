@@ -10,8 +10,8 @@ function [Z] = AutoSelect(matfile)
 
 % here are the criteria.  If empty, the criterion is ignored.
 % general
-ELECTRICAL      = 1;        % use electrical induction cells
-VISUAL          = 0;        % use visual induction cells
+ELECTRICAL      = 0;        % use electrical induction cells
+VISUAL          = 1;        % use visual induction cells
 CURRENTCLAMP    = 0;        % use current clamp cells
 % pre-induction (baseline)
 BASELINE_LENGTH = 5;        % minutes, minimum
@@ -60,7 +60,12 @@ sel = ones(size(Z));
 for i = 1:length(sel)
     % select the stimulus parameter to analyze:
     induced = Z(i).induced;
-    if induced == 0
+    if induced == -1
+        fprintf('%s/%s - rejected; unable to determine induction bar\n',...
+            Z(i).rat,Z(i).cell);
+        sel(i) = 0;
+        continue
+    elseif induced == 0
         induced = 1;
     end
     pre = Z(i).pre(induced);
@@ -145,6 +150,10 @@ for i = 1:length(sel)
     Z(i).pre_slope  = slope(1);
     Z(i).shift_ir   = shift_ir;
     Z(i).shift_sr   = shift_sr;
+    if ~isempty(Z(i).t_spike)
+        t_pre   = pre.(['t_' PRE_SPIKE_TIME]);
+        Z(i).spike_time = Z(i).t_spike - t_pre;
+    end
 end
 % now eliminate the failed experiments again
 Z   = Z(find(sel));
