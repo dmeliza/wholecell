@@ -91,11 +91,9 @@ if ~ishandle(scope)
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%
-function scrollplot(time, data, varargin)
-% when this callback is called, the scope plots the data in scrolling
-% mode.  eg: Scope('scroll',time,data,xlim), where xlim defines the
-% width of the graph.  Old data is not deleted, so we may have issues
-% if the graph runs too long.
+function scopeplot(time, data, varargin)
+% this callback does a scope-style plot of the data, moving data that
+% goes past the x limit of the graph to the beginning
 handler = @axesclick;
 handles = [];
 if nargin > 1
@@ -117,9 +115,12 @@ if ~isempty(handles)
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%
-function scopeplot(time, data, varargin)
-% this callback does a scope-style plot of the data, moving data that
-% goes past the x limit of the graph to the beginning
+function scrollplot(time, data, varargin)
+% when this callback is called, the scope plots the data in scrolling
+% mode.  eg: Scope('scroll',time,data,xlim), where xlim defines the
+% width of the graph.  Old data is not deleted, so we may have issues
+% if the graph runs too long.
+
 handler = @axesclick;
 scope = getScopeHandle(me);
 k = get(scope,'UserData');

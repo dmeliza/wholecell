@@ -214,7 +214,7 @@ lbl = get(scope,'YLabel');
 set(lbl,'String',['amplifier (' units ')']);
 % plot the data and average response
 data = AutoGain(data(:,index), gain, units);
-Scope('scopeplot',time * 1000, data);
+Scope('scroll',time * 1000, data);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function clearPlot(axes)

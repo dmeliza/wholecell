@@ -102,15 +102,9 @@ set(lbl,'String',[get(amp, 'ChannelName') ' (' get(amp,'Units') ')']);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function varargout = plotData(data, time, index)
-% Handles data plotting and scrolling.  There are two tasks to take care of:
-%1: if a plot crosses XLim, it needs to be broken in two and the part that crosses plotted at 0
-%2: if a plot overlaps with another plot, the prior plot needs to be deleted
-%   Because all plots are the same length condition 2 can be detected at the endpoints.
-% finally, we have to keep track of where to plot things, so the endpoint of the last plot
-% is stored in wc.gapfree.offset
 global wc
 data = data(:,index);
-Scope('scopeplot', time * 1000, data);
+Scope('scroll', time * 1000, data);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function clearPlot(axes)
