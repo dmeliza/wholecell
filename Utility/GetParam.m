@@ -1,6 +1,6 @@
 function out = GetParam(module, param, varargin)
 % Accesses the contents of a non-GUI param
-% out = GetParam(module, param, ['value'])
+% out = GetParam(module, [param, ['value']])
 %
 %   module - the module in wc
 %   [param - the tag for the GUI object] (if not supplied, all params are returned)

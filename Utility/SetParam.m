@@ -1,9 +1,9 @@
 function out = SetParam(module, param, value)
 % Sets parameters of a module
 % 
-% OUT = SETUIPARAM(MODULE,PARAM,VALUE)
-% 		Sets the param to VALUE
-%       returns the actual value
+% OUT = SETPARAM(MODULE,PARAM,[VALUE])
+% 		If PARAM is a string, sets the param to VALUE
+%       If PARAM is a structure, sets MODULE's parameter structure to PARAM (not implemented)
 % 	
 %
 % adapted from exper, ZF MAINEN, CSHL, 8/00
