@@ -15,7 +15,7 @@ switch lower(action)
 case 'params'
     prompt = {'Passband (Hz)','Order'};
     if nargin > 1
-        def = struct2cell(data);
+        def = {num2str(data.pass),num2str(data.order)};
     else
         def = {'1','3'};
     end

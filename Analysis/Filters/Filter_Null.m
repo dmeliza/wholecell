@@ -23,7 +23,7 @@ switch lower(action)
 case 'params'
     prompt = {'Unused parameter #1'};
     if nargin > 1
-        def = struct2cell(data);
+        def = {num2str(data.param1)};
     else
         def = {'100'};
     end
