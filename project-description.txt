@@ -54,4 +54,9 @@ white noise (1D) and analysis
     
 Todo:
 
-fix episode protocol again
+find way to calculate input resistance, etc more precisely and robustly
+fix channel deletion
+document code
+fix reinitialization code
+fix telegraph code in revcorr_led + episode to display real values (or give choice to display raw voltages)
+get index of amp from param window (revcorr_led)
