@@ -679,13 +679,14 @@ nt      = sum(cellfun('length',abstime));   % # of traces
 [ns,ms] = max(cellfun('length',time));      % # of samples
 [nc,mc] = max(cellfun('size',data,3));      % # of channels
 cnames  = ds(mc).channels(ds(mc).chan);
+units   = ds(mc).units(ds(mc).chan);
 t       = time{ms};
 Fs      = 1 / mean(diff(double(t)));
 r0      = struct('data',zeros([ns nt nc]),'time',t,'abstime',zeros([1 nt]),...
-    't_rate',Fs,'y_unit',ds(fir).units,'start_time',ds(fir).start,...
+    't_rate',Fs,'y_unit',{units},'start_time',ds(fir).start,...
     'info',[],'channels',{cnames});
-% this loop is probably unneccessary but I want to keep sweeps with duplicate
-% abstimes
+% this loop adjusts the abstime data according to start time, and combines
+% the abstime and data cells into a single array.
 o       = 0;
 for i = 1:length(abstime)
     at  = abstime{i} + offmins(i);
@@ -697,8 +698,6 @@ end
 [r0.abstime, ind] = sort(r0.abstime);
 r0.data = r0.data(:,ind,:);
 
-
-% keyboard
 
 function [] = createparameter(window)
 % creates a new parameter defined over the time points supplied in the first
@@ -847,7 +846,7 @@ for i = 1:length(ds)
                 ats = sprintf('%3.1f', ds(i).abstime(1));
             end
             str{ct} = sprintf('%s:%s(%s) %s ', ds(i).fn, ds(i).channels{ds(i).chan(j)},...
-                      ds(i).units, ats);
+                      ds(i).units{ds(i).chan(j)}, ats);
         end
     end
 end
@@ -930,7 +929,7 @@ if ~isempty(ds)
         if length(res(i).abstime) > 1
             [z, s]  = polyfit(res(i).abstime, res(i).value,1);
             %h(i)    = line(X,polyval(z,X));
-            str{i}  = sprintf('%4.3f %s (%3.2f%%)', m, res(i).units, z(1) * 100);
+            str{i}  = sprintf('%3.2f %s (%2.1f /m)', m, res(i).units, z(1));
         else
             str{i} = sprintf('%4.3f %s', m, res(i).units);
         end

@@ -21,17 +21,16 @@ if isa(files,'char')
     files    = {files};
 end
 
-% first loop through the files to get sample lengths
-% it's very rare for an episode to be too long, and common for it to be
-% too short, so rather than look for the most common episode length
-% we just pick the longest episodes
+% first loop through the files to get sample lengths.  In most directories,
+% the most common length is going to be the correct one.
 for i = 1:length(files)
     info(i)  = GetDAQHeader(files{i});
 end
-lengths      = [info.samples];  % episode lengths
-[B,I,J]      = unique(lengths); % sort episode lengths
-B            = B(1);            % number of samples in the longest episodes
-ind          = find(J==1);      % indices of the longest episodes
+lengths      = [info.samples];                    % episode lengths
+tb           = tabulate(lengths(find(lengths)));  % have to call find to kill length==0
+[m,i]        = max(tb(:,2));                      % this is the mode
+B            = tb(i,1);
+ind          = find(lengths==B);
   
 % Initialize outputs
 out.data     = single(zeros([B, length(ind), length(channels)]));
@@ -41,19 +40,20 @@ out.time     = zeros([B 1]);
 for i = ind
     fn                   = files{i};
     if exist(fn) > 0
-        [dat, t, at]     = daqread(fn);
-        j                = info(i).amp;
-        units            = info(i).channels(j).Units;
-        if ~isempty(info(i).gain)
-            [dat(:,j), units] = ReadDAQScaled(dat, j, info(i).gain, info(i).mode, units);
-        end
-        fprintf('%s: %d x %d (%s)\n',fn, length(t), length(channels), units);
+        [dat, t, at, un] = ReadDAQScaled(fn, info(i));
+%         [dat, t, at]     = daqread(fn);
+%         j                = info(i).amp;
+%         units            = info(i).channels(j).Units;
+%         if ~isempty(info(i).gain)
+%             [dat(:,j), units] = ReadDAQScaled(dat, j, info(i).gain, info(i).mode, units);
+%         end
+        fprintf('%s: %d x %d (%s)\n',fn, length(t), length(channels), un{1});
         out.data(:,i,:)  = single(dat(:,channels));
         out.abstime(i,:) = at;
     end
 end
 out.time        = single(t);
-out.y_unit      = units;  %  this breaks the r0 spec if multiple channels are selected
+out.y_unit      = un(channels);
 [out.abstime,i] = reltimes(out.abstime);
 out.t_rate      = info(1).t_rate;
 out.data        = out.data(:,ind,:);

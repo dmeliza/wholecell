@@ -15,7 +15,7 @@ function out = EpisodeParameter(param, ds, bs)
 %          fn: 'daqdata-1.r0'
 %     channel: 'amplifier'
 %       start: [2004 4 1 16 11 25.8765]
-%       units: 'mV'
+%       units: {'mV'}
 %       color: [0.3077 1 0.7692]
 %     abstime: [1x51 double]
 %       value: [1x51 double]
@@ -41,7 +41,7 @@ for i = 1:length(ds)
     for j = 1:length(chan)
         c   = chan(j);
         [res, units] = compute(param.action, double(ds(i).data(:,:,j)),...
-                               ind, ds(i).units, dt);
+                               ind, ds(i).units(c), dt);
         ct  = ct + 1;
         out(ct) = struct('fn',ds(i).fn,'channel',ds(i).channels{c},...
                          'start',ds(i).start,'units',units,'color',ds(i).color(c,:),...
