@@ -102,6 +102,7 @@ case 'data_dir_callback'
     if (pn ~= 0)
         wc.control.data_dir = pn;
         wc.control.data_prefix = fn;
+        set(wc.ai,'LogFileName',NextDataFile);
     end
     cd(wc.control.base_dir);
     

@@ -1,3 +1,4 @@
+
 function d = LoadPrefs(varargin)
 % loads control information from a mat file
 % data = LoadPrefs([file])
@@ -14,3 +15,6 @@ end
 wc.control = d.data.control;
 wc.ai = d.data.ai;
 wc.ao = d.data.ao;
+if (isfield(wc.control,'data_dir'))
+    set(wc.ai,'LogFileName',NextDataFile);
+end

@@ -11,5 +11,5 @@ function out = NextDataFile()
 global wc
 
 d = datevec(now);
-out = sprintf('%s\\%s_%i_%i_%i_%i-%i-%02.0f',wc.control.data_dir,wc.control.data_prefix, d(:));
-%out = sprintf('%s\\%s_%i_%i_%i',wc.control.data_dir,wc.control.data_prefix, d(1:3));
+%out = sprintf('%s\\%s_%i_%i_%i_%i-%i-%02.0f',wc.control.data_dir,wc.control.data_prefix, d(:));
+out = sprintf('%s%s_%i_%i_%i-000',wc.control.data_dir,wc.control.data_prefix, d(1:3));

@@ -33,7 +33,7 @@ case 'record'
     end
     setupScope(wc.wholecell.handles.scope, wc.control.amplifier);
     setupHardware(wc.control.amplifier);
-    set(wc.ai,{'LoggingMode','LogToDiskMode','LogFileName'}, {'Disk&Memory','Overwrite',NextDataFile});
+    set(wc.ai,{'LoggingMode','LogToDiskMode'}, {'Disk&Memory','Index'});
     startAcquisition(wc.ai);
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
     
