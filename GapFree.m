@@ -49,6 +49,10 @@ case 'stop'
     end
     
 case 'sweep'
+    in = get(wc.ai,'SamplesAvailable');
+    out = get(wc.ao,'SamplesAvailable');
+    status = sprintf('in: %d / out: %d',in, out); 
+    SetUIParam('scope','status','String',status);    
     plotData(varargin{2}, varargin{3}, wc.control.amplifier.Index);
     
 otherwise
@@ -75,14 +79,13 @@ global wc
 
 daq = amp.Parent;
 sr = get(daq, 'SampleRate');
-update = fix(sr / 20); % update at 20 Hz
+update = fix(sr / 10); % update at 20 Hz
 set(daq,'SamplesPerTrigger',inf);
 set(daq,'SamplesAcquiredAction',{'SweepAcquired',me}) % calls SweepAcquired m-file, which deals with data
 set(daq,'SamplesAcquiredActionCount',update)
 set(daq,'StopAction','daqaction');
 % may need to turn ManualTriggerHwOn to Start, in which case we need to make sure we put it back
 set(daq,'UserData',update);
-wc.gapfree.offset = 0;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function varargout = setupScope(scope, amp);
@@ -111,19 +114,4 @@ Scope('scopeplot', time * 1000, data);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function clearPlot(axes)
-kids = get(axes, 'Children');
-delete(kids);
-
-%condition 2 now implemented by directly editing the datasets of the plot
-% k = get(scope,'Children');
-% if (isempty(k))
-%     plot(time, data, 'Parent', scope);
-% else
-%     t = get(k,'XData');
-%     y = get(k,'YData');
-%     o = find(t >= time(1));
-%     o = o(1):o(1)+length(time)-1;
-%     t(o) = time;
-%     y(o) = data;
-%     plot(t,y,'Parent',scope);
-% end
+Scope('clear');
