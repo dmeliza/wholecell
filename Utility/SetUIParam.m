@@ -21,8 +21,13 @@ if (isfield(wc, module))
     sfp = sprintf('isfield(wc.%s.handles,''%s'')',module,param);
     if (eval(sfp))
         sf = sprintf('wc.%s.handles.%s', module, param);
-        set(eval(sf), field, value);
-        out = get(eval(sf), field);
+        if (strcmp(field,'StringVal'))
+            set(eval(sf), 'String', num2str(value));
+            out = str2num(get(eval(sf), 'String'));
+        else
+            set(eval(sf), field, value);
+            out = get(eval(sf), field);
+        end
     else
         %disp(['no such field ' param ' in module ' module]);
     end

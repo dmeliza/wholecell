@@ -1,12 +1,13 @@
-function varargout = daq2mat(varargin)
+function [data,time,abstime,info] = daq2mat(varargin)
 % reads in all the daq files in a directory, sorts them by creation time, and
 % outputs a mat file containing the following variables:
 % data - MxN array of traces; traces arranged columnwise
 % time - Mx1 array of times corresponding to rows in data
 % abstime = 1XN array of time offsets corresponding to the start of each trace (sec)
+% info - a structure array of interesting property values (not implemented yet)
 %
-% void daq2mat([directory])
-% void daq2mat({directories})
+% [data,time,abstime,info] =  daq2mat([directory])
+% [data,time,abstime,info] =  daq2mat({directories})
 % $Id$
 
 oldpn = pwd;
@@ -24,8 +25,16 @@ end
 d = dir('*.daq');
 names = {d.name};
 
-% first find out what the shortest episode is.  we have to do this to
-% allow packing data into a matrix
+% load the info from the first file
+d = daqread(names{1},'info');
+c = d.ObjInfo.Channel(1);
+info.y_unit = c.Units;
+info.t_unit = 's';
+info.t_rate = d.ObjInfo.SampleRate;
+info.samples = d.ObjInfo.SamplesAcquired;
+disp(sprintf('File %s contains %i samples at %i /s', names{1} ,info.samples, info.t_rate));
+disp(sprintf('Units are in %s', info.y_unit));
+
 data = [];
 abstime = [];
 time = [];
@@ -39,10 +48,11 @@ for i = 1:length(names);
             time = t;
             data = [data,dat];
             abstime = [abstime;at];
-            disp(['Loaded trace from ' fn]);
+            disp(['Loaded ' num2str(length(time)) ' samples from ' fn]);
         end
     end
 end
+
 % now we have three arrays. rows in abstime correspond to columns
 % in data and time.  The first task is to convert the cell arrays
 % into matrices by finding the shortest episode [taken care of w/ daqread]
@@ -54,6 +64,6 @@ atv = datevec(at - at(1));
 abstime = atv(:,4)*60 + atv(:,5) + atv(:,6)/60;
 abstime = abstime';
 data = data(:,ind);
-save('daqdata.mat','data','time','abstime');
+save('daqdata.mat','data','time','abstime','info');
 disp('Wrote data to daqdata.mat');
 cd(oldpn);
