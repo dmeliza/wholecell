@@ -14,7 +14,7 @@ switch lower(action)
 case 'params'
     prompt = {'Bin Rate (n > 0)'};
     if nargin > 1
-        def = {num2str(data.param1)};
+        def = {num2str(data.binrate)};
     else
         def = {'100'};
     end

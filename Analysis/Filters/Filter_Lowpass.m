@@ -19,7 +19,7 @@ case 'params'
     else
         def = {'1000','3'};
     end
-    title   = 'Values for LowPass Filter (ignored)';
+    title   = 'Values for LowPass Filter';
     answer  = inputdlg(prompt,title,1,def);
     if isempty(answer)
         data = [];
@@ -54,4 +54,7 @@ end
 
 function [b,a] = makefilter(parameters, Fs)
 Wn      = parameters.pass/(Fs/2);
+if Wn >= 1
+    Wn = 0.999;
+end
 [b,a]   = butter(parameters.order,Wn);
