@@ -25,13 +25,18 @@ function [timing, avg] = Sync2Timing(sync)
 %
 % $Id$
 [r c] = size(sync);
-sq    = zeros([r c]);
-on    = find(sync > sync(1));
-sq(on) = 1;                     % square wave representing on and off states
-timing = find(diff(sq)>0);      % timing of transitions between on and off
-timing = interp(timing,2);      % interpolate OFF/ON transition times
-timing = timing(timing<=r);     % remove bad values
-avg = mean(diff(timing));       % the average frame rate
+% sq    = zeros([r c]);
+% on    = find(sync > sync(1));
+% sq(on) = 1;                     % square wave representing on and off states
+% timing = find(diff(sq)>0);      % timing of transitions between on and off
+% timing = interp(timing,2);      % interpolate OFF/ON transition times
+% timing = timing(timing<=r);     % remove bad values
+% avg = mean(diff(timing));       % the average frame rate
+d       = max(sync) - sync(1);
+ON      = sync > sync(1);         % rising phase of this signal is "appearance" of frame
+OFF     = sync < min(sync) + d;   % rising phase of this signal is "appearance" of next frame
+click   = diff(ON) > 0 | diff(OFF) > 0;
+timing  = find(click);
 
 function Y = interp(X, rate)
 % linear interpolator, uses midpoint between supplied values (ignore rate)
