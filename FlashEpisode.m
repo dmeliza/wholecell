@@ -267,7 +267,6 @@ ndur    = round(dur / dt);
 % displays sync rectangle & pause
 cgrect(-320,-240,100,100,[1,1,1])
 cgflip(0,0,0)
-%pause(del/1000)
 for i = 1:ndel
     cgflip('V');
 end
@@ -276,7 +275,6 @@ cgdrawsprite(1, x, y, pw, ph)
 cgrect(-320,-240,100,100,[0,0,0])
 cgflip(0,0,0)
 % remove stimulus
-%pause(dur)
 for i = 1:ndur
     cgflip('V');
 end
