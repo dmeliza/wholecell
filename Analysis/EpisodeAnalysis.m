@@ -137,8 +137,9 @@ op   = uimenu(gcf,'Label','&Operations');
 m    = uimenu(op, 'Label', 'Remove &Baseline', 'Callback', cb.menu, 'tag', 'm_baseline');
 m    = uimenu(op, 'Label', '&Align Episodes', 'Callback', cb.menu, 'tag', 'm_align');
 m    = uimenu(op, 'Label', 'Re&scale...', 'Callback', cb.menu, 'tag', 'm_rescale');
-m    = uimenu(op, 'Label', '&Crop', 'Callback', cb.menu, 'tag', 'm_crop');
-m    = uimenu(op, 'Label', '&Delete', 'Callback', cb.menu, 'tag', 'm_delete');
+m    = uimenu(op, 'Label', '&Mark Selected', 'Callback', cb.menu, 'tag', 'm_mark');
+m    = uimenu(op, 'Label', '&Crop Marked', 'Callback', cb.menu, 'tag', 'm_crop_m');
+m    = uimenu(op, 'Label', '&Delete Marked', 'Callback', cb.menu, 'tag', 'm_delete_m');
 m    = uimenu(op, 'Label', '&Filter...', 'Callback', cb.menu, 'tag', 'm_filter');
 m    = uimenu(op, 'Label', 'C&ombine Selected Traces', 'Callback', cb.menu, 'tag', 'm_combine');
 m    = uimenu(op, 'Label', '&Trace Properties...', 'Callback', cb.menu, 'tag', 'm_traceprop');
@@ -263,11 +264,18 @@ if isempty(key)
     return
 end
 switch key
+% ctrl-a
 case 'a'
     if strcmpi(mod{1},'control')
         c   = GetUIParam(me,'traces','String');
         SetUIParam(me,'traces','Value',1:length(c));
         picktraces([],[])
+    end
+% spacebar is used to mark traces
+case 'space'
+    ui = get(obj, 'CurrentObject');
+    if strcmpi(get(ui,'tag'),'traces')
+        markTraces(ui);
     end
 case 'downarrow'
     ui = get(obj, 'CurrentObject');
@@ -523,51 +531,44 @@ case 'm_baseline'
         plotTraces
         SetUIParam(me,'status','String','Baseline subtracted');
     end
-case 'm_crop'
-    % removes traces not selected in the trace list
-    % only works if a single file is selected
-    % TODO: add a tool for cropping multiple files
+
+case 'm_delete_m'
+    % removes marked traces; works even if multiple files are selected
     fls     = GetUIParam(me,'files','Value');
-    if length(fls) == 1
-        r0      = getappdata(gcf,'r0');
-        if isstruct(r0)
-            v       = GetUIParam(me,'traces','Value');
-            ds      = getappdata(gcf,'ds');
-            r0(fls).data     = r0(fls).data(:,v,:);
-            at               = r0(fls).abstime(v)';
-            r0(fls).abstime  = at;
-            ds(fls).abstime  = at;
-            ds(fls).sweeps   = (1:length(at))';
-            setappdata(gcf,'r0',r0);
-            setappdata(gcf,'ds',ds);
-            updateFields;
-            plotTraces
-            SetUIParam(me,'status','String','Episode cropped');
-        end
+    r0      = getappdata(gcf,'r0');
+    for i = 1:length(fls)
+        f   = fls(i);
+        marked  = find(r0(f).marked);
+        keep    = setdiff(1:length(r0(f).abstime),marked)';
+        r0(f).data      = r0(f).data(:,keep,:);
+        r0(f).abstime   = r0(f).abstime(keep);
+        r0(f).marked    = r0(f).marked(keep);
     end
-case 'm_delete'
-    % removes selected traces
-    % only works if a single file is selected
-    % TODO: add a tool for cropping multiple files
+    ds              = getDataSelector(r0);
+    setappdata(gcf,'r0',r0);
+    setappdata(gcf,'ds',ds);
+    updateFields;
+    plotTraces
+    SetUIParam(me,'status','String','Marked episodes deleted');
+        
+case 'm_crop_m'
+    % removes unmarked traces
     fls     = GetUIParam(me,'files','Value');
-    if length(fls) == 1
-        r0      = getappdata(gcf,'r0');
-        if isstruct(r0)
-            sel       = GetUIParam(me,'traces','Value');
-            ds        = getappdata(gcf,'ds');
-            v         = setdiff(1:length(ds(fls).abstime),sel)';
-            r0(fls).data     = r0(fls).data(:,v,:);
-            at               = r0(fls).abstime(v)';
-            r0(fls).abstime  = at;
-            ds(fls).abstime  = at;
-            ds(fls).sweeps   = (1:length(at))';
-            setappdata(gcf,'r0',r0);
-            setappdata(gcf,'ds',ds);
-            updateFields;
-            plotTraces
-            SetUIParam(me,'status','String','Episode cropped');
-        end
+    r0      = getappdata(gcf,'r0');
+    for i = 1:length(fls)
+        f   = fls(i);
+        keep  = find(r0(f).marked);
+        r0(f).data      = r0(f).data(:,keep,:);
+        r0(f).abstime   = r0(f).abstime(keep);
+        r0(f).marked    = r0(f).marked(keep);
     end
+    ds              = getDataSelector(r0);
+    setappdata(gcf,'r0',r0);
+    setappdata(gcf,'ds',ds);
+    updateFields;
+    plotTraces
+    SetUIParam(me,'status','String','Marked episodes cropped');
+    
 case 'm_combine'
     % combines selected traces into a single dataset.  The user is asked for a name
     % for the new dataset, which is added to the ds list but is not saved to disk
@@ -696,7 +697,7 @@ end
 cmap  = jet(50);
 cmap  = cmap(randperm(50),:);
 at    = r0.abstime(:); % convert to column vector
-ds = struct('start',r0.start_time,'abstime',at,...
+ds = struct('start',r0.start_time,'abstime',at,'marked',r0.marked,...
             'sweeps',(1:length(r0.abstime))','channels',{c},...
             'chan',1,'color',cmap(1:cnum,:));
         
@@ -762,6 +763,7 @@ function [] = storeData(r0, fn, pn)
 % Adds the r0 file to the data stored in the figure,
 % adds filename to list and initializes default values of dataselector
 r0.pnfn     = fullfile(pn,fn);
+r0.marked   = zeros(size(r0.abstime));
 
 v   = GetUIParam(me,'files','String');
 if iscell(v)
@@ -789,6 +791,7 @@ setappdata(gcf, 'ds', ds);
 function [] = updateFields()
 % updates fields in the GUI according to the files selected by the user
 ds  = getappdata(gcf, 'ds');
+r0  = getappdata(gcf, 'r0');
 switch length(ds)
 case 0
     % no data is loaded, so we need to clear everything
@@ -808,7 +811,13 @@ otherwise
         % channels to display.  Changes are updated in the 'ds' appdata, which means
         % they persist even if the user changes which file he wants to view
         ds  = ds(v);
-        SetUIParam(me,'traces','String',cellstr(num2str(ds.abstime)));
+        r0  = r0(v);
+        str = cellstr(num2str(ds.abstime));
+        mrk = find(r0.marked);
+        for i = 1:length(mrk)
+            str{mrk(i)} = [str{mrk(i)} '*'];
+        end
+        SetUIParam(me,'traces','String',str);
         SetUIParam(me,'traces','Value',ds.sweeps);
         SetUIParam(me,'channels','String',ds.channels);
         SetUIParam(me,'channels','Value',ds.chan);
@@ -927,6 +936,30 @@ else
     SetUIParam(me,'parametertime','Enable','Off');
     SetUIParam(me,'parametername','Enable','Off');
     SetUIParam(me,'parameteraction','Enable','Off');
+end
+
+function [] = markTraces(handle)
+% marks/unmarks all the traces selected in the trace selector
+% only works when a single file is selected
+fls = GetUIParam(me,'files','Value');
+if length(fls) ~= 1
+    SetUIParam(me,'status','String','Marks only work when a single file is selected.')
+else
+    v   = get(handle,'Value');
+    p   = get(handle,'ListboxTop');
+    r0  = getappdata(gcf,'r0');
+    r0(fls).marked(v) = ~r0(fls).marked(v);   % marked traces get unmarked and vice versa
+    setappdata(gcf,'r0',r0);
+    c   = get(handle,'String');
+    for i = 1:length(v)
+        cc  = c{v(i)};
+        if cc(end)=='*'
+            c{v(i)}   = cc(1:end-1);
+        else
+            c{v(i)}   = [cc '*'];
+        end
+    end
+    set(handle,'String',c,'ListboxTop',p);
 end
 
 function [] = plotMarks(marks)
