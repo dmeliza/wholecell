@@ -30,11 +30,11 @@ switch action
     
 case 'standalone'
     InitWC;
-    fig = OpenGuideFigure(me,'DoubleBuffer','off');
+    fig = OpenGuideFigure(me,'DoubleBuffer','on');
     setupFigure;
     
 case 'init'
-    fig = OpenGuideFigure(me,'DoubleBuffer','off');
+    fig = OpenGuideFigure(me,'DoubleBuffer','on');
     setupFigure;
     
 case 'trace_axes_callback'
@@ -244,6 +244,19 @@ case 'align_episodes_callback'
     SetUIParam(me,'status','String','Episodes realigned.');
     setptr(gcf,'arrow');
     
+case 'display_stats_callback'
+    disp = GetUIParam(me,'disp_stats','Value');
+    if boolean(disp)
+        updateStats;
+    else
+        clearAxes(GetUIHandle(me,'psp_axes'));
+        clearAxes(GetUIHandle(me,'resist_axes'));
+    end
+    
+case 'invert_stats_callback'
+    updateStats;
+        
+    
 case 'close_callback'
     delete(gcbf);
 
@@ -299,6 +312,8 @@ SetUIParam(me,'last_trace','String','0');
 SetUIParam(me,'bin_factor','String','12');
 SetUIParam(me,'smooth_factor','String','1');
 SetUIParam(me,'lp_factor','String','1');
+SetUIParam(me,'display_stats','Value',0);
+SetUIParam(me,'invert_stats','Value',0);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function varargout = updateDisplay
@@ -420,6 +435,14 @@ function [pspdata, srdata, irdata, abstime] = updateStats()
 % and the traces in the window. Deleted traces are ignored, but hidden ones
 % are included.  This method should be safe to call at any time, even
 % if the times are invalid.
+disp = GetUIParam(me,'display_stats','Value');
+if ~boolean(disp)
+    pspdata = [];
+    srdata = [];
+    irdata = [];
+    abstime = [];
+    return;
+end
 S = 50;
 d = GetUIParam(me,'filename','UserData');
 times = getTimes;
@@ -427,6 +450,10 @@ times = getTimes;
 dt = 1 / d.info.t_rate;
 w = warning('off');
 pspdata = ComputeSlope(data, [times.pspbs times.pspbe], times.pspm, dt) / 1000;
+invert = GetUIParam(me,'invert_stats','Value');
+if boolean(invert)
+    pspdata = -pspdata;
+end
 srdata = ComputeDiff(data, [times.rbs times.rbe], times.srm, dt) / times.curr;
 irdata = ComputeDiff(data, [times.rbs times.rbe], times.irm, dt) / times.curr;
 warning(w);
@@ -606,5 +633,3 @@ text(10, (y(2) -  y(1)) * 0.8 + y(1), t);
 x = get(handles.resistAxes, 'XLim');
 t = sprintf('IR: %2.4f +/- %2.2f %%', stats.irAvg, (stats.irStd / stats.irAvg * 100));
 text((x(2) - x(1)) * 0.8, (y(2) -  y(1)) * 0.8 + y(1), t);
-
-
