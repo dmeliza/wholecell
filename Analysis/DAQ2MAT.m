@@ -1,5 +1,5 @@
-function [data,time,abstime,info] = daq2mat(runmode, traceindices)
-% [data,time,abstime,info] =  daq2mat(mode,[traceindices])
+function [out] = daq2mat(runmode, traceindices)
+% [d.data,d.time,d.abstime,d.info] =  daq2mat(mode,[traceindices])
 
 % reads in all the daq files in a directory, sorts them by creation time, and
 % outputs a mat file containing the following variables:
@@ -86,6 +86,10 @@ case 'stack'
     data = single(data(:,ind,:));
     time = single(time);
     save('daqdata.mat','data','time','abstime','info');
+    out.data = data;
+    out.time = time;
+    out.abstime = abstime;
+    out.info = info;
     disp('Wrote data to daqdata.mat');
 
 case 'cat'
@@ -122,6 +126,10 @@ case 'cat'
     time = single(t);
     abstime = abstime(1,:);
     save('daqdata-cat.mat','data','time','abstime','info');
+    out.data = data;
+    out.time = time;
+    out.abstime = abstime;
+    out.info = info;
     disp('Wrote data to daqdata-cat.mat');
     
 case 'indiv'
