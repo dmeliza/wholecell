@@ -1,1002 +1,183 @@
-function varargout = EpisodeAnalysis(varargin)
-% EpisodeAnalysis
+function [] = EpisodeAnalysis()
+
+% A specialized analysis application for use with episodic data, which often
+% represents precisely timed repeats of a cellular response to stimulus presentation
+% (for instance, extracellular stimuluation or visual flashes).  Episodes tend to
+% be short in length, and the data that needs to be extracted is commonly the behavior
+% of some variable over the course of the experiment.
 %
-% A quicky-GUI for analyzing episodic traces.  In the current revision,
-% PSP (or PSC) slope, input resistance, and series resistance are extracted
-% from a collection of traces.  In future versions it would be nice
-% to generalize this to any filter that yields a single value from an entire
-% trace.
+% Previous incarnations of EpisodeAnalysis only supported three predefined parameters,
+% the PSP (or PSC) amplitude (or slope), and the input and series resistance.  Because
+% episodic acquisition is now being used for more complex stimuli, including multiple
+% frames, this is a severe limitation, so the user is now allowed to select any number
+% of parameters for analysis.
 %
-% A lot of data is stored in UserData fields of various objects.
-% filename.UserData - .data, .time, .abstime, .info (original .mat data)
-% trace_list.UserData - handles of traces in the trace_axes
-% trace_axes.UserData - the trace structure array, which contains
-%   .handle - the handle of the trace
-%   .abstime, binned to correspond to the traces in the axes
-% (x|y)slider.UserData - original XLim and YLim of the data in trace_axes
-% adjust_baseline.UserData - limits of data to be averaged for baseline
-% lp_factor.UserData - original sampling rate of data
-% times.UserData - times for computation marks
+% This is implemented by creating a "window" of analysis that is typically 100-200 ms long
+% over which some analysis function operates.  For instance, if the user is interested
+% in the response to a single shock to the cortex, a single window can be specified for the
+% PSP immediately following the stimulus artifact, and a "slope" function specified,
+% which returns the slope of the response between two time offsets.
 %
-% 1.34 - Fixed EA to work with .r0 files and .mat files.  This monster needs some
-%        major work though...
+% A second major change is designed to speed up the display of data.  Normally the user
+% will be presented by an average trace, while analysis functions will operate on single
+% sweeps.  The final results will be binned at whatever rate the user specifies.  Binning
+% will only function over the final output of the analysis filters, reducing the amount of
+% computation time used for displaying binned traces.
+%
+% Usage:  EpisodeAnalysis()  [all arguments are internal callbacks]
 %
 % $Id$
-global wc;
 
-if nargin > 0
-	action = lower(varargin{1});
-else
-	action = 'standalone';
-end
-switch action
-    
-case 'standalone'
-    InitWC;
-    fig = OpenGuideFigure(me,me,'DoubleBuffer','on');
-    setupFigure;
-    
-case 'init'
-    fig = OpenGuideFigure(me,me,'DoubleBuffer','on');
-    setupFigure;
-    
-case 'trace_axes_callback'
-    updateSliders;
-    
-case 'trace_click_callback'
-    % captures clicks on traces
-    % left-button highlights the trace and associated values
-    v = GetUIParam(me,'select_button','Value');
-    if (v > 0)
-        highlightTrace(gcbo);
-    else
-        % could replace this with a direct call, but we'll leave it flexible for now
-        handler = GetUIParam(me,'trace_axes','ButtonDownFcn');
-        eval(handler);
-    end
-    
-case 'mark_click_callback'
-    v = GetUIParam(me,'select_button','Value');
-    if (v > 0)
-        clickMark(gcbo);
-    else
-        handler = GetUIParam(me,'trace_axes','ButtonDownFcn');
-        eval(handler);
-    end
-    
-case 'load_traces_callback'
-    % loads traces from a .mat file and stores them in the figure
-    pnfn = GetUIParam(me,'filename','String');
-    path = fileparts(pnfn);
-    [fn pn] = uigetfile([path filesep '*.r0'],...
-        'Load traces from MAT file...');
-    if (fn ~= 0)
-        wait('Loading data...');
-        SetUIParam(me,'filename','String',fullfile(pn,fn));
+error(nargchk(0,0,nargin))
+
+initFigure;
+initValues;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%5
+% Figure specification:
+
+function [] = initFigure()
+% initialize the main figure window
+cb = getCallbacks;
+BG = [1 1 1];
+f = OpenFigure(me,'position',[360   343   750   450],...
+    'color',BG,'menubar','none');
+% Frame 1: Trace selection
+h = uicontrol(gcf, 'style', 'frame','backgroundcolor',BG,'position',[10 175 200 270]);
+h = uicontrol(gcf, 'style','text','backgroundcolor',BG,'position',[25 415 160 20],...
+    'Fontsize',10,'fontweight','bold','String','Traces');
+h = InitUIControl(me, 'traces', 'style','list',...
+    'Callback',cb.picktraces,'Max',2,...
+    'position', [20 275 180 140],'backgroundcolor',BG);
+h = InitUIControl(me, 'average', 'style', 'checkbox', 'backgroundcolor', BG,...
+    'Callback',cb.selectaverage,'position',[20 255 180 20], 'String', 'Average Traces',...
+    'Value', 1);
+h = InitUIControl(me, 'channels', 'style', 'list',...
+    'Callback',cb.pickchannels,'position', [20 185 180 70],'backgroundcolor',BG);
+% Frame 2: Parameter selection
+h = uicontrol(gcf, 'style', 'frame','backgroundcolor',BG,'position',[10 10 200 160]);
+h = uicontrol(gcf, 'style','text','backgroundcolor',BG,'position',[25 140 160 20],...
+    'Fontsize',10,'fontweight','bold','String','Parameters');
+h = InitUIControl(me, 'parameters', 'style','list',...
+    'Callback',cb.pickparams,...
+    'position', [20 40 180 100],'backgroundcolor',BG);
+%h = InitUIControl(me, 'addparam', '
+% Axes:
+h = InitUIObject(me, 'response', 'axes', 'units','pixels','position',[255 70 480 360],...
+    'nextplot','replacechildren','Box','On');
+xlabel('Time(ms)')
+ylabel('Response')
+% Status bar
+h = InitUIControl(me, 'status', 'style', 'text', 'backgroundcolor', BG,...
+    'position', [255 0 480 20],'String','(status)');
+% Menus
+file = uimenu(gcf, 'Label', '&File');
+m    = uimenu(file, 'Label', '&Open Response...','Callback',cb.menu, 'tag', 'm_resp');
+m    = uimenu(file, 'Label', 'Open &Parameters...','Callback',cb.menu,'tag','m_param');
+m    = uimenu(file, 'Label', '&Save Parameters...', 'Callback', cb.menu,'tag','m_save');
+m    = uimenu(file, 'Label', '&Export Results...', 'Callback', cb.menu,'tag','m_export');
+m    = uimenu(file, 'Label', 'E&xit', 'Callback', cb.menu, 'Separator', 'On','tag','m_exit');
+
+% par  = uimenu(gcf, 'Label', '&Parameters');
+% m    = uimenu(par, 'Label', '
+
+op   = uimenu(gcf,'Label','&Operations');
+m    = uimenu(op, 'Label', 'Remove &Baseline', 'Callback', cb.menu, 'tag', 'm_baseline');
+m    = uimenu(op, 'Label', '&Align Episodes', 'Callback', cb.menu, 'tag', 'm_align');
+m    = uimenu(op, 'Label', 'Re&scale', 'Callback', cb.menu, 'tag', 'm_rescale');
+
+function [] = initValues()
+% Initializes some app data so that calls to getappdata don't break
+setappdata(gcf,'dir',pwd)       % current directory
+setappdata(gcf,'r0',[])         % response file
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Callbacks:
+function [] = picktraces(obj, event)
+plotTraces
+
+function [] = selectaverage(obj, event)
+plotTraces
+
+function [] = pickchannels(obj,event)
+plotTraces
+
+function [] = pickparams(obj, event)
+
+function [] = menu(obj, event)
+% handles menu callbacks
+tag = get(obj, 'tag');
+switch lower(tag)
+case 'm_resp'
+    % load responses (r0 files)
+    path    = getappdata(gcf, 'dir');
+    [fn pn] = uigetfile([path filesep '*.r0'],'Load Traces (r0)');
+    if ~isnumeric(fn)
         [r0 str] = LoadResponseFile(fullfile(pn,fn));
         if ~isempty(r0)
-            loadData(d)
-        end
-        wait(str);
-    end
-    
-    
-case 'import_traces_callback'
-    % runs the import tool
-    pnfn = GetUIParam(me,'filename','String');
-    path = fileparts(pnfn);
-    d = ImportTool(path);
-    s = loadData(d);    
-    
-case 'trace_list_callback'
-    % handles user selections from the trace list
-    i = str2num(GetUIParam(me, 'trace_list', 'Selected'));
-    showTraces(i);
-    
-case 'delete_trace_callback'
-    % deletes selected traces in the trace window
-    i = str2num(GetUIParam(me, 'trace_list', 'Selected'));
-    deleteTrace(i);
-    i = str2num(GetUIParam(me, 'trace_list', 'Selected'));
-    showTraces(i);
-    updateStats;
-    
-case 'color_trace_callback'
-    % retrieves current color of trace(s)
-    % allows user to set a new color
-    i = str2num(GetUIParam(me, 'trace_list', 'Selected'));
-    h = getTraces(i);
-    c = get(h(1),'Color');
-    c = uisetcolor(c);
-    set(h,'Color',c,'UserData',c); % UserData holds the trace's "true" color
-    updateStats;
-    
-case 'save_trace_callback'
-    % saves the selected traces to a new file
-    pnfn = GetUIParam(me,'filename','String');
-    path = fileparts(pnfn);  
-    [fn pn] = uiputfile([path filesep '*.r0'],...
-        'Export traces to MAT file...');
-    if (fn ~= 0)
-        traces = str2num(GetUIParam(me,'trace_list','Selected'));
-        saveData(fullfile(pn,fn), traces);
-    end
-    
-case 'property_changed_callback'
-    % redraws the traces if the post-processing properties change
-    updateDisplay;
-    
-case 'reset_axes_callback'
-    % returns the axes to their default state
-    a = GetUIHandle(me,'trace_axes');
-    axis(a,'auto');
-    updateSliders;
-    
-case 'zoom_axes_callback'
-    v = GetUIParam(me,'zoom_axes','Value');
-    f = findobj('tag',me);
-    if (v > 0)
-        SetUIParam(me,'select_button','Value',0);
-        zoom(f,'on');
-    else
-        SetUIParam(me,'select_button','Value',1);
-        zoom(f,'off');
-    end
-    
-case 'select_button_callback'
-    % other calls read this value, so the only thing to do here is turn zoom off or on
-    v = GetUIParam(me,'select_button','Value');
-    SetUIParam(me,'zoom_axes','Value',not(v));
-    feval(me,'zoom_axes_callback');
-
-case 'yslider_callback'
-    y = GetUIParam(me,'yslider', 'Value');
-    center = getCenter;
-    setCenter([center(1) y])
-
-case 'xslider_callback'
-    x = GetUIParam(me,'xslider', 'Value');
-    center = getCenter;
-    setCenter([x center(2)])
-
-case 'adjust_baseline_callback'
-    % Adjusts the baseline of the loaded traces using values in
-    % adjust_baseline.UserData
-    times = getTimes;
-    if times.pspbs > 0 & times.pspbe > times.pspbs
-        adjustBaseline([times.pspbs, times.pspbe]);
-    else
-        adjustBaseline(GetUIParam(me,'adjust_baseline','UserData'));
-    end
-    
-case 'kill_outliers_callback'
-    % deletes outliers from the backing data store
-    deleteOutliers;
-    
-case 'time_changed_callback'
-    timeChanged(gcbo);
-    
-case 'load_times_callback'
-    pnfn = GetUIParam(me,'filename','String');
-    path = fileparts(pnfn);
-    [fn pn] = uigetfile([path filesep '*.mat'],...
-        'Load timing data...');
-    if pn ~= 0 & exist(fullfile(pn,fn), 'file');
-        d = load(fullfile(pn,fn));
-        if (isfield(d,'times'))
-            setTimes(d.times);
-            SetUIParam(me,'status','String',['Times loaded from ' fn]);
-        else
-            SetUIParam(me,'status','String','Invalid .mat file');
-        end
-    else
-        SetUIParam(me,'status','String',['Unable to open file.']);
-    end
-    
-case 'export_times_callback'
-    pnfn = GetUIParam(me,'filename','String');
-    path = fileparts(pnfn);  
-    [fn pn] = uiputfile([path filesep '*.mat'],...
-        'Export timing data to MAT file...');
-    if (fn ~= 0)
-        times = getTimes;
-        save(fullfile(pn,fn), 'times');
-    end
-    
-case 'export_stats_callback'
-    pnfn = GetUIParam(me,'filename','String');
-    path = fileparts(pnfn);  
-    [fn pn] = uiputfile([path filesep '*.csv'],...
-        'Export statistics to CSV file...');
-    if (fn ~= 0)
-        wait('Writing statistics...');
-        [pspdata, srdata, irdata, abstime] = getStats;
-        csvwrite(fullfile(pn,fn), cat(2,abstime,pspdata,srdata,irdata));
-        wait(['Statistics exported to ' fullfile(pn,fn)]);
-    end
-    
-case 'export_figure_callback'
-    exportFigure;
-    
-case 'analysis_module_callback'
-    % runs an analysis m-file using the current dataset
-    if nargin > 1
-        module = varargin{2};
-    else
-        [fn pn] = uigetfile([pwd filesep '*.m'],'Select a module...');
-        module = fullfile(pn,fn);
-    end
-    try
-        feval(module,'init')
-    catch
-        disp(lasterr);
-    end
-    
-        
-    
-case 'save_analysis_callback'
-    % stores a complete analysis in one file
-    pnfn = GetUIParam(me,'filename','String');
-    path = fileparts(pnfn);  
-    [fn pn] = uiputfile([path filesep '*.mat'],...
-        'Export analysis to MAT file...');
-    if (fn ~=0)
-        wait('Writing file...');
-        saveData(fullfile(pn,fn));
-        wait(['Data written to ' fullfile(pn,fn)]);
-    end
-    
-case 'align_episodes_callback'
-    % calls AlignEpisodes on the complete data set
-    d = GetUIParam(me,'filename','UserData');
-    wait('Aligning episodes...');
-    [d.data d.time] = AlignEpisodes(d.data, d.time, 1000:5000);
-    SetUIParam(me,'filename','UserData',d);
-    updateDisplay;
-    wait('Episodes realigned.');
-    
-case 'rescale_traces_callback'
-    d = GetUIParam(me,'filename','UserData');
-    if ~isempty(d)
-        y_unit = d.info.y_unit;
-        a = inputdlg({'Data scaling factor:','Units:'},'Data Rescaling',...
-            1,{'1', y_unit});
-        wait('Scaling data');
-        if length(a) == 2
-            s = str2num(a{1});
-            if isnumeric(s)
-                d.data = d.data * s;
-            end
-            if ~isempty(a{2})
-                d.info.y_unit = a{2};
-            end
-            SetUIParam(me,'filename','UserData',d);
+            setappdata(gcf, 'r0', r0);
             updateDisplay;
         end
-        wait('Data rescaled...');
+        setappdata(gcf,'dir',pn);
+        SetUIparam(me,'status','String',str);
     end
-    
-case 'display_statistics_callback'
-    o = gcbo;
-    rb = findobj('style','radiobutton');
-    set(rb, 'Value', 0);
-    set(o, 'Value', 1);
-    feval(me,'trace_list_callback');
-
-case 'show_marks_callback'
-    v = GetUIParam(me,'show_marks','Value');
-    marks = findobj('ButtonDownFcn','episodeanalysis(''mark_click_callback'')'); 
-    if boolean(v)
-        set(marks,'Visible','On');
-    else
-        set(marks,'Visible','Off');
-    end
-    
-case 'clear_legend_callback'
-    l = findobj('tag','legend');
-    if ~isempty(l)
-        ld = get(l,'UserData');
-        h = c(find(ishandle(ld)));
-        if length(h) > 0
-            c = get(h,'UserData');
-            if iscell(c)
-                c = cat(1,c{:});
-            end
-            for i = 1:length(c)
-                set(h(i),'color',c(i,:));
-            end
-        end
-        delete(l);
-    end
-    
-case 'reset_mark_callback'
-    resetMark(varargin{2});
-    
-case {'ignore_outliers_callback','outlier_tolerance_callback',...
-            'invert_stats_callback'}
-    updateStats;
-    
-case 'close_callback'
-    delete(gcbf);
-
 otherwise
-    disp([action ' not supported']);
-    
+    disp(tag)
+end    
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Internals:
+
+function [] = updateDisplay()
+% updates fields in the GUI with new data's properties
+r0 = getappdata(gcf, 'r0');
+if ~isempty(r0)
+    [samp sweep chan] = size(r0.data);
+    % update trace list
+    tr = (1:sweep)';
+    c  = cellstr(num2str(tr));
+    SetUIParam(me,'traces','String',c);
+    SetUIParam(me,'traces','Value',tr);
+    % update channel list
+    if isfield(r0,'channels')
+        c = {r0.channels.ChannelName};
+    else
+        c  = cellstr(num2str((1:chan)'));
+    end
+    SetUIParam(me,'channels','String',c);
+    % plot traces
+    plotTraces;
+end    
+
+function [] = plotTraces()
+% replots traces
+avg = GetUIParam(me,'average','Value');
+tr  = GetUIParam(me,'traces','Value');
+chn = GetUIParam(me,'channels','Value');
+r0  = getappdata(gcf,'r0');
+if ~isempty(r0)
+    a   = GetUIHandle(me,'response');
+    axes(a);
+    cla
+    if avg == 0
+        hold on
+        p = plot(r0.time, r0.data(:,tr,chn));
+        set(p,'Color',[0.5 0.5 0.5],'linewidth',0.1);
+    end
+    data = mean(r0.data(:,tr,chn),2);
+    plot(r0.time, data, 'k');
+
 end
 
-% private functions
-%
 function out = me()
 out = mfilename;
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-% these functions define a drag operation; we have to do some fancy callback
-% magic
-function clickMark(mark)
-obj = gcf;
-set(obj,'UserData',mark);
-dragHandler = @dragMark;
-releaseHandler = @releaseMark;
-set(obj,'WindowButtonMotionFcn',dragHandler);
-set(obj,'WindowButtonUpFcn',releaseHandler);
 
-function dragMark(varargin)
-obj = gcf;
-mark = get(obj,'UserData');
-pt = get(gca,'CurrentPoint');
-x = pt(1);
-set(mark,'XData',[x x]);
-f = get(mark,'UserData');
-set(f,'String',num2str(x));
-
-function releaseMark(varargin)
-obj = gcf;
-set(obj,'WindowButtonMotionFcn','');
-set(obj,'WindowButtonUpFcn','');
-updateStats;
-
-%%%%%%%%%%%%%%%%%%5
-function resetMark(button)
-tag_start = 'reset_';
-tag = get(button,'tag');
-field_name = tag(length(tag_start)+1:end);
-f = GetUIHandle(me,field_name);
-lims = GetUIParam(me,'trace_axes','XLim');
-newpos = lims(1) + diff(lims) * rand;
-set(f,'String',num2str(newpos));
-timeChanged(f);
-
-function timeChanged(field)
-% changes position of marks when the time in a field is updated
-m = get(field,'UserData');
-v = str2num(get(field,'String'));
-set(m,'XData',[v v]);
-updateStats;
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function varargout = setupFigure()
-% sets up the figure's default values
-SetUIParam(me,'bin_factor','String','12');
-SetUIParam(me,'pspbaselinestart','String','0');
-SetUIParam(me,'pspbaselineend','String','0');
-SetUIParam(me,'pspslopeend','String','0');
-SetUIParam(me,'resistbaselinestart','String','0');
-SetUIParam(me,'resistbaselineend','String','0');
-SetUIParam(me,'seriesend','String','0');
-SetUIParam(me,'inputend','String','0');
-SetUIParam(me,'last_trace','String','0');
-SetUIParam(me,'bin_factor','String','12');
-SetUIParam(me,'smooth_factor','String','1');
-SetUIParam(me,'lp_factor','String','1');
-SetUIParam(me,'show_all','Value',0);
-SetUIParam(me,'show_selected','Value',0);
-SetUIParam(me,'show_unselected','Value',0);
-SetUIParam(me,'show_none','Value',1);
-SetUIParam(me,'invert_stats','Value',0);
-SetUIParam(me,'outlier_tolerance','String','1.5');
-SetUIParam(me,'show_marks','Value',1);
-SetUIParam(me,'select_button','Value',1);
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [] = loadData(r0)
-% loads data from an r0 data structure into the figure
-% DAQ2MAT stores data in single precision values; convert here to double
-r0.data = double(r0.data);
-r0.time = double(r0.time);
-SetUIParam(me,'filename','UserData',r0);
-SetUIParam(me,'last_trace','StringVal',length(r0.abstime));
-SetUIParam(me,'lp_factor','StringVal',r0.info.t_rate);
-SetUIParam(me,'lp_factor','UserData',r0.info.t_rate);
-if (isfield(r0.info,'binfactor'))
-    SetUIParam(me,'bin_factor','StringVal',r0.info.binfactor);
+function out = getCallbacks()
+% returns a structure with function handles to functions in this mfile
+% no introspection in matlab so we have to do this by hand
+fns = {'picktraces','pickchannels','selectaverage','pickparams','menu'};
+out = [];
+for i = 1:length(fns)
+    sf = sprintf('out.%s = @%s;',fns{i},fns{i});
+    eval(sf);
 end
-updateDisplay;
-if (isfield(r0,'times'))
-    setTimes(r0.times);
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function varargout = updateDisplay
-% processes the traces stored in the figure, binning and smoothing them
-% and then plotting them in the correct axes
-% 
-d = GetUIParam(me,'filename','UserData');
-if (isstruct(d))
-    binfactor = GetUIParam(me,'bin_factor','StringVal');
-    lasttrace = GetUIParam(me,'last_trace','StringVal');
-    smoothfactor = GetUIParam(me,'smooth_factor','StringVal');
-    lpfactor = GetUIParam(me,'lp_factor','StringVal');
-    
-    if (lasttrace > binfactor & lasttrace < length(d.abstime))
-        data = d.data(:,1:lasttrace);
-        abstime = d.abstime(:,1:lasttrace);
-    else
-        data = d.data;
-        abstime = d.abstime;
-        SetUIParam(me,'last_trace','StringVal',length(d.abstime));
-    end
-    if binfactor > size(data,2)
-        binfactor = size(data,2);
-        SetUIParam(me,'bin_factor','StringVal', binfactor);
-    end
-    data = smoothTraces(data, smoothfactor);
-    [data, abstime] = binTraces(data, abstime, binfactor);
-    data = filterTraces(data, lpfactor, d.info.t_rate);
-    % currently we throw away any extra data sets
-    if size(data,3) > 1
-        data = data(:,:,1);
-    end
-    
-    plotTraces(data, d.time, d.info, abstime);
-    updateSliders;
-    plotMarks;
-    updateStats;
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function times = getTimes
-% returns the times from the user entry fields
-times.pspbs = GetUIParam(me,'pspbaselinestart','StringVal');
-times.pspbe = GetUIParam(me,'pspbaselineend','StringVal');
-times.pspm = GetUIParam(me,'pspslopeend','StringVal');
-times.rbs = GetUIParam(me,'resistbaselinestart','StringVal');
-times.rbe = GetUIParam(me,'resistbaselineend', 'StringVal');
-times.srm = GetUIParam(me,'seriesend','StringVal');
-times.irm = GetUIParam(me,'inputend','StringVal');
-times.curr = GetUIParam(me,'current_inj','StringVal');
-
-function setTimes(times)
-% sets times in the fields and marks according to an input structure
-% fills text fields with times data
-SetUIParam(me,'pspbaselinestart','StringVal', times.pspbs);
-SetUIParam(me,'pspbaselineend','StringVal', times.pspbe);
-SetUIParam(me,'pspslopeend','StringVal', times.pspm);
-SetUIParam(me,'resistbaselinestart','StringVal', times.rbs);
-SetUIParam(me,'resistbaselineend', 'StringVal', times.rbe);
-SetUIParam(me,'seriesend','StringVal', times.srm);
-SetUIParam(me,'inputend','StringVal', times.irm);
-SetUIParam(me,'current_inj','StringVal', times.curr);
-plotMarks;
-updateStats;
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function varargout = plotTraces(data, time, info, abstime)
-% plots the traces in the trace axes, setting the correct callbacks, etc
-% stores the times of the traces in UserData
-% void plotTraces(data, time, info, abstime)
-
-a = GetUIHandle(me,'trace_axes');
-axes(a);
-    traces = plot(time, data,'k');
-xlabel(['time (' info.t_unit ')'],'FontSize', 12);
-ylabel(info.y_unit, 'FontSize',12);
-
-trace = struct([]); % the empty trace struct
-for i = 1:length(traces)
-    trace(i).handle = traces(i);
-    trace(i).abstime = abstime(i);
-end
-
-click_handler = sprintf('%s(''trace_click_callback'')', me);
-set(traces,'ButtonDownFcn',click_handler);
-set(a,'ButtonDownFcn',[me '(''trace_axes_callback'')']);
-set(a, 'UserData', trace);
-% then update the trace list
-tr = 1:length(traces);
-SetUIParam(me,'trace_list','String',num2str(tr'));
-SetUIParam(me,'trace_list','Value',tr);
-% store original limits in the sliders
-SetUIParam(me,'xslider','UserData',GetUIParam(me,'trace_axes','XLim'));
-SetUIParam(me,'yslider','UserData',GetUIParam(me,'trace_axes','YLim'));
-% set(a,'nextplot','add')
-% plot(time,mean(data,2),'b');
-% set(a,'nextplot','replacechildren');
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
-function plotMarks()
-% draws the mark lines (off screen) and sets up the correspondance between
-% the handles of the marks and the displays.
-colors = {'red','blue','black','magenta','cyan','green',[0.97 0.71 .23]};
-tags = {'pspbaselinestart','pspbaselineend','pspslopeend',...
-        'resistbaselinestart','resistbaselineend','seriesend','inputend'};
-ydim = GetUIParam(me,'yslider','UserData');
-for i = 1:length(tags)
-    f = findobj('tag',tags{i});
-    v = str2num(get(f,'String'));
-    m = get(f,'UserData');
-    if (m > 1 & ishandle(m))
-        delete(m);
-    end
-    g = GetUIHandle(me,'trace_axes');
-    m = line([v v], ydim, 'Parent', g,'LineStyle',':');
-    set(m,'Color',colors{i});
-    bdfn = sprintf('%s(''%s'')',me, 'mark_click_callback');
-    set(m,'ButtonDownFcn', bdfn);
-    set(m,'tag',[tags{i} '_mark']);
-    set(m,'UserData',f);
-    set(f,'UserData',m);
-    bdfn = sprintf('%s(''%s'')',me, 'time_changed_callback');
-    set(f,'ButtonDownFcn', bdfn);
-    SetUIParam(me,[tags{i} '_txt'],'ForegroundColor',colors{i});
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function [pspdata, srdata, irdata, abstime, color, deleted] = getStats(varargin)
-% Computes statistics based on data in the trace_axes. Does outlier
-% calculation if selected.
-% getStats() - returns stats for all traces
-% getStats(tracenums) - returns stats for selected traces
-deleted = [];
-[pspdata, srdata, irdata, abstime, color] = cdm_getStats(varargin{:});
-b = GetUIParam(me,'ignore_outliers','Value');
-if boolean(b)
-    tolerance = GetUIParam(me,'outlier_tolerance','StringVal');
-    if isnumeric(tolerance)
-        index = CutOutliers(pspdata, abstime, tolerance);
-        rem = setdiff(find(abstime),index);
-        deleted.pspdata = pspdata(rem);
-        deleted.srdata = srdata(rem);
-        deleted.irdata = irdata(rem);
-        deleted.abstime = abstime(rem);
-        deleted.color = color(rem,:);
-        
-        pspdata = pspdata(index);
-        srdata = srdata(index);
-        irdata = irdata(index);
-        abstime = abstime(index);
-        color = color(index,:);
-    end
-end
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function [pspdata, srdata, irdata, abstime, color] = cdm_getStats(varargin)
-% Computes statistics based on data in the trace_axes. Private method
-% getStats() - returns stats for all traces
-% getStats(tracenums) - returns stats for selected traces
-% getStats(data, abstime) - returns stats for supplied data
-d = GetUIParam(me,'filename','UserData');
-times = getTimes;
-if nargin == 1
-    [data, abstime, color] = getTraceData(varargin{1});
-elseif nargin == 2
-    data = varargin{1};
-    abstime = varargin{2};
-    color = [];
-else
-    [data, abstime, color] = getTraceData;
-end
-w = warning('off');
-pspdata = ComputeDiff(data, d.time, [times.pspbs times.pspbe], times.pspm);
-srdata = ComputeDiff(data, d.time, [times.rbs times.rbe], times.srm);
-irint = [times.srm + (times.irm - times.srm) * 0.5, times.irm];
-irdata = ComputeDiff(data, d.time, [times.rbs times.rbe], irint);
-switch(lower(d.info.y_unit))
-case 'na'
-    srdata = times.curr ./ srdata;
-    irdata = times.curr ./ irdata;
-otherwise
-    srdata = srdata ./ times.curr;
-    irdata = irdata ./ times.curr;
-    
-end
-invert = GetUIParam(me,'invert_psp','Value');
-if boolean(invert)
-    pspdata = -pspdata;
-end
-warning(w);
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function updateStats()
-% this method updates the statistics display using the times data
-% and the traces in the window. Deleted traces are ignored, but hidden ones
-% are included.  This method should be safe to call at any time, even
-% if the times are invalid.
-
-wait;
-S = 50;
-disp = get(getSelectedRadioButton, 'tag');
-switch disp
-case 'show_none'
-    clearAxes(GetUIHandle(me,{'psp_axes','resist_axes'}));
-    wait;
-    return;
-case 'show_selected'
-    traces = str2num(GetUIParam(me,'trace_list','Selected'));
-    [pspdata, srdata, irdata, abstime, color, deleted] = getStats(traces);    
-case 'show_unselected'
-    sel = str2num(GetUIParam(me,'trace_list','Selected'));
-    traces = str2num(GetUIParam(me, 'trace_list', 'String'));
-    sel = setdiff(traces, sel);
-    [pspdata, srdata, irdata, abstime, color, deleted] = getStats(sel);    
-otherwise % including show_all and any weird conditions
-    [pspdata, srdata, irdata, abstime, color, deleted] = getStats;    
-end
-
-% plot psp stats
-a = GetUIHandle(me,'psp_axes');
-clearAxes(a);
-ph = scatter(abstime, pspdata, S, color);
-if isfield(deleted,'pspdata')
-    scatter(deleted.abstime, deleted.pspdata, S, deleted.color, 'filled');
-end
-ylabel('PSP Slope (mV/ms)');
-
-% plot resist stats
-a = GetUIHandle(me,'resist_axes');
-clearAxes(a);
-sh = scatter(abstime, irdata, S, color);
-if isfield(deleted, 'irdata')
-    scatter(deleted.abstime, deleted.irdata, S, deleted.color, 'filled');
-end
-ih = scatter(abstime, srdata, S, color, 'v');
-if isfield(deleted, 'srdata')
-    scatter(deleted.abstime, deleted.srdata, S, deleted.color, 'v','filled');
-end
-xlabel('Time (min)'),ylabel('R (M\Omega)');
-showSummary(pspdata, irdata, srdata, abstime);
-drawnow;
-wait;
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function clearAxes(axes_handle)
-for i = 1:length(axes_handle)
-    a = axes_handle(i);
-    axes(a);
-    cla;
-    set(a, 'ButtonDownFcn',[]);
-    set(a,'NextPlot','Add');
-end
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [data, abstime] = binTraces(data, abstime, binfactor)
-% bins traces and times;
-if (binfactor > 1)
-    data = BinData(data, binfactor);
-    abstime = BinData(abstime, binfactor);
-    abstime = abstime';
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function data = smoothTraces(data, smoothfactor)
-% does nothing currently
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5555555
-function data = filterTraces(data, lpfactor, Fs)
-% constructs a butterworth filter for lowpass filtering the data
-if (lpfactor + 100) >= Fs, return, end
-data = LowPass(data, lpfactor, Fs);
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function center = getCenter;
-% Returns the center point of the axes
-x = GetUIParam(me,'trace_axes','XLim');
-y = GetUIParam(me,'trace_axes','YLim');
-center = [mean(x) mean(y)];
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%555
-function setCenter(centerPoint)
-% Sets the center of the axes without zooming
-x = GetUIParam(me,'trace_axes','XLim');
-y = GetUIParam(me,'trace_axes','YLim');
-trans = [mean(x) mean(y)] - centerPoint;
-SetUIParam(me,'trace_axes','XLim', x - trans(1));
-SetUIParam(me,'trace_axes','YLim', y - trans(2));
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%555
-function updateSliders
-% Sets the value of the sliders based on the axes' view
-sl = GetUIHandle(me,'xslider');
-lim = GetUIParam(me,'trace_axes','XLim');
-updateSlider(sl, lim);
-sl = GetUIHandle(me,'yslider');
-lim = GetUIParam(me,'trace_axes','YLim');
-updateSlider(sl, lim);
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function updateSlider(slider, limits)
-% Updates an individual slider.
-% void updateSlider(slider[handle], limits[2-vector])
-% limits are the current limits of the graph
-
-dim = get(slider,'UserData');
-if (diff(limits) >= diff(dim))
-    set(slider, 'Enable', 'off');
-else
-    set(slider, 'Enable', 'on');
-    set(slider, 'Min', dim(1), 'Max', dim(2), 'Value', mean(limits));
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function adjustBaseline(limits)
-% Adjusts the baseline of the traces in the trace axes
-% Uses adjust_baseline.UserData ms
-wait('Adjusting baseline...');
-d = GetUIParam(me,'filename','UserData');
-limits = (limits * d.info.t_rate) + 1;
-adj = mean(d.data(limits(1):limits(2),:),1);
-d.data = d.data - repmat(adj, size(d.data,1),1);
-SetUIParam(me,'filename','UserData',d);
-updateDisplay;
-wait('Baseline adjusted.');
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [data, abstime, color] = getTraceData(varargin)
-% this function extracts (binned) Y data from the trace axes
-% and the associated binned relative start times
-% getTraceData() - data from all traces
-% getTraceData(tracenums) - data from specific trace numbers
-trace = GetUIParam(me,'trace_axes','UserData');
-tracehandles = [trace.handle];
-abstime = [trace.abstime]';
-ydata = get(tracehandles,'YData');
-if iscell(ydata)
-    data = cat(1,ydata{:});
-else
-    data = ydata;
-end
-color = get(tracehandles,'Color');
-if iscell(color)
-    color = cat(1,color{:});
-end
-if nargin > 0
-    traces = varargin{1};
-    data = data(traces,:);
-    abstime = abstime(traces);
-    color = color(traces,:);
-end
-abstime = abstime - min(abstime);
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
-function h = getTraces(varargin)
-% retrieves a trace handle by number (or all trace handles)
-% works with arrays (if you don't go out of bounds)
-tr = GetUIParam(me, 'trace_axes', 'UserData');
-if nargin == 0
-    h = [tr.handle];
-else
-    h = [tr(varargin{1}).handle];
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [tracenum, h] = getTraceNum(trace)
-% retrieves the trace number from its handle.
-tr = GetUIParam(me,'trace_axes','UserData');
-h = [tr.handle];
-[c tracenum] = intersect(h, trace);
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function showTraces(tracenum)
-% displays a subset of the traces
-h = getTraces;
-disp = get(getSelectedRadioButton, 'tag');
-switch disp
-case 'show_unselected'
-    set(h,'Visible','on');
-    set(h(tracenum),'Visible','off');
-otherwise
-    set(h,'Visible','off');
-    set(h(tracenum),'Visible','on');
-end
-updateStats;
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function deleteTrace(tracenum)
-% deletes a trace from various locations
-% works with arrays if you don't go out of bounds
-tr = GetUIParam(me,'trace_axes', 'UserData');
-% delete traces (with valid handles)
-h = [tr(tracenum).handle];
-h = h(find(ishandle(h)));
-delete(h);
-% delete references in trace struct and trace_list
-n = setdiff(1:length(tr), tracenum);
-tr = tr(n);
-SetUIParam(me,'trace_axes','UserData',tr);
-n = 1:length(tr);
-SetUIParam(me,'trace_list','String', num2str(n'));
-SetUIParam(me,'trace_list','Value', n);
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function ds = getData(varargin)
-% retrieves all the useful data from the figure in preparation for saving
-% or passing it to another module
-if nargin == 0
-    data = getTraceData;
-    [pspdata, srdata, irdata, abstime] = getStats;
-else
-    data = getTraceData(varargin{1});
-    [pspdata, srdata, irdata, abstime] = getStats(varargin{1});
-end
-d = GetUIParam(me,'filename','UserData');
-ds.time = d.time;
-ds.info = d.info;
-
-bf = GetUIParam(me,'bin_factor','StringVal');
-if bf > 1
-    ds.info.binfactor = 1;
-end
-ds.times = getTimes;
-
-ds.data = shiftdim(data,1);
-ds.pspdata = shiftdim(pspdata,1);
-ds.irdata = shiftdim(irdata,1);
-ds.srdata = shiftdim(srdata,1);
-ds.abstime = shiftdim(abstime,1);
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function saveData(filename, varargin)
-% saves the analysis, either all traces [saveData(filename)]
-% or specific traces [saveData(filename,tracenums)]
-wait('Saving data...');
-if nargin > 1
-    d = getData(varargin{1});
-else
-    d = getData;
-end
-[data, time, abstime, info, pspdata, srdata, irdata, times]...
-    = deal(d.data,d.time,d.abstime,d.info,d.pspdata,d.srdata,d.irdata,d.times);
-save(filename,'data','time','abstime','info','pspdata',...
-    'srdata','irdata','times');
-wait(['Data saved in ' filename]);
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function exportFigure()
-% generates a new figure window, which will contain controls so the user can save it
-trace = GetUIParam(me,'trace_axes','UserData');
-xl = GetUIParam(me,'trace_axes','Xlabel');
-yl = GetUIParam(me,'trace_axes','YLabel');
-t = GetUIParam(me,'filename','String');
-tracehandles = [trace.handle];
-data = get(tracehandles,'YData');
-time = get(tracehandles(1),'XData');
-if iscell(data)
-    data = cat(1,data{:});
-end
-f = figure;
-plot(time, data);shg;
-xlabel(get(xl,'String'));
-ylabel(get(yl,'String'));
-title(t);
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function highlightTrace(trace)
-% this function changes the trace's state from normal to highlighted
-% in four places: the trace axes, the psp statistics, and the resistance stats
-if isempty(trace)
-    return;
-end
-[tracenum traces] = getTraceNum(trace);
-SetUIParam(me,'status','String',...
-    ['Trace ' num2str(tracenum) ' selected.']);
-l = findobj('tag','legend');
-if isempty(l)
-    c = get(trace,'color');
-    set(trace,'color',hsv(1));
-    set(trace,'userdata',c);
-    legend(trace, num2str(tracenum));
-else
-    ld = get(l,'UserData');
-    delete(l);
-    i = intersect(ld.handles, trace);
-    if isempty(i) % trace is unlabelled - label with next value in hsv
-        cm = hsv(length(traces));
-        c = cm(length(ld.handles)+1,:);
-        co = get(trace,'color');
-        set(trace,'Color',c);
-        set(trace,'UserData',co);
-        legend([ld.handles trace], ld.lstrings{:}, num2str(tracenum));
-    else %trace is already labelled - reset to "true" color
-        c = get(trace,'UserData');
-        if isempty(c)
-            c = [0 0 0];
-        end
-        set(trace,'Color',c);
-        [rem i] = setdiff(ld.handles, trace);
-        if ~isempty(i)
-            legend(ld.handles(i), ld.lstrings{i});
-        end
-    end
-end
-    
-updateStats;
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function deleteOutliers
-% Deletes outliers from the backing data store.
-wait('Calculating statistics...');
-tolerance = GetUIParam(me,'outlier_tolerance','StringVal');
-d = GetUIParam(me,'filename','UserData');
-data = shiftdim(d.data,1);
-abstime = shiftdim(d.abstime,1);
-[pspdata, srdata, irdata, abstime, color] = cdm_getStats(data, abstime);
-index = CutOutliers(pspdata, abstime, tolerance);
-d.data = d.data(:,index);
-d.abstime = d.abstime(index);
-SetUIParam(me,'filename','UserData',d);
-updateDisplay;
-wait([num2str(length(abstime) - length(index)) ' outliers deleted.']);
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function wait(varargin)
-% changes pointer to an hourglass or back, depending on the pointer's state
-% sets the status bar, if a string is supplied
-if nargin > 0
-    SetUIParam(me,'status','String',varargin{1});
-end
-p = getptr(gcf);
-switch p{2}
-case 'arrow'
-    setptr(gcf,'watch');
-otherwise
-    setptr(gcf,'arrow');
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function showSummary(pspdata,irdata,srdata,abstime)
-% Computes time-weighted average and mean/stddev and displays them in the
-% stats windows
-SP = 0.1;
-
-a = GetUIHandle(me,'psp_axes');
-[pspspline t] = TimeWeight(pspdata, abstime, SP,100);
-plot(t, pspspline, 'b', 'Parent', a, 'Linewidth', 2)
-pspmean = nanmean(pspdata);
-psperr = stderr(pspdata) / pspmean * 100;
-t = sprintf('Mean: %2.4g +/- %2.2f %%', pspmean, psperr);
-y = get(a, 'YLim');
-x = get(a, 'XLim');
-x = diff(x) * 0.80 + x(1);
-l = legend(a, t);
-set(l,'tag','psp_legend');
-
-a = GetUIHandle(me,'resist_axes');
-[srspline t] = TimeWeight(srdata, abstime, SP, 100);
-plot(t, srspline, 'b', 'Parent', a, 'Linewidth', 2);
-[irspline t]= TimeWeight(irdata, abstime, SP, 100);
-plot(t, irspline, 'r', 'Parent', a, 'Linewidth', 2);
-srmean = harmmean(srdata);
-srerr = stderr(srdata) / srmean * 100;
-irmean = harmmean(irdata);
-irerr = stderr(irdata) / irmean * 100;
-t1 = sprintf('SR: %2.4g +/- %2.2f %%', srmean, srerr);
-y = get(a, 'YLim');
-t2 = sprintf('IR: %2.4g +/- %2.2f %%', irmean, irerr);
-l = legend(a, t1, t2);
-set(l,'tag','resist_legend');
-
-function err = stderr(data)
-err = nanstd(data) / sqrt(length(data));
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function handle = getSelectedRadioButton()
-% returns a handle to the (first) selected radio button
-rb = findobj('style', 'radiobutton');
-v = get(rb,'Value');
-v = [v{:}];
-s = find(v==1);
-handle = rb(s(1));
-
