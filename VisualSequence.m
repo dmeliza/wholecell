@@ -99,10 +99,6 @@ global wc;
     f_s = {'description','fieldtype','value'};
     f_l = {'description','fieldtype','value','choices'};
 
-%     p.p1 = cell2struct({'Param 1','value',2,cb},f_sb,2);
-%     p.a_frames = cell2struct({'Stimulus Frames','value',1000,cb},f_sb,2);
-%     p.y_res = cell2struct({'Y Pixels','value',4,cb},f_sb,2);
-%     p.x_res = cell2struct({'X Pixels','value',4,cb},f_sb,2);
     p.load_me = cell2struct({'if true reload stim before run','hidden',1},f_s,2);
 
     p.analysis = cell2struct({'Analysis','file_in','',},f_s,2);
@@ -200,11 +196,6 @@ if ~isempty(movfile)
     disp     = GetParam(me,'display','value');
     cgshut;
     cgopen(1,8,0,disp);
-    % these parameters are only used if the movfile is an mfile
-%     a_frames = GetParam(me,'a_frames','value');
-%     x_res    = GetParam(me,'x_res','value');
-%     y_res    = GetParam(me,'y_res','value');
-%     p1       = GetParam(me,'p1','value');
     % run the mfile or load the .s0 file
     stim     = LoadMovie(movfile);
     SetUIParam('protocolcontrol','status','UserData',stim);
@@ -227,7 +218,6 @@ if ~isempty(pn)
     cd(pn)
 end
 [fn2 pn2]   = uigetfile({'*.m;*.s0','Stimulus Files (*.m,*.s0)';...
-%                         '*.s0','Stimulus Files (*.s0)';...
                          '*.*','All Files (*.*)'});
 cd(od)                 
 if ~isnumeric(fn2)
@@ -236,10 +226,6 @@ if ~isnumeric(fn2)
     s       = SetParam(mod, param, v);
 end
 queueStimulus;
-% SetParam(me,'x_res',stim.x_res);
-% SetParam(me,'y_res',stim.y_res);
-% SetParam(me,'a_frames',size(stim.stimulus,3));
-% ParamFigure(me);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function clearDAQ()
