@@ -22,12 +22,14 @@ elseif samplerate > stimrate
     data = bindata(data, bin);
 end
 
+s = warning('off');
 offset = fix((datenum(stimstart) - datenum(datastart)) * stimrate); % positive numbers - late stim
 if offset > 0
     data = data(offset:end);
 elseif offset < 0
     stim = stim(-offset:end);
 end
+warning(s);
 
 if nargin > 6
     int = 1000 / stimrate;
@@ -41,9 +43,12 @@ end
 %%%%%%%%%%%%%%%%%%%%%55
 function c = xxxcorr(stim, resp, window)
 % plots a quick crosscorrelation of the stimulus and response
-stim = stim - mean(stim);
+stim = stim - min(stim);
+%stim = stim - mean(stim);
 resp = resp - mean(resp);
-c = xcorr(stim(1:length(resp)), resp,'coeff');
+c = xcorr(stim(1:length(resp)), resp);
+qss = xcorr(stim(1:length(resp)));
+c = c ./ qss;
 if nargin == 3
     o = length(resp);
     c = c(o + window);
