@@ -34,20 +34,9 @@ if a_frames < 1
 end
 
 % look up center and size
-mod = 'cgdisplay';
-PW  = gprimd.PixWidth;
-PH  = gprimd.PixHeight;
-x   = fix(GetParam(mod,'cent_x','value'));
-y   = fix(GetParam(mod,'cent_y','value'));
-pw  = fix(GetParam(mod,'width','value'));
-ph  = fix(GetParam(mod,'height','value'));
-rot = fix(GetParam(mod,'theta','value')); %  can't do anything with this here, really
-if pw < 1
-    pw = PW;
-end
-if ph < 1
-    ph = PH;
-end
+PW          = gprimd.PixWidth;
+PH          = gprimd.PixHeight;
+[x y pw ph] = CGDisplay_Position;
 
 % reset timing data and clear screen
 timing = zeros(a_frames,frate);
