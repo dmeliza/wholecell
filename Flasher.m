@@ -208,10 +208,26 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 function r = unidrnd(n, i, j)
 % override the stats uniform discrete rand distribution as it sucks
-% i and j are ignored
-ints = repmat(1:n,20,1);        % take the integers from 1 to n, replicate 20 times
-ind  = randperm(length(ints));  % randomly permute the integers
-r    = ints(ind(1));            % pick the first
+% or rather, we want to make sure that every frame is played roughly the same #
+% of times.  This is going to be managed using a stored list.  Which needs
+% to be reset every time the number of possible states changes
+rn = [];
+if ispref('wholecell','flasher-rands')
+    rn = getpref('wholecell','flasher-rands');
+end
+if isempty(r)
+    ints = repmat(1:n,20,1);        % take the integers from 1 to n, replicate 20 times
+    ind  = randperm(length(ints));  % randomly permute the indices
+    rn    = ints(ind);               % pull out the permuted index
+end
+r   = rn(1);        % return the first number in the array
+if length(rn) > 1
+    rn = rn(2:end);
+else
+    rn = [];
+end
+setpref('wholecell','flasher-rands',rn);
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -295,6 +311,7 @@ if isempty(s)
     error(st)
 else
     f   = getScope('init', size(s.stimulus,3) - 1);   % number of subplots
+    setpref('wholecell','flasher-rands',[]);          % reset random number sequence
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
