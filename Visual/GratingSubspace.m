@@ -12,14 +12,18 @@ function s0 = GratingSubspace(dim,frequency,repeats)
 % s0 - stimulus structure
 %
 % $Id$
-error(nargchk(2,3,nargin))
-if nargin < 3
+error(nargchk(0,3,nargin))
+if nargin < 2
+    [dim, frequency, repeats] = ask;
+elseif nargin < 3
     repeats = 1;
 end
 
 NORIENT = 20;      % sample x orientations between 0 and pi
 NPHASE  = 2;       % sample x phases between 0 and pi/2
 NFREQ   = 20;      % sample x frequencies between lowest and higesth
+MINCOL  = 1;       % minimum CLUT value
+MAXCOL  = 255;     % maximum CLUT value
 
 rho     = 0:pi/(NORIENT):pi;
 rho     = rho(1:end-1); % discard pi==0
@@ -43,14 +47,22 @@ for i = 1:length(ind)
     p = params(ind(i),:);
     S        = SinGrating(p(1),p(2),p(3),dim);
     S        = S - min(min(S));
-    s(:,:,i) = round(S * 255 / max(max(S)));
+    s(:,:,i) = round(S * (MAXCOL-MINCOL) / max(max(S)) + MINCOL);
 end
 
-% CLUT s
-% s = s - min(min(min(s)));
-% s = s * 255 / max(max(max(s)));
-% s = round(s);
-
-% package it up:
-s0 = struct('colmap',gray(255),'stimulus',s,'x_res',dim(1),'y_res',dim(2),...
+% package it up, which also compresses s:
+s0 = struct('colmap',gray(MAXCOL-MINCOL+1),'stimulus',s,'x_res',dim(1),'y_res',dim(2),...
             'parameters',params(ind,:));
+        
+function [dim, frequency, repeats] = ask()
+% opens a dialog box to ask values
+prompt = {'X Resolution (pixels):','Y Resolution (pixels):',...
+        'Min Spatial Frequency (cycles/100 pixels):',...
+        'Max Spatial Frequency (cycles/100 pixels);',...
+        'Sequence Repeats:'};
+def = {'100','100','1','20','1'};
+title = 'Values for 2D Gratings';
+answer = inputdlg(prompt,title,1,def);
+dim = [str2num(answer{1}) str2num(answer{2})];
+frequency = [str2num(answer{3}) str2num(answer{4})];
+repeats = str2num(answer{5});
