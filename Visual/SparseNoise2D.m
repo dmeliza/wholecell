@@ -20,8 +20,11 @@ function stim = SparseNoise2D(xres,yres,frames,pixsize)
 %   stimulus
 %   parameters  (Nx3 array, giving the x,y location of each pixel and its color)
 %
+% 1.7: a complete set is now generated and shuffled.
+%
 % $Id$
 error(nargchk(4,4,nargin));
+COMPLETE = 1;
 
 % colormap:
 stim.colmap = gray(3);
@@ -30,8 +33,8 @@ s = output_matrix([xres yres], pixsize);
 stim.x_res = s(1);
 stim.y_res = s(2);
 % random numbers:
-if frames == 0
-    [r_x, r_y, r_z, frames] = complete_stimulus(xres, yres);
+if COMPLETE
+    [r_x, r_y, r_z, frames] = complete_stimulus(xres, yres, frames);
 else
     r_x = ceil(rand(1,frames) .* xres); % x corner of pixel (1 to xres)
     r_y = ceil(rand(1,frames) .* yres); % y corner of pixel (1 to yres)
@@ -55,11 +58,14 @@ function s = output_matrix(res, pixsize)
 % so all input arguments must be integral
 s = res + pixsize - 1;
 
-function [x, y, z, frames] = complete_stimulus(xres, yres)
+function [x, y, z, frames] = complete_stimulus(xres, yres, length)
 % calculates a complete stimulus set (shuffled)
 [X Y Z] = meshgrid(1:xres,1:yres,0:1);  % all possible pixel combinations
 frames = prod(size(X)); % number of possible frames
-frame_ind = randperm(frames); % randomly permuted index into X, Y, and Z
+repeats = ceil(length / frames);
+frame_ind = repmat(1:frames,repeats,1);             % N repeats of the pixel sequence
+frames    = prod(size(frame_ind));
+frame_ind = frame_ind(randperm(frames)); % randomly permuted index into X, Y, and Z
 x = X(frame_ind);
 y = Y(frame_ind);
 z = Z(frame_ind);
