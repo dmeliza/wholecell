@@ -26,7 +26,8 @@ function [h1_est, parameters] = SparseAnalysis(stim, resp, window, bin)
 %           headers/stim_struct.m
 %           headers/r1_struct.m
 %           Analysis/Param2STRF (converts param array into STRF)
-%           Visual/ViewSTRF.m (used to view/analyze STRF)
+%           Analysis/PlotSTRF.m (used to view/analyze STRF)
+%           Analysis/PlotParams.m (used to view/analyze parameter responses)
 %
 % 1.4: major rewrite turns this into a module for STRFGui
 %
