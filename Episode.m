@@ -115,7 +115,7 @@ len = length * sr / 1000;
 set(wc.ai,'SamplesPerTrigger',len)
 set(wc.ai,'SamplesAcquiredActionCount',len)
 set(wc.ai,'SamplesAcquiredAction',{me, display}) 
-set(wc.ao,'SampleRate',sr)
+set(wc.ao,'SampleRate', 1000)
 set([wc.ai wc.ao],'TriggerType','Manual');
 set(wc.ai,'ManualTriggerHwOn','Trigger');
 
@@ -124,8 +124,8 @@ function queueStimulus()
 % populates the wc.ao data channels
 global wc
 
-len = get(wc.ai,'SamplesPerTrigger');
-dt = 1000 / get(wc.ai,'SampleRate');
+len = GetParam(me,'ep_length','value');
+dt = 1000 / get(wc.ao,'SampleRate');
 p = zeros(len, length(wc.ao.Channel));
 % stimulator
 ch = GetParam(me,'stim_channel','value');
@@ -137,7 +137,7 @@ ch = GetParam(me,'inj_channel','value');
 del = GetParam(me,'inj_delay','value') / dt;
 dur = GetParam(me,'inj_length','value') / dt;
 gain = GetParam(me,'inj_gain','value');
-i = del+1:del+dur;
+i = del+1:del+dur
 p(i,ch) = gain;
 putdata(wc.ao,p);
 
