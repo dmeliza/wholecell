@@ -7,6 +7,7 @@ function [rp, t] = JitterPlot(daqfile, thresh)
 SZ  = [2.7    6.5];
 BR  = 50;
 THRESH = 1.5;
+NORM    = [];
 
 z   = load('-mat',daqfile);
 
@@ -20,6 +21,9 @@ movegui('center')
 d   = double(z.r0.data(1000:8000,:));
 ind = randperm(size(d,2));
 d   = bindata(d,BR,1);
+if ~isempty(NORM)
+    d   = d - repmat(mean(d(NORM,:),1),size(d,1),1);
+end
 t   = bindata(z.r0.time(1000:8000),BR,1) * 1000 - 200;
 
 subplot(3,1,1)

@@ -18,6 +18,8 @@ global SPATIALRF_WIN
 SPATIALRF_WIN     = [1000 6000];      % analysis window
 SZ      = [3.0 3.0];
 RFWIN   = 20;
+X       = [-47.25 -33.75 -20.25 -6.75];
+%X       = [];
 
 types   = [exist(pre) exist(post)];
 if all(types==7)
@@ -78,27 +80,40 @@ if nargout > 0
     return
 end
 
+precm   = centroid(pre_rf);
+postcm  = centroid(post_rf);
+
 f       = figure;
 set(f,'color',[1 1 1],'name',pre);
 ResizeFigure(f,SZ);
 hold on
 
-X       = 1:length(pre_rf);
+if isempty(X)
+    X       = 1:length(pre_rf);
+else
+    precm   = interp1(1:length(X),X,precm);
+    postcm  = interp1(1:length(X),X,postcm);
+end
 if iscell(A)
     p(1:2) = errorbar(X,pre_rf, pre_err, 'k');
     p(3:4) = errorbar(X,post_rf, post_err, 'r');
 else
     p       = plot(X,pre_rf,'k',X,post_rf,'r');
+    vline(precm,'k:');
+    vline(postcm,'r:');
 end
 set(p,'LineWidth',2);
 
-set(gca,'XTick',X, 'XLim', [X(1) - 0.2, X(4) + 0.2],'Box','On')
-xlabel('Bar Position')
+Xd  = mean(diff(X));
+%set(gca,'XTick',X, 'XLim', [X(1) - 0.2 * Xd, X(4) + 0.2 * Xd],'Box','On')
+set(gca,'XLim', [X(1) - 0.2 * Xd, X(4) + 0.2 * Xd],'Box','On')
+xlabel('Bar Position (degrees)')
 ylabel('Response (pA)')
+title(pre)
 if nargin > 2
     hold on
     mx  = max([pre_rf(induction) post_rf(induction)]);
-    h   = plot(induction, mx * 1.2, 'kv');
+    h   = plot(X(induction), mx * 1.2, 'kv');
     set(h,'MarkerFaceColor',[0 0 0])
 end
 
@@ -133,3 +148,10 @@ for i = 1:length(in)
     tc      = mean(d,2);                    % time course of mean
     e(i)    = std(tc)/sqrt(length(tc));
 end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [x] = centroid(rf)
+% computes the center of mass of a one-parameter receptive field
+rf  = rf - min(rf);
+M   = sum(rf);
+x   = sum(rf .* (1:length(rf)))/M;

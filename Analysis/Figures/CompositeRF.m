@@ -11,7 +11,7 @@ function [rf, t] = CompositeRF(control, mode)
 WINDOW = 150;       % ms
 Fs     = 10;
 SZ      = [3.5 2.9];
-BINSIZE = 2.3;
+BINSIZE = 4.3;
 MODE    = 'induced';
 if nargin > 1
     MODE    = mode;

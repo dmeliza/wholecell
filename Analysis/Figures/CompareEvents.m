@@ -4,13 +4,17 @@ function [d, t] = CompareEvents(pre, post, time, binsize)
 % histogram, and compares the two.
 %
 % $Id$
-SZ      =  [3.4    5.6];    % window size
-BS      = 30;               % default binrate
-THRESH  = 2;                % z-score
-WIN     = 1000:8000;        % analysis window (samples)
-NORM    = 1;                % normalize results?
-xlim    = [-100 600];       % lock graphs to this XLIM
-PP      = 1;                % plot both pre and post events?
+SZ   =  [3.4    5.6];
+SZ1  = [3.4    2];
+SZ2  = [3.4    2.6];
+BS   = 50;               % binrate
+THRESH  = 2;          % z-score
+WIN = 1000:8000;        % samples
+SCATTER = 1;
+xlim    = [-100 600];
+N   = 4;
+mode = 'psth';     % psth, amppsth, meanevent
+
 
 if nargin > 3
     BS  = binsize;
@@ -30,8 +34,28 @@ AR  = -Rasterify(a,THRESH);
 BR  = -Rasterify(b,THRESH);
 AR(AR<0) = 0;
 BR(BR<0) = 0;
-AH  = mean(AR,2);
-BH  = mean(BR,2);
+ARev     = AR > 0;
+BRev     = BR > 0;
+
+
+AH      = mean(AR,2);
+BH      = mean(BR,2);
+APSTH   = mean(ARev,2);
+BPSTH   = mean(BRev,2);
+switch mode
+    case 'psth'
+        AH  = APSTH;
+        BH  = BPSTH;
+        AR  = ARev;
+        BR  = BRev;
+    case 'amppsth'
+    case 'meanevent'
+        AH = AH ./ APSTH;
+        BH = BH ./ BPSTH;
+        AH(isnan(AH)) = 0;
+        BH(isnan(BH)) = 0;
+end
+        
 mx  = max(AH);
 if NORM
     d   = BH ./ mx - AH ./ mx;
