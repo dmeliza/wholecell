@@ -116,8 +116,8 @@ global wc;
     p.inj_length  = cell2struct({'Inj Length','value',6,'ms'},f,2);
     p.inj_delay   = cell2struct({'Inj Delay','value',200,'ms'},f,2);
     p.inj_gain    = cell2struct({'Inj Gain','value',1},f_s,2);
-    p.inj_frames  = cell2struct({'Inj Images (0=all)','value','[0]'},f_s,2);
-    p.play_frames  = cell2struct({'Play Images (0=all)','value','[0]'},f_s,2);
+    p.inj_frames  = cell2struct({'Inj Images (0=all)','string','[0]'},f_s,2);
+    p.play_frames  = cell2struct({'Play Images (0=all)','string','[0]'},f_s,2);
     p.inj_channel = cell2struct({'Command','list',1,GetChannelList(wc.ao)},f_l,2);
     
     p.stim          = cell2struct({'Stim File','fixed','',loadStim},f_cb,2);
@@ -190,7 +190,7 @@ else
     s.colmap = cmap - mean(mean(cmap)) + 0.5;       % reset mean to gray
     z       = size(s.stimulus,3);
     % pick a random frame
-    picks   = GetParam(me,'play_frames','value');
+    picks   = str2num(GetParam(me,'play_frames','value'));
     if picks ~= 0
         fnum    = picks(unidrnd(length(picks),1,1)) + 1;
     else
@@ -201,7 +201,7 @@ else
     loadFrame(s,fnum,2);
     % generate the sequence
     len     = ceil(abs(GetParam(me,'fr_length','value')));
-    seq     = ones(30);
+    seq     = ones(len+20);
     seq(13:13+len-1) = 2;                         % offset of 12 frames (200 ms at 60Hz)
 end
 
@@ -233,7 +233,7 @@ len         = GetParam(me,'ep_length','value');                 %ms
 dt          = 1000 / get(wc.ao,'SampleRate');                   %ms/sample
 p           = zeros(len / dt, length(wc.ao.Channel));
 
-frames      = GetParam(me,'inj_frames','value');
+frames      = str2num(GetParam(me,'inj_frames','value'));
 ind         = find(frames==(fnum-1));
 if frames==0 | ~isempty(ind)
     % injection
