@@ -49,18 +49,18 @@ STDP    = (pst_rf(i) - pre_rf(i))./pre_rf(i); % relative change in induced bar r
 isLTP   = t_spike >= t_peak;
 iscenter= (induction - peak) == 0;
 
-% % Figure 1: Plot shift in RF as a function of LTP/LTD and center/surround
-% fprintf('\nRF Center:\n');
-% plotStats(shift, isLTP, iscenter, NAMES, 'Shift in RF Center');
-% 
-% % Figure 2: Compute width of RFs before and after induction
-% % this is somewhat ill-defined for a four-point RF, but it's basically:
-% % sigma = sqrt(sum((x-mu)^2 * y)/sum(y))
-% pre_sigma = getSigma(pre_rf, pre_cm);
-% pst_sigma = getSigma(pst_rf, pst_cm);
-% dff_sigma = pst_sigma - pre_sigma;      % increase or decrease in width
-% fprintf('\nRF Width:\n');
-% plotStats(dff_sigma, isLTP, iscenter, NAMES, 'Shift in RF Width');
+% Figure 1: Plot shift in RF as a function of LTP/LTD and center/surround
+fprintf('\nRF Center:\n');
+plotStats(shift, isLTP, iscenter, NAMES, 'Shift in RF Center');
+
+% Figure 2: Compute width of RFs before and after induction
+% this is somewhat ill-defined for a four-point RF, but it's basically:
+% sigma = sqrt(sum((x-mu)^2 * y)/sum(y))
+pre_sigma = getSigma(pre_rf, pre_cm);
+pst_sigma = getSigma(pst_rf, pst_cm);
+dff_sigma = pst_sigma - pre_sigma;      % increase or decrease in width
+fprintf('\nRF Width:\n');
+plotStats(dff_sigma, isLTP, iscenter, NAMES, 'Shift in RF Width');
 
 % Figure 3: Plot spread of LTP/LTD as a function of distance. We can do
 % this a bunch of ways.  The most naive is to divide the data into LTP vs
