@@ -12,7 +12,10 @@ function [s, fields] = s1_struct()
 %
 % m.mfile  - the mfile which should be executed.
 % m.static - a cell array of static parameters (e.g. stimulus size)
-% m.param - an MxN array, with N parameters and M frames
+% m.param  - an MxN array, with N parameters and M frames
+% m.xlim   - the x dimension of the stimulus frames
+% m.ylim   - the y dimension
+% m.colmap - the colormap of the movie
 %
 % Optional fields:
 %
@@ -20,6 +23,6 @@ function [s, fields] = s1_struct()
 %
 % $Id$
 
-fields = {'mfile','static','param'};
-C      = {'',{},[]};
+fields = {'mfile','static','param','xlim','ylim','colmap'};
+C      = {'',{},[],[],[],[]};
 s      = cell2struct(C, fields, 2);
