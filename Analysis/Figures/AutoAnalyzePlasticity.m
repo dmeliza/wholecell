@@ -291,8 +291,8 @@ xlabel('Time (min)')
 
 % plot the two average responses and their difference
 ax      = subplot(4,3,3);hold on
-tr1     = pre.trace;
-tr2     = pst.trace;
+tr1     = pre.filttrace;
+tr2     = pst.filttrace;
 if ~isempty(tr1)
    h    = plot(pre.time_trace,tr1,'k');
    if ~isempty(pre.t_peak)
