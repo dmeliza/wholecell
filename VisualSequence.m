@@ -5,9 +5,10 @@ function [] = VisualSequence(varargin)
 %
 % Input: The data for the pixel sequence is read from a file.  This can be 
 %        an .s0 file, which has a structure defined in headers/s0_struct.m.  Or
-%        it can be a .m file which returns an s0 structure. [We may need an option
-%        in the case of memory-intensive stimuli, to load the frames dynamically
-%        during stimulus playback]
+%        it can be a .m file which returns an s0 structure. Or it can be an .s1
+%        file, which is a .mat file containing an .s1 structure, which defines a
+%        dynamically generated stimulus.
+%
 % Output: The DAQ toolkit stores the response from the cell.  This is made available
 %         to the user, who can choose an analysis protocol, which is an mfile that takes
 %         an r1 and an s0 structure for parameters.
@@ -25,6 +26,7 @@ function [] = VisualSequence(varargin)
 %
 % Changes: 
 % 1.1:     Adapted from RevCorr_2D.
+% 1.5:     Added support for s1 files
 %
 % $Id$
 
@@ -147,23 +149,19 @@ function startSweep()
 global wc;
 stop([wc.ai wc.ao]);
 flushdata(wc.ai);
-fn = get(wc.ai,'LogFileName');
+fn     = get(wc.ai,'LogFileName');
 set(wc.ai,'LogFileName',NextDataFile(fn));    
 SetUIParam('protocolcontrol','status','String',get(wc.ai,'logfilename'));
 start([wc.ai]);
 cogstd('spriority','high');
-playStimulus;
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function playStimulus()
-% plays the movie at the appropriate frame rate.
-% check that stimulus is the proper length
 frate  = GetParam(me,'t_res','value');
-gprimd = cggetdata('gpd');              % max frame is given by gprimd.NextRASKey - 1
-if gprimd.NextRASKey < 2
-    queueStimulus;
+gpd    = cggetdata('gpd');
+if gprimd.NextRASKey < 5
+    s  = GetUIParam('protocolcontrol','status','UserData');
+    CgPlayFrames(frate,s);      % if no frames are loaded, this must be an s1 structure
+else
+    CgPlayFrames(frate);
 end
-CgPlayFrames(frate);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function setLoadFlag(varargin)
@@ -179,11 +177,18 @@ if p
     queueStimulus;
 end
 stim = GetUIParam('protocolcontrol','status','UserData');
+if isfield(stim,'mfile')
+    name = 'stim.s1';
+    len  = size(stim.param,1);
+else
+    name = 'stim.s0';
+    len  = size(stim.stimulus,3);
+end
 if ~strcmp(lower(get(obj,'LoggingMode')),'memory')
     [pn fn ext] = fileparts(get(obj,'logfilename'));
-    WriteStructure([pn filesep 'stim.s0'],stim);
+    WriteStructure([pn filesep name],stim);
 end
-len  = size(stim.stimulus,3);
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
 function [] = queueStimulus()
@@ -216,7 +221,7 @@ od          = pwd;
 if ~isempty(pn)
     cd(pn)
 end
-[fn2 pn2]   = uigetfile({'*.m;*.s0','Stimulus Files (*.m,*.s0)';...
+[fn2 pn2]   = uigetfile({'*.m;*.s0;*.s1','Stimulus Files (*.m,*.s0,*.s1)';...
                          '*.*','All Files (*.*)'});
 cd(od)                 
 if ~isnumeric(fn2)
