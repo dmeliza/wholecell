@@ -129,7 +129,7 @@ out = mfilename;
 function p = defaultParams()
 global wc;
 
-    cb = @queueStimulus;
+    cb = @setLoadFlag;
     loadStim = @loadStimulus;
 
     f = {'description','fieldtype','value','units'};
@@ -137,12 +137,14 @@ global wc;
     f_s = {'description','fieldtype','value'};
     f_l = {'description','fieldtype','value','choices'};
 
-    p.t_res = cell2struct({'Frame rate (1/x)', 'value', 2},f_s,2);
+    p.load_me = cell2struct({'if true reload stim before run','value',1},f_s,2);
+    p.p1 = cell2struct({'Param 1','value',2,cb},f_sb,2);
+    p.a_frames = cell2struct({'Stimulus Frames','value',1000,cb},f_sb,2);
     p.y_res = cell2struct({'Y Pixels','value',4,cb},f_sb,2);
     p.x_res = cell2struct({'X Pixels','value',4,cb},f_sb,2);
-    
+
+    p.t_res = cell2struct({'Frame rate (1/x)', 'value', 2},f_s,2);
     p.repeat = cell2struct({'Repeats (0=inf)','value',1},f_s,2);
-    p.a_frames = cell2struct({'Stimulus Frames','value',1000,cb},f_sb,2);
     p.stim = cell2struct({'Stim File','fixed','',loadStim},f_sb,2);
     p.display = cell2struct({'Display', 'value', 2,cb},f_sb,2);
     p.sync_val = cell2struct({'Sync Voltage','value',2,'V'},f,2);
@@ -193,6 +195,10 @@ flushdata(wc.ai);
 fn = get(wc.ai,'LogFileName');
 set(wc.ai,'LogFileName',NextDataFile(fn));    
 SetUIParam('scope','status','String',get(wc.ai,'logfilename'));
+p = GetParam(me,'load_me','value');
+if p
+    queueStimulus;
+end
 start([wc.ai]);
 cogstd('spriority','high');
 playStimulus;
@@ -209,6 +215,11 @@ if gprimd.NextRASKey < 2
 end
 CgPlayFrames(frate);
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function setLoadFlag()
+% sets the 'load_me' param to 1 so that the stimulus will be requeued
+SetParam(me,'load_me',1);
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
 function queueStimulus()
 % Loads a "movie" in the form of sprites.  Once the sprites are loaded into
@@ -218,10 +229,16 @@ function queueStimulus()
 disp = GetParam(me,'display','value');
 cgshut;
 cgopen(1,8,0,disp);
+% these parameters are only used if the movfile is an mfile
 a_frames = GetParam(me,'a_frames','value');
-mseqfile = GetParam(me,'stim','value');
-stim = LoadMovie(mseqfile);
-CgQueueMovie(stim,a_frames);
+x_res = GetParam(me,'x_res','value');
+y_res = GetParam(me,'y_res','value');
+p1 = GetParam(me,'p1','value');
+
+movfile = GetParam(me,'stim','value');
+stim = LoadMovie(movfile, x_res, y_res, a_frames, p1);
+CgQueueMovie(stim);
+SetParam(me,'load_me',0);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function loadStimulus(varargin)
