@@ -16,9 +16,16 @@ function [s, fields] = s2_struct()
 %
 % m.x_res - the number of (parameter) x pixels (scalar)
 % m.y_res - the number of (parameter) y pixels (scalar)
+% m.group - if responses should be grouped together (e.g. different spatial frequencies
+%           at the same orientation), this field should be supplied. It consists
+%           of an array in which stimulus frame numbers are grouped in rows.
+%           For instance, for the following groups [1 2] [3 4] [5 6 7], m.group = 
+%           [1 2 0
+%            3 4 0
+%            5 6 7].  Note that frame #1 is m.stimulus(:,:,2)
 %
 % $Id$
 
-fields = {'type','colmap','stimulus','x_res','y_res',};
+fields = {'type','colmap','stimulus','x_res','y_res'};
 C      = {'s2',[],[],[],[]};
 s      = cell2struct(C, fields, 2);

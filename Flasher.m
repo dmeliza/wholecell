@@ -81,6 +81,13 @@ case 'record'
     s = mkdir(dir, newdir);
     set(wc.ai,'LogFileName',fullfile(dir,newdir, '0000.daq'));    
     set(wc.ai,{'LoggingMode','LogToDiskMode'}, {'Disk&Memory','Overwrite'});
+    % write the s2 or s0 file to disk in the data directory
+    stimfile = GetParam(me,'stim','value');
+    [s st]   = LoadStimulusFile(stimfile);
+    if isempty(s)
+        error(st)
+    end
+    WriteStructure(fullfile(dir,newdir,'stimulus.s2'),s)
     % open a file to store parameter sequence
     fid = fopen(fullfile(dir,newdir,'sequence.txt'),'at');
     setUIParam('protocolcontrol','status','UserData',fid);
@@ -166,7 +173,8 @@ set(wc.ai, 'UserData', fnum);
 mod     = get(wc.ai,'LoggingMode');
 if ~strcmpi(mod,'Memory')
     fid = GetUIParam('protocolcontrol','status','UserData');
-    fn  = fopen(fid);
+    % checks for a valid handle (doesn't open anything)
+    fn  = fopen(fid);   
     if ~isempty(fn)
         fprintf(fid,'%d\n', fnum - 1);
     end
@@ -235,7 +243,6 @@ else
     rn = [];
 end
 setpref('wholecell','flasher-rands',rn);
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -318,7 +325,12 @@ end
 if isempty(s)
     error(st)
 else
-    f   = getScope('init', size(s.stimulus,3) - 1);   % number of subplots
+    if isfield(s,'group')
+        n   = size(s.group,1);
+    else
+        n   = size(s.stimulus,3) - 1;
+    end
+    f   = getScope('init', n);                        % number of subplots
     setpref('wholecell','flasher-rands',[]);          % reset random number sequence
 end
 
@@ -357,8 +369,16 @@ else
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function plotData(data, time, abstime, fnum)
-% plots the data
-
+% plots the data;
+% Have to load the stimulus file (for the umpteenth time) to get grouping data
+stimfile = GetParam(me,'stim','value');
+[s st]   = LoadStimulusFile(stimfile);
+if isfield(s,'group')
+    [i,j]   = find(s.group==fnum);
+    if ~isempty(i)
+        fnum = i + 1;
+    end
+end
 index       = GetParam(me,'input','value');
 data        = data(:,index);
 axes(getScope('get',fnum-1))
