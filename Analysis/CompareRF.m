@@ -1,6 +1,6 @@
-function [d, a, b, T] = compareRF(rf1, rf2, bar, window, pos, mode)
+function [d, a, b, T] = compareRF(rf1, rf2, t_spike, x_spike, window, mode)
 %
-% D = COMPARERF(rf1, rf2, bar, window, [pos, mode])
+% D = COMPARERF(rf1, rf2, bar, [pos, window, mode])
 %
 % stupid little figure script that loads, normalizes, and compares
 % two receptive fields (or reponse fields). plots equal amounts of time
@@ -9,16 +9,30 @@ function [d, a, b, T] = compareRF(rf1, rf2, bar, window, pos, mode)
 % ver little error checking. If MODE is set to 'single', only the induced
 % bar will be shown
 %
+% As of 1.7, we do some threshholding and normalization that should clean
+% things up a little.  As in SpatialRF, the portion of the average response
+% prior to the stimulus is used to determine the baseline mean and standard
+% deviation.  This is used to set the threshhold; the RF is then considered
+% the portions of the EPSC that exceed that threshhold.  The entire RF is
+% then normalized to the strongest peak of the pre-induction RF.
+%
 % $Id$
-BINRATE = 23;
-INTERP  = 1;
-THRESH  = 1;
-IMAGE   = 1;
-NORM    = 200;
-SZ      = [3.5 3.5];
+ANALYSIS_WIN      = [1 7000];      % analysis window
+RF_WIN            = 150;           % size of window (ms) returned (default)
+BASELINE_THRESH   = 3.5;           % # of standard deviations a response must exceeed
+                                   % the mean in order to count
+BINRATE = 23;                      % window is binned prior to plotting in an imagemap
+INTERP  = 1;                       % amount of X interpolation to do (unused)
+IMAGE   = 0;                       % display as imagesc or plots
+SZ      = [3.5 3.5];               % figure size
 
-error(nargchk(4,6,nargin))
+% evaluate arguments
+error(nargchk(3,6,nargin))
+if nargin > 4
+    RF_WIN = window;
+end
 
+% load files
 A = load(rf1);
 B = load(rf2);
 if isfield(A,'units')
@@ -27,158 +41,149 @@ else
     u = '';
 end
 
-win  = [bar - window, bar + window];
-T    = double(A.time) * 1000 - 200;
-Fs   = mean(diff(T));
-Z    = find(T >= win(1));
-t(1) = Z(1);
-t(2) = Z(1) + window * 2 / Fs - 1;
-t    = t(1):t(2);
-T    = T(t);
-
-t   = t(:);
-a   = A.data(t,:);
-b   = B.data(t,:);
+win  = ANALYSIS_WIN(1):ANALYSIS_WIN(2);
+t    = double(A.time(win,:)) * 1000 - 200;
+a    = double(A.data(win,:));
+b    = double(B.data(win,:));
 if nargin > 5
-    a   = a(:,pos);
-    b   = b(:,pos);
-end
-ma  = mean(a(1:NORM,:),1);
-mb  = mean(b(1:NORM,:),1);
-% ma  = mean(A.data([(t(1)-NORM):t(1)+NORM],:),1);
-% mb  = mean(B.data([(t(1)-NORM):t(1)+NORM],:),1);
-a   = a - repmat(ma,length(t),1);
-b   = b - repmat(mb,length(t),1);
-d   = b - a;
-if strcmpi(u,'pa')
-    d   = -d;
+    a   = a(:,x_spike);
+    b   = b(:,x_spike);
 end
 
-% normalization is tricky because these are relative values.
-% find the point of largest absolute difference, then use the ratio
-% at that point. It may be better to use the peak of the pre-induction response?
-NORMDIFF    = 0;
-if NORMDIFF
-    [m, i] = max(abs(d));
-    [m, j] = max(abs(m));
-    i      = i(j);
-    val    = [a(i,j) b(i,j)];
-    rat    = max(abs(val)) / min(abs(val));
-    d      = d ./ m .* rat;
-else
-    [m, i] = max(abs(a));
-    [m, j] = max(abs(m));
-    i      = i(j);
-    val    = abs(a(i,j));
-    a      = a ./ val;
-    b      = b ./ val;
-    d      = d ./ val;
-end
+% compute threshholds and baselines
+[A, a_mu, sigma]    = computeValues(a, t, BASELINE_THRESH);
+[B, b_mu]           = computeValues(b, t, BASELINE_THRESH, sigma);
+
+% cut out rf window
+[a,T]               = cutRF(A, t, t_spike, RF_WIN);
+b                   = cutRF(B, t, t_spike, RF_WIN);
+
+% normalize
+[m,i]               = max(abs(a));
+[norm,j]           = max(abs(m));
+a                   = a ./ norm;
+b                   = b ./ norm;
+
+% compute differences
+d                   = b - a;
 
 if nargout > 0
     return
 end
 
+% Plot the data
 f       = figure;
 set(f,'Color',[1 1 1],'Name',rf1)
 ResizeFigure(f,SZ)
 
 if size(a,2) == 1
-
+    % for single plots
     subplot(2,1,1)
     h = plot(T,[a b]);
     set(gca,'XtickLabel',[]);
     ylabel(['Response (' u ')']);
     legend(h,{'Pre','Post'});
-    vline(bar,'k:');
+    vline(t_spike,'k:');
     axis tight
     
     subplot(2,1,2)
     plot(T,d);
-    vline(bar,'k:');
+    vline(t_spike,'k:');
     xlabel('Time (s)');
     ylabel(['Diff (rel)']);
     axis tight
     
-    out = struct('difference',d,'time',T,'t_induce',bar)
 else
-    [a,T] = smoothRF(a,T,BINRATE,INTERP);
-    b     = smoothRF(b,T,BINRATE,INTERP);
-    mx    = max(max([a b]));
-    mn    = min(min([a b])); 
+    % for plots of the entire RF
+    [A,T] = smoothRF(a,T,BINRATE,INTERP);
+    B     = smoothRF(b,T,BINRATE,INTERP);
+    D     = smoothRF(d,T,BINRATE,INTERP);
+    mx    = max(max([A B]));
+    mn    = min(min([B B])); 
     colormap(redblue(0.45,200))
     if IMAGE
-        n   = 2;        
-%         if strcmpi(u,'pa')
-%             a   = -a;
-%             b   = -b;
-%         end 
-        subplot(n+1,1,1)
-%        imagesc(T,1:size(a,2),a',[-mx mx]);
-        p   = plot(T,a');
+        ax(1) = subplot(3,1,1);
+        imagesc(T,1:size(A,2),A',[-mx mx]);
         axis tight
-        set(p(pos),'LineWidth',2);
-        vline(bar,'k:');
-%        colorbar
-        set(gca,'XTickLabel',[],'YLim',[mn mx]);
-        xlim    = get(gca,'XLim');
-        vline(0,'k');
-        ylabel('Pre');
-        title(rf1)
+        colorbar
         
-        subplot(n+1,1,2)
-%        imagesc(T,1:size(b,2),b',[-mx mx]);
-        p   = plot(T,b');
-        axis tight
-        set(p(pos),'LineWidth',2);        
-        vline(bar,'k:');
-%        colorbar
-        vline(0,'k');
-        set(gca,'XTickLabel',[],'Xlim',xlim, 'YLim',[mn mx]);
-        ylabel('Post');
+        ax(2) = subplot(3,1,2);
+        imagesc(T,1:size(B,2),B',[-mx mx]);
+        colorbar
+        
+        ax(3) = subplot(3,1,3);
+        mx1   = max(max(abs(D)));
+        imagesc(T,1:size(D,2),D',[-mx1 mx1]);
+        colorbar
+
+        set(ax,'YTick',1:size(D,2));
+        if nargin > 3
+            hold on
+            p = plot(T(1)+25,x_spike,'k>');
+            set(p,'MarkerFaceColor',[0 0 0])
+        end
     else
-        n = size(a,2);
-        for i = 1:n
-            subplot(n+1,1,i)
-            plot(T,[a(:,i) b(:,i)]);
-            vline(0,'k')
-            vline(bar,'k:')
-            set(gca,'XTickLabel',[]);
-            ylabel(num2str(i))
+        ax(1)   = subplot(3,1,1);
+        p(:,1)  = plot(T,A');
+        axis tight
+        set(gca,'YLim',[mn mx]);
+        
+        ax(2)   = subplot(3,1,2);
+        p(:,2)  = plot(T,B');
+        set(gca,'YLim',[mn mx]);
+        
+        ax(3)   = subplot(3,1,3);
+        p(:,3)  = plot(T,D');
+        
+        if nargin > 3
+            set(p(x_spike,:),'LineWidth',2);
         end
     end
+    % some common things happen to both image and line plots
+    set(ax(1:2),'XTickLabel',[]);
+    xlim    = get(ax(1),'XLim');
+    set(ax, 'XLim', xlim);
+    axes(ax(1));
+        vline([0, t_spike], {'k','k:'});
+        ylabel('Pre');
+        title(rf1)
+    axes(ax(2));
+        vline([0, t_spike], {'k','k:'});
+        ylabel('Post');
+    axes(ax(3));
+        vline([0, t_spike], {'k','k:'});
+        ylabel('Post - Pre');
+        xlabel('Time (s)');      
     
-    
-    subplot(n+1,1,n+1)
-    d     = smoothRF(d,T,BINRATE,INTERP);
-    %d     = thresholdRF(d,THRESH);
-    mx1   = max(max(abs(d)));
-    if IMAGE
-%        imagesc(T,1:size(d,2),d',[-mx1 mx1]);
-        p   = plot(T,d');
-        axis tight
-        set(p(pos),'LineWidth',2);
-        set(gca,'XLim',xlim);
-%        colorbar
-%         if nargin < 5
-            vline(bar,'k:');
-%         else
-%             hold on
-%             pos     = pos * INTERP;
-%             plot(bar, pos,'k*')
-%         end
-    else
-        plot(T,d)
-        vline(bar,'k:');
-    end
-    vline(0,'k');
-    ylabel('Post - Pre');
-    xlabel('Time (s)');
-
-
-    out = struct('difference',d,'time',T,'t_induce',bar,'x_induce',pos);   
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [val, mu, sigma] = computeValues(data, t, BASELINE_THRESH, sigma)
+% examine baseline; sigma is held constant for both RFs.
+i       = find(t<=0);
+mu      = mean(data(i,:,:),1);
+if nargin < 4
+    sigma   = std(data(i,:,:),0,1);
+end
+% compute values of each point relative to threshhold (zero if below)
+% thresh  = repmat(mu - sigma * BASELINE_THRESH, [size(data,1), 1, 1]);
+% val     = (thresh - data) .* (data < thresh);
+% alternatively, compute values as a z-score
+base    = repmat(mu, [size(data,1),1,1]);
+thresh  = repmat(sigma, [size(data,1), 1, 1]);
+% val     = (base-data) ./ thresh;
+val     = (base-data);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [d, T] = cutRF(d, t, t_spike, window)
+% cuts out WINDOW ms on either side of T_SPIKE
+Fs      = mean(diff(t));
+ind     = find((t >= (t_spike - window))); % & (t <= (t_spike + window)));
+ind     = ind(1):(ind(1)+ 2*window/Fs);
+T       = t(ind);
+d       = d(ind,:,:);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%555
 function [d,T] = smoothRF(d,T,binrate,interp)
 d   = bindata(d,binrate,1);
 T   = bindata(T,binrate,1);
@@ -186,21 +191,3 @@ s   = size(d);
 X   = linspace(1,s(2),s(2)*interp);  % interpolate in x dimension
 t   = 1:s(1);
 d   = interp2(d,X,t(:));
-
-function [d] = thresholdRF(d,n)
-% Flattens signal which does not exceed n standard deviations (from zero)
-m   = mean(d(:));
-%m   = 0;
-s   = std(d(:)) * n;
-th  = [m - s, m + s];
-i   = (d > th(1)) & (d < th(2));
-d(i) = m;
-
-function [t,x] = centroid(d,T)
-% computes the centroid of the RF.  Note that this function is
-% meaningful only for positive valued d.
-M   = sum(sum(d));
-x   = sum(sum(d,1) .* (1:size(d,2)))/M;
-t   = sum(sum(d,2) .* T)/M;
-% t   = sum(sum(d,2) .* (1:size(d,1))')/M;
-% t   = T(round(t));
