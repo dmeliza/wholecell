@@ -1,9 +1,10 @@
-function out = GetParam(module, param)
+function out = GetParam(module, param, varargin)
 % Accesses the contents of a non-GUI param
-% out = GetParam(module, param)
+% out = GetParam(module, param, ['value'])
 %
 %   module - the module in wc
 %   param - the tag for the GUI object
+%   'value' - if supplied, only the value is returned
 %   out - the param structure (described in OpenParamFigure.m)
 %
 %   $Id$
@@ -24,5 +25,9 @@ if (eval(sfp))
 else
     out = [];
     disp(['no such field ' param ' in module ' module]);
+end
+
+if nargin > 2
+    out = out.value;
 end
     
