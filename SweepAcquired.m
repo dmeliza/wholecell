@@ -47,8 +47,6 @@ if (isfield(wc.control.telegraph,'gain'))
     gain = gain(gainVoltage);
     ChannelGain(wc.control.amplifier,'set',gain);
     SetUIParam('wholecell','ampgain','String',num2str(gain));
-%     ir = get(wc.control.amplifier, 'SensorRange');
-%     set(wc.control.amplifier,'UnitsRange',ir ./ gain);
 end
 
 if (isfield(wc.control.telegraph,'mode'))

@@ -21,14 +21,27 @@ switch action
 case 'start'
     setupScope(wc.wholecell.handles.scope, wc.control.amplifier);
     setupHardware(wc.control.amplifier);
-    wc.gapfree.kids = [];
     start(wc.ai);
     trigger(wc.ai);
+    SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
     
 case 'record'
+    switch get(wc.ai,'Running')
+    case 'On'
+        stop(wc.ai);
+    end
+    setupScope(wc.wholecell.handles.scope, wc.control.amplifier);
+    setupHardware(wc.control.amplifier);
+    set(wc.ai,{'LoggingMode','LogToDiskMode','LogFileName'}, {'Disk&Memory','Overwrite',NextDataFile});
+    start(wc.ai);
+    trigger(wc.ai);
+    SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
     
 case 'stop'
     stop(wc.ai);
+    set(wc.ai,'LoggingMode','Memory');
+    SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
+    
     
 case 'sweep'
     data = varargin{2};
@@ -50,7 +63,7 @@ global wc
 
 daq = amp.Parent;
 sr = get(daq, 'SampleRate');
-update = fix(sr / 5); % update at 5 Hz
+update = fix(sr / 20); % update at 5 Hz
 set(daq,'SamplesPerTrigger',inf);
 set(daq,'SamplesAcquiredAction',{'SweepAcquired',me}) % calls SweepAcquired m-file, which deals with data
 set(daq,'SamplesAcquiredActionCount',update)
@@ -63,7 +76,7 @@ wc.gapfree.offset = 0;
 function varargout = setupScope(scope, amp);
 % sets up the scope properties
 clearPlot(scope);
-set(scope, {'XLimMode','XLim'}, {'Manual', [0 5000]});  % we'll manage the x axis ourselves.
+set(scope, {'XLimMode','XLim'}, {'Manual', [0 2000]});  % we'll manage the x axis ourselves.
 set(scope, 'YLim', [-3 3]);  % for now, before we figure out how to change this in the GUI
 set(scope, 'NextPlot', 'add');
 lbl = get(scope,'XLabel');

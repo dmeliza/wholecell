@@ -109,8 +109,10 @@ global wc
         wc.sealtest.sweeps = [];
         start([wc.ai wc.ao]);
         trigger([wc.ai wc.ao]);
+        SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
     else
         SetUIParam(me,'runButton','String','Stopped');
+        SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
         stop([wc.ai wc.ao]);
     end
 

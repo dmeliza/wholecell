@@ -3,7 +3,7 @@ function varargout = WholeCell(varargin)
 %    FIG = WHOLECELL launch WholeCell GUI.
 %    WHOLECELL('callback_name', ...) invoke the named callback.
 
-% Last Modified by GUIDE v2.0 27-Mar-2003 12:01:57
+% Last Modified by GUIDE v2.0 28-Mar-2003 15:41:48
 
 global wc
 
@@ -25,13 +25,19 @@ case 'init'
     clfcn = sprintf('%s(''close_Callback'');',me);
     set(fig,'numbertitle','off','name',me,'tag',me,...
         'DoubleBuffer','on','menubar','none','closerequestfcn',clfcn);
-    
+
+    setupFigure(me);
     initHardware(me);
     if (exist([pwd '\wholecell.mat'],'file') > 0)
         LoadPrefs([pwd '\wholecell.mat']);
     end
     updateChannels;
 
+case 'samplingrate_callback'
+    v = str2num(GetUIParam(me,'samplingrate','String'));
+    set([wc.ai wc.ao],'SampleRate',v);
+    updateChannels;
+    
 case 'setup_mode_callback'
     TelegraphSetup('init','mode');
     updateChannels;
@@ -91,8 +97,28 @@ case 'seal_test_callback'
 case 'start_scope_callback'
     GapFree('start');
     
+case 'start_record_callback'
+    GapFree('record');
+    
 case 'stop_callback'
     GapFree('stop'); % this will need to change when running protocols
+
+case 'xshrink_callback'
+    xlim = GetUIParam(me,'scope','XLim');
+    SetUIParam(me,'scope','XLim',[xlim(1) xlim(2) * 1.2]);
+
+case 'xstretch_callback'
+    xlim = GetUIParam(me,'scope','XLim');
+    SetUIParam(me,'scope','XLim',[xlim(1) xlim(2) * .8]);
+    
+case 'yshrink_callback'
+    xlim = GetUIParam(me,'scope','YLim');
+    SetUIParam(me,'scope','YLim',[xlim(1) *1.2, xlim(2) * 1.2]);
+    
+case 'ystretch_callback'
+    xlim = GetUIParam(me,'scope','YLim');
+    SetUIParam(me,'scope','YLim',[xlim(1) * .8, xlim(2) * .8]);
+    
     
 case 'wcdump_callback';
     keyboard;
@@ -112,11 +138,23 @@ end
 
 function out = me()
 out = mfilename;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+function setupFigure(module)
+
+button = imread('button.bmp','bmp');
+SetUIParam(me,'yshrink','CData',button);
+SetUIParam(me,'ystretch','CData',flipdim(button,1));
+button = permute(button,[2 1 3]);
+SetUIParam(me,'xstretch','CData',button);
+SetUIParam(me,'xshrink','CData',flipdim(button,2));
+
+
 %%%%%%%%%%%%%%%%%%%%%%%5
 function initHardware(module)
 global wc
 
-InitDAQ(5000);
+InitDAQ(20000);
 
 SetUIParam(me,'device','String',wc.control.DeviceName);
 SetUIParam(me,'adaptor','String',wc.control.AdaptorName);
@@ -129,6 +167,8 @@ SetUIParam(me,'status','String',get(wc.ai,'Running'));
 function updateChannels()
 % refreshes the channel lists
 global wc
+wc.control.SampleRate = get(wc.ai,'SampleRate');
+SetUIParam(me,'samplingrate','String',num2str(wc.control.SampleRate));
 % input:
 cs = '';
 c = get(wc.ai.Channel,{'HwChannel','ChannelName','Units'});
@@ -158,3 +198,5 @@ for i=1:size(c,1);
     cs{i} = sprintf('%i: %s (%s)', c{i,1}, c{i,2}, c{i,3});
 end
 SetUIParam(me,'ao_channels','String',cs);
+
+
