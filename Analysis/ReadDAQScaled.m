@@ -1,7 +1,18 @@
-function [data, time, abstime] = ReadDAQScaled(filename, datachannel, gc, units)
+function [data, units] = ReadDAQScaled(dat, datachannel,...
+                                               gc, mc, defaultunits)
 % adjusts the scale of the data based on telegraph info in the gain channel
+% and the mode of the amplifier
 %
 % $Id$
-[dat, time, abstime] = daqread(filename,'Channel',[datachannel gc]);
-gain = TelegraphReader('gain',mean(dat(:,2)));
-data = AutoGain(dat(:,1), gain, units);
+
+if isempty(mc)
+    units = defaultunits;
+else
+    units = TelegraphReader('units',mean(dat(:,mc)));
+end
+if isempty(gc)
+    data = dat;
+else
+    gain = TelegraphReader('gain',mean(dat(:,gc)));
+    data = AutoGain(dat(:,datachannel), gain, units);
+end
