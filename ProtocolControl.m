@@ -16,84 +16,48 @@ if nargin > 0
 else
 	action = 'init';
 end
+
 switch action
     
 case 'init'
     
-    fig = createFigure
+    fig = createFigure;
     
-% case 'data_dir_callback'
-%     if exist(wc.control.data_dir,'dir') == 7
-%         cd(wc.control.data_dir);
-%     end
-%     pn = uigetdir;
-%     if (pn ~= 0)
-%         wc.control.data_dir = pn;
-%         set(wc.ai,'LogFileName',NextDataFile);
-%     end
-%     cd(wc.control.base_dir);
-% 
-% case 'data_prefix_callback'
-%     def = wc.control.data_prefix;
-%     if isempty(def) | ~ischar(def)
-%         def = '';
-%     end
-%     a = inputdlg('Enter a prefix for subsequent data files','Data Prefix',...
-%         1,{def});
-%     if ~isempty(a)
-%         wc.control.data_prefix = a{1};
-%     end
+otherwise
+    func = GetUIParam(me,'protocol','String');
+    funcpath = GetUIParam(me,'protocol','ToolTipString');
+end
+
+switch action
     
 case 'seal_test'
     SealTest('init');
-    
-% case 'start_scope_callback'
-%     GapFree('start');
+
+case 'init_protocol'
+    if exist(funcpath,'file') > 0
+        feval(func, 'init');
+    end    
+
+case 'play_protocol'
+    if exist(funcpath,'file') > 0
+        feval(func,'start');
+    end    
     
 case 'record_protocol'
-    if (isempty(wc.control.protocol))
-        GapFree('record');
-    else
-        feval(wc.control.protocol,'record')
-    end
+    if exist(funcpath,'file') > 0
+        feval(func,'record');
+    end    
     
 case 'stop_protocol'
-    if (isempty(wc.control.protocol))
+    if exist(funcpath,'file') > 0
+        feval(func,'stop');
+    else
         StopAcquisition(me,[wc.ai wc.ao]);
-    else
-        feval(wc.control.protocol,'stop')
-    end
-
-case 'start_protocol'
-    func = wc.control.protocol;
-    if (isempty(func))
-        pnfn = GetUIParam(me,'protocolStatus','String');
-        [a func] = fileparts(pnfn);
-    end
-    if (exist(func) > 0)
-        feval(func,'start');
-    else
-        WholeCell('load_protocol_callback');
-    end
-%     
-% case 'load_protocol_callback'
-%     [fn pn] = uigetfile('*.m', 'Pick an M-file');
-%     if (isstr(fn))
-%         SetUIParam(me,'protocolStatus','String',[pn fn]);
-%         [a func] = fileparts(fn);
-%         wc.control.protocol = func;
-%         feval(func, 'init'); % this assumes the file is the current directory
-%     end
-    
-case 'init_protocol'
-    func = GetParam(me,'protocol');
-    feval(func, 'reinit');
+    end    
     
 case 'close_callback'
     DeleteFigure(me);
     
-otherwise
-    disp([action ' is not supported.']);
 end
 
 % local functions
@@ -102,13 +66,40 @@ function out = me()
 out = mfilename;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function updatewc(varargin)
+function updatewc(obj, event)
 % updates the wc control structure with critical values
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function pick(varargin)
+function pick(obj, event)
 % opens a window that allows the user to pick a file/path
-
+global wc
+t = get(obj,'tag');
+i = findstr(t,'_btn');
+if isempty(i)
+    return
+end
+tag = t(1:i-1);
+switch(tag)
+case 'protocol'
+    [fn pn] = uigetfile('*.m', 'Pick an M-file');
+    if (isstr(fn))
+        [a func] = fileparts([pn fn]);
+        SetUIParam(me,'protocol','String',[func]);
+        SetUIParam(me,'protocol','ToolTipString',[pn fn]);
+    end
+case 'data_dir'
+    curr = GetUIParam(me,'data_dir','String');
+    if exist(curr,'dir') == 7
+        cd(curr)
+    end
+    pn = uigetdir;
+    if (pn ~= 0)
+        SetUIParam(me,'data_dir','String',pn)
+        set(wc.ai,'LogFileName',NextDataFile);
+    end
+    cd(wc.control.base_dir);
+end  
+    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function h = createFigure()
 % generates the figure window & its denizens
@@ -135,11 +126,11 @@ InitUIControl(me, 'data_prefix',...
 s = wc.control.data_dir;
 InitUIControl(me, 'data_dir',...
               {'position', [75 24 150 18],'backgroundcolor',[1 1 1],'String',s,...
-                  'style','edit','fontsize',6,'Callback',upd});
+                  'style','edit','fontsize',6,'enable','inactive'});
 s = wc.control.protocol;          
 InitUIControl(me, 'protocol',...
               {'position', [75 43 150 18],'backgroundcolor',[1 1 1],'String',s,...
-                  'style','edit','fontsize',6,'Callback',upd});
+                  'style','edit','fontsize',6,'enable','inactive'});
 % pick buttons
 fn_pick = @pick;
 InitUIControl(me, 'protocol_btn',...
