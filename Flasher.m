@@ -155,7 +155,7 @@ global wc;
 stop([wc.ai wc.ao]);
 flushdata(wc.ai);
 fn     = get(wc.ai,'LogFileName');
-set(wc.ai,'LogFileName',NextDataFile(fn));    
+set(wc.ai,'LogFileName',NextDataFile(fn));  
 SetUIParam('protocolcontrol','status','String',get(wc.ai,'logfilename'));
 % Load visual data
 [seq, fnum] = setupVisual;
@@ -266,7 +266,7 @@ if ~isnumeric(fn2)
     s       = SetParam(mod, param, v);
 end
 % make sure the analysis figure has the right number of subplots
-[s st]   = LoadStimulusFile(stimfile);
+[s st]   = LoadStimulusFile(v);
 if isempty(s)
     error(st)
 else
@@ -311,7 +311,7 @@ function plotData(data, time, abstime, fnum)
 
 index       = GetParam(me,'input','value');
 data        = data(:,index);
-axes(getScope('get',fnum))
+axes(getScope('get',fnum-1))
 % plot the data and average response
 a               = get(gca, 'UserData'); % avgdata is now a cell array
 if isempty(a)
@@ -338,22 +338,29 @@ function a = getScope(action, arg)
 switch lower(action)
 case 'init'
     f       = findfig([me '.scope']);
-    set(f,'position',[288 314 738 508],'name','scope','numbertitle','off');
+    set(f,'position',[288 314 738 508],'name','scope','numbertitle','off','doublebuffer','on');
     clf
     for i = 1:arg
         a = subplot(arg,1,i);
         set(a,'NextPlot','ReplaceChildren')
         set(a,'XTickMode','Auto','XGrid','On','YGrid','On','YLim',[-5 5])
-        xlabel('Time (ms)')
-        ylabel('amplifier (V)')
+        ylabel(num2str(i))
     end
+    xlabel('Time (ms)')
     a       = f;
     set(a,'UserData',arg);
 otherwise
     f       = findfig([me '.scope']);
     num     = get(f,'UserData');
     if isempty(num)
-        num = 1;
+        s   = GetParam(me,'stim','value');
+        st  = LoadStimulusFile(s);
+        if ~isempty(st)
+            num = size(st.stimulus,3) - 1;
+        else
+            num = 4;
+        end
+        f   = getScope('init',num);
     end
     a       = subplot(num,1,arg);
 end
