@@ -972,7 +972,7 @@ a = GetUIHandle(me,'psp_axes');
 plot(t, pspspline, 'b', 'Parent', a, 'Linewidth', 2)
 pspmean = mean(pspdata);
 psperr = stderr(pspdata) / pspmean * 100;
-t = sprintf('Mean: %2.4f +/- %2.2f %%', pspmean, psperr);
+t = sprintf('Mean: %2.4g +/- %2.2f %%', pspmean, psperr);
 y = get(a, 'YLim');
 x = get(a, 'XLim');
 x = diff(x) * 0.80 + x(1);
@@ -988,9 +988,9 @@ srmean = mean(srdata);
 srerr = stderr(srdata) / srmean * 100;
 irmean = mean(irdata);
 irerr = stderr(irdata) / irmean * 100;
-t1 = sprintf('SR: %2.4f +/- %2.2f %%', srmean, srerr);
+t1 = sprintf('SR: %2.4g +/- %2.2f %%', srmean, srerr);
 y = get(a, 'YLim');
-t2 = sprintf('IR: %2.4f +/- %2.2f %%', irmean, irerr);
+t2 = sprintf('IR: %2.4g +/- %2.2f %%', irmean, irerr);
 l = legend(a, t1, t2);
 set(l,'tag','resist_legend');
 
