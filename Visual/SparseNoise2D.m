@@ -10,7 +10,14 @@ function stim = SparseNoise2D(xres,yres,frames,pixsize)
 % xres - number of x pixels
 % yres - number of y pixels
 % pixsize - the size (in screen pixels) to make each pixel
-% frames - the number of frames to generate (default is the complete mseq)
+% frames - the number of frames to generate
+%
+% stim - the stimulus structure, which has the following fields:
+%   x_res
+%   y_res
+%   colmap
+%   stimulus
+%   parameters  (Nx3 array, giving the x,y location of each pixel and its color)
 %
 % $Id$
 error(nargchk(4,4,nargin));
@@ -33,6 +40,7 @@ for i = 1:frames
     y = r_y(i);
     z = r_z(i) * 2 + 1; % 1 and 3
     stim.stimulus(x:x+p,y:y+p,i) = z;
+    stim.parameters(:,i) = [x y z];
 end
 
 function s = output_matrix(res, pixsize)
