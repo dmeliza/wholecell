@@ -35,7 +35,7 @@ end
 [pn fn ext] = fileparts(filename);
 try
     switch lower(stim.type)
-    case 's0'
+    case {'s0','s2'}
         stimulus = getfield(stim,'stimulus');
         [X Y T] = size(stimulus);
         colmap = getfield(stim,'colmap');
