@@ -1,5 +1,6 @@
 function Scope(varargin)
 % The Scope is a general purpose figure used to display stuff.
+% Multiple scopes can be opened 
 %
 % $Id$
 
@@ -14,7 +15,12 @@ switch action
     
 case 'init'
 
-    fig = OpenGuideFigure(me);
+    if nargin > 1
+        tag = varargin{2};
+    else
+        tag = me;
+    end
+    fig = OpenGuideFigure(me, tag);
     zoom(fig,'off');
     
 case 'plot'
@@ -24,11 +30,7 @@ case 'plot'
     handler = @axesclick;
     handles = [];
     if nargin > 1
-        scope = GetUIHandle(me,'scope');
-        if ~ishandle(scope)
-            Scope('init');
-            scope = GetUIHandle(me,'scope');
-        end
+        scope = getScopeHandle(me);
         handles = feval(varargin{2:nargin},'Parent',scope);
         set(scope,'ButtonDownFcn',handler);
     end
@@ -37,6 +39,18 @@ case 'plot'
        handler = @axesclick;
        set(h,'ButtonDownFcn',handler);
     end
+    
+case 'scroll'
+    scrollplot(varargin{2:nargin});
+    
+case 'scopeplot'
+    scopeplot(varargin{2:nargin}); 
+    
+case 'clear'
+    scope = getScopeHandle(me);
+    kids = get(scope, 'Children');
+    delete(kids);
+    set(scope,'UserData',[]);
     
 case 'xshrink_callback'
     xlim = GetUIParam(me,'scope','XLim');
@@ -67,6 +81,57 @@ end
 %%%%%%%%%%%%%functions
 function out = me()
 out = mfilename;
+
+%%%%%%%%%%%%%%%%%%5
+function scope = getScopeHandle(tag)
+scope = GetUIHandle(tag,'scope');
+if ~ishandle(scope)
+    Scope('init', tag);
+    scope = GetUIHandle(tag,'scope');
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%
+function scrollplot(time, data, varargin)
+% when this callback is called, the scope plots the data in scrolling
+% mode.  eg: Scope('scroll',time,data,xlim), where xlim defines the
+% width of the graph.  Old data is not deleted, so we may have issues
+% if the graph runs too long.
+handler = @axesclick;
+handles = [];
+if nargin > 1
+    scope = getScopeHandle(me);
+    last = time(length(time));
+    if nargin > 2
+        xlim = [last - varargin{3}, last];
+    else
+        xlim = diff(get(scope,'XLim'));
+        xlim = [last - xlim, last];
+    end
+    handles = plot(time, data, 'Parent', scope); % data is plotted
+    set(scope,'ButtonDownFcn',handler,'XLim',xlim);
+end
+if ~isempty(handles)
+    h = handles(find(ishandle(handles))); % selects valid handles
+    handler = @axesclick;
+    set(h,'ButtonDownFcn',handler);
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%
+function scopeplot(time, data, varargin)
+% this callback does a scope-style plot of the data, moving data that
+% goes past the x limit of the graph to the beginning
+handler = @axesclick;
+scope = getScopeHandle(me);
+k = get(scope,'UserData');
+if isempty(k)
+    k = plot(time, data, 'Parent', scope);
+    set(scope,'ButtonDownFcn', handler, 'UserData', k);
+    stripchart('initialize', scope, 'Time(ms)');
+else
+    % currently just plots the first trace
+    if iscell(k) k = k{1}; end
+    stripchart('update', k, time', data(:,1)');
+end
 
 %%%%%%%%%%%%%%%%%%%%55
 function out = dims(axishandle)

@@ -94,10 +94,10 @@ if Range(end)~=Ticks(end)
   set(hAxes,'XTick',Ticks)
 end
 %set(hAxes,'XTickLabel',[],'XTickMode','Manual','XGrid','On','YGrid','On')
-set(hAxes,'XTickMode','Manual','XGrid','On','YGrid','On')
+set(hAxes,'XTickMode','Auto','XGrid','On','YGrid','On')
 
 % label X axis with units/division
-xlabel(sprintf('%g %s/div',dX,xUnits))
+%xlabel(sprintf('%g %s/div',dX,xUnits),'Parent','hAxes')
 
 
 %--------------------------------------------------------------------------
@@ -127,9 +127,7 @@ if (over > 0)
     X = X - over;
 end
 i = find(X >= xlim(1));       % eliminate points that come before xlim(1)
-X = X(i);
-Y = Y(i);
-
+j = i(1);
 if ~ishandle(hLine), return, end
-set(hLine,'YData',Y,'XData',X);                % update plot
-drawnow                                 % refresh display
+set(hLine,'YData',Y(j:end),'XData',X(j:end));                % update plot
+%drawnow                                 % refresh display
