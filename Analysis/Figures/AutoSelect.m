@@ -1,4 +1,4 @@
-function [Z] = AutoSelect(matfile)
+function [Z] = AutoSelect(matfile, output)
 %
 % AutoSelect runs on the matfile output of AutoAnalyze, which is a giant
 % structure containing all the relevant data from the analysis of the
@@ -24,7 +24,7 @@ POST_SR         = [];       % like POST_IR
 % other analysis parameters
 POST_INTERVAL   = [5 15];   % minutes, time over which analysis is made
 RESPONSE_TYPE   = 'ampl';   % the fieldname containing the response ('ampl' or 'slope')
-PRE_SPIKE_TIME  = 'onset';  % use onset or peak for calculating spike time
+PRE_SPIKE_TIME  = 'peak';  % use onset or peak for calculating spike time
 MATFILE_STRUC   = 'results';
 
 % okay, here goes:
@@ -70,6 +70,12 @@ for i = 1:length(sel)
     end
     pre = Z(i).pre(induced);
     pst = Z(i).pst(induced);
+    if isempty(pre.(RESPONSE_TYPE)) | isempty(pst.(RESPONSE_TYPE))
+        fprintf('%s/%s - rejected; pre or post was empty\n',...
+            Z(i).rat,Z(i).cell);
+        sel(i)  = 0;
+        continue
+    end        
     % baseline length:
     if ~isempty(BASELINE_LENGTH)
         baseline_length = pre.time(end) - pre.time(1);
@@ -108,7 +114,7 @@ for i = 1:length(sel)
     % only select IR values in post measurement interval
     pst_r   = nanmean(getFromInterval(Z(i).pst,field,POST_INTERVAL));
     shift_ir = pst_r / pre_r;        
-    if ~isempty(POST_IR)
+    if ~isempty(POST_IR) & ~Z(i).skip_ir
         thresh   = [1/(1 - POST_IR), 1/(1 + POST_IR)];
         if shift_ir > thresh(1) | shift_ir < thresh(2)
             fprintf('%s/%s - rejected; IR bad (%3.2f %s %3.2f; %3.2f%%)\n',...
@@ -124,7 +130,7 @@ for i = 1:length(sel)
     % only select IR values in post measurement interval
     pst_r   = nanmean(getFromInterval(Z(i).pst,field,POST_INTERVAL));
     shift_sr = pst_r / pre_r;
-    if ~isempty(POST_SR)
+    if ~isempty(POST_SR) & ~Z(i).skip_sr
         thresh   = [1/(1 - POST_SR), 1/(1 + POST_SR)];
         if shift_sr > thresh(1) | shift_sr < thresh(2)
             fprintf('%s/%s - rejected; SR bad (%3.2f %s %3.2f; %3.2f%%)\n',...
@@ -153,15 +159,41 @@ for i = 1:length(sel)
         t_pre   = pre.(['t_' PRE_SPIKE_TIME]);
         Z(i).spike_time = Z(i).t_spike - t_pre;
     end
+    % also, for futher analysis we're only going to keep the induced bars
+    Z(i).pre    = pre;
+    Z(i).pst    = pst;
 end
 % now eliminate the failed experiments again
 Z   = Z(find(sel));
-
+% produce output file
+if nargin > 1
+    rats    = char({Z.rat}');
+    rats    = str2num(rats(:,4:end));
+    cells   = char({Z.cell}');
+    cells   = str2num(cells(:,5:end));
+    values  = [Z.pre_value;Z.pst_value;Z.P_shift;Z.spike_time]';
+    fid = fopen(output,'w');
+    try
+        for i = 1:length(rats)
+            fprintf(fid,'%d/%d,%3.4f,%3.4f,%3.1f,%3.4f\n',...
+                rats(i),cells(i),Z(i).pre_value,Z(i).pst_value,...
+                Z(i).spike_time*1000,Z(i).P_shift);
+        end
+        fclose(fid);
+    catch
+        fclose(fid);
+        error(lasterr)
+    end
+end
 
 function value = getFromInterval(structure, field, interval)
 value = [];
 for j = 1:length(structure)
     t       = structure(j).time;
-    ind     = find(t>=interval(1) & t<=interval(2));
+    if length(interval) > 1
+        ind     = find(t>=interval(1) & t<=interval(2));
+    else
+        ind     = find(t>=interval(1));
+    end
     value   = cat(1,value,structure(j).(field)(ind));
 end
