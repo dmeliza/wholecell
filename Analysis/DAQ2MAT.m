@@ -35,8 +35,8 @@ info.samples = d.ObjInfo.SamplesAcquired;
 disp(sprintf('File %s contains %i samples at %i /s', names{1} ,info.samples, info.t_rate));
 disp(sprintf('Units are in %s', info.y_unit));
 
-data = [];
-abstime = [];
+data = zeros(info.samples,length(names));
+abstime = zeros(length(names),6);
 time = [];
 for i = 1:length(names);
     fn = names{i};
@@ -46,8 +46,8 @@ for i = 1:length(names);
             disp(['Data file ' fn ' too short; ignored.']);
         else
             time = t;
-            data = [data,dat];
-            abstime = [abstime;at];
+            data(:,i) = dat;
+            abstime(i,:) = at;
             disp(['Loaded ' num2str(length(time)) ' samples from ' fn]);
         end
     end
