@@ -572,11 +572,11 @@ srdata = ComputeDiff(data, [times.rbs times.rbe], times.srm, dt);
 irdata = ComputeDiff(data, [times.rbs times.rbe], times.irm, dt);
 switch(lower(d.info.y_unit))
 case 'na'
-    srdata = times.curr / srdata;
-    irdata = times.curr / irdata;
+    srdata = times.curr ./ srdata;
+    irdata = times.curr ./ irdata;
 otherwise
-    srdata = srdata / times.curr;
-    irdata = irdata / times.curr;
+    srdata = srdata ./ times.curr;
+    irdata = irdata ./ times.curr;
     
 end
 invert = GetUIParam(me,'invert_psp','Value');
