@@ -11,8 +11,8 @@ function slope = ComputeSlope(trace, baseline, mark, dt)
 %   $Id$
 
 % convert units to indices into trace
-bs = fix(baseline / dt);
-mk = fix(mark / dt);
+bs = fix(baseline / dt) + 1;
+mk = fix(mark / dt) + 1;
 
 y1 = mean(trace(bs,:),1);
 y2 = mean(trace(mk,:),1);

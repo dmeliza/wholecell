@@ -147,7 +147,32 @@ case 'time_changed_callback'
     f = gcbo;
     m = get(f,'UserData');
     v = str2num(get(f,'String'));
+    set(gcf,'DoubleBuffer','on');
     set(m,'XData',[v v]);
+    set(gcf,'DoubleBuffer','off');
+    updateStats;
+    
+case 'load_times_callback'
+    [fn pn] = uigetfile('*.mat');
+    if exist(fullfile(pn,fn), 'file');
+        d = load(fullfile(pn,fn));
+        if (isfield(d,'times'))
+            setTimes(d.times);
+            SetUIParam(me,'status','String',['Times loaded from ' fn]);
+        else
+            SetUIParam(me,'status','String','Invalid .mat file');
+        end
+    else
+        SetUIParam(me,'status','String',['Unable to open file: ' filename]);
+    end
+    
+case 'export_times_callback'
+    [fn pn] = uiputfile('*.mat');
+    if (fn ~= 0)
+        times = getTimes;
+        save(fullfile(pn,fn), 'times');
+    end
+    
     
 case 'close_callback'
     delete(gcbf);
@@ -184,6 +209,7 @@ obj = gcf;
 set(obj,'WindowButtonMotionFcn','');
 set(obj,'WindowButtonUpFcn','');
 set(obj,'DoubleBuffer','off');
+updateStats;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function varargout = setupFigure()
@@ -220,10 +246,11 @@ if (isstruct(d))
     plotTraces(data, d.time, d.info, abstime);
     updateSliders;
     plotMarks;
+    updateStats;
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function times = getTimes;
+function times = getTimes
 % returns the times from the user entry fields
 times.pspbs = GetUIParam(me,'pspbaselinestart','StringVal');
 times.pspbe = GetUIParam(me,'pspbaselineend','StringVal');
@@ -233,6 +260,20 @@ times.rbe = GetUIParam(me,'resistbaselineend', 'StringVal');
 times.srm = GetUIParam(me,'seriesend','StringVal');
 times.irm = GetUIParam(me,'inputend','StringVal');
 times.curr = GetUIParam(me,'current_inj','StringVal');
+
+function setTimes(times)
+% sets times in the fields and marks according to an input structure
+% fills text fields with times data
+SetUIParam(me,'pspbaselinestart','StringVal', times.pspbs);
+SetUIParam(me,'pspbaselineend','StringVal', times.pspbe);
+SetUIParam(me,'pspslopeend','StringVal', times.pspm);
+SetUIParam(me,'resistbaselinestart','StringVal', times.rbs);
+SetUIParam(me,'resistbaselineend', 'StringVal', times.rbe);
+SetUIParam(me,'seriesend','StringVal', times.srm);
+SetUIParam(me,'inputend','StringVal', times.irm);
+SetUIParam(me,'current_inj','StringVal', times.curr);
+plotMarks;
+updateStats;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function varargout = plotTraces(varargin)
@@ -270,10 +311,10 @@ SetUIParam(me,'xslider','UserData',GetUIParam(me,'trace_axes','XLim'));
 SetUIParam(me,'yslider','UserData',GetUIParam(me,'trace_axes','YLim'));
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
-function plotMarks
+function plotMarks()
 % draws the mark lines (off screen) and sets up the correspondance between
 % the handles of the marks and the displays.
-colors = {'red','blue','black','red','blue','green','black'};
+colors = {'red','blue','black','magenta','cyan','green','yellow'};
 tags = {'pspbaselinestart','pspbaselineend','pspslopeend',...
         'resistbaselinestart','resistbaselineend','seriesend','inputend'};
 ydim = GetUIParam(me,'yslider','UserData');
@@ -293,7 +334,42 @@ for i = 1:length(tags)
     set(f,'UserData',m);
     bdfn = sprintf('%s(''%s'')',me, 'time_changed_callback');
     set(f,'ButtonDownFcn', bdfn);
+    SetUIParam(me,[tags{i} '_txt'],'ForegroundColor',colors{i});
 end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+function updateStats()
+% this method updates the statistics display using the times data
+% and the traces in the window. Deleted traces are ignored, but hidden ones
+% are included.  This method should be safe to call at any time, even
+% if the times are invalid.
+d = GetUIParam(me,'filename','UserData');
+times = getTimes;
+[data, abstime] = getData;
+dt = 1 / d.info.t_rate;
+pspdata = ComputeSlope(data, [times.pspbs times.pspbe], times.pspm, dt);
+srdata = ComputeSlope(data, [times.rbs times.rbe], times.srm, dt) / times.curr;
+irdata = ComputeSlope(data, [times.rbs times.rbe], times.irm, dt) / times.curr;
+% plot it
+a = GetUIHandle(me,'psp_axes');
+clearAxes(a);
+ph = scatter(abstime, pspdata);
+ylabel('PSP Slope');
+set(ph, 'ButtonDownFcn',[me '(''stats_click_callback'')']);
+a = GetUIHandle(me,'resist_axes');
+clearAxes(a);
+sh = scatter(abstime, srdata);
+set(sh, 'ButtonDownFcn',[me '(''stats_click_callback'')']);
+ih = scatter(abstime, irdata,10,'filled');
+set(ih, 'ButtonDownFcn',[me '(''stats_click_callback'')']);
+xlabel('Time (min)'),ylabel('R (M\ohm');
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function clearAxes(axes_handle)
+axes(axes_handle);
+cla;
+set(axes_handle,'NextPlot','Add');
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [data, abstime] = binTraces(data, abstime, binfactor)
@@ -355,40 +431,27 @@ function adjustBaseline(limits)
 % Adjusts the baseline of the traces in the trace axes
 % Uses adjust_baseline.UserData ms
 d = GetUIParam(me,'filename','UserData');
-th = GetUIParam(me,'trace_list','UserData'); % trace handles
-ydata = get(th,'YData');
+data = getData;
+limits = (limits * d.info.t_rate) + 1;
+adj = mean(data(limits(1):limits(2),:),1);
+data = data - repmat(adj, size(data,1),1);
+plotTraces(data, d.time, d.info);
+plotMarks;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [data, abstime] = getData()
+% this function extracts (binned) Y data from the trace axes
+% and the associated binned relative start times
+tracehandles = GetUIParam(me, 'trace_list', 'UserData');
+ydata = get(tracehandles,'YData');
 if iscell(ydata)
     data = cat(1,ydata{:});
 else
     data = ydata;
 end
-limits = (limits * d.info.t_rate) + 1;
-adj = mean(data(:,limits(1):limits(2)),2);
-data = data - repmat(adj, 1, size(data,2));
-plotTraces(data, d.time, d.info);
-plotMarks;
+data = data';
+abstime = GetUIParam(me,'trace_axes','UserData');
 
-% --------------------------------------------------------------------
-function varargout = loadTimes_Callback(h, eventdata, handles, varargin)
-% Stub for Callback of the uicontrol handles.loadTimes.
-%[pathstr,baseName,ext,versn] = fileparts(handles.filename);
-[filename,path] = uigetfile('*times.csv');
-if exist(filename,'file');
-    times = importTimes(filename);
-    setTimes(times,handles);
-    updateDisplay(handles);
-    setStatus(['Times loaded from ' filename],handles);
-else
-    setStatus(['Unable to open file: ' filename], handles);
-end
-
-% --------------------------------------------------------------------
-function varargout = saveTimes_Callback(h, eventdata, handles, varargin)
-% Stub for Callback of the uicontrol handles.saveTimes.
-times = getTimes(handles);
-[pathstr,baseName,ext,versn] = fileparts(handles.filename);
-exportTimes(times,baseName);
-setStatus(['Times saved to ' baseName '_times.csv'],handles);
 
 % --------------------------------------------------------------------
 function varargout = computeStats_Callback(h, eventdata, handles, varargin)
@@ -465,107 +528,4 @@ axes(handles.pspAxes);
 cla;
 axes(handles.resistAxes);
 cla;
-
-% Returns the last trace value
-function lt = getLastTrace(handles)
-lt = str2double(get(handles.lastTrace,'String'));
-if (~isnumeric(lt) | lt < 0)
-    lt = 0;
-end
-
-% Returns the bin factor value
-function bf = getBinFactor(handles)
-bf = str2double(get(handles.binFactor,'String'));
-if (~isnumeric(bf) | bf < 1)
-    bf = 1;
-end
-% Returns the smoothing factor
-function lt = getSmoothFactor(handles)
-lt = str2double(get(handles.smoothFactor,'String'));
-if (~isnumeric(lt) | lt < 0)
-    lt = 1;
-end
-% Returns the filtering factor
-function lt = getFilterFactor(handles)
-lt = str2double(get(handles.filterFactor,'String'));
-if (~isnumeric(lt) | lt < 0)
-    lt = 1;
-end
-% Returns the gain correction
-function lt = getGainFactor(handles)
-lt = str2double(get(handles.gainFactor,'String'));
-if (~isnumeric(lt) | lt < 0)
-    lt = 1;
-end
-
-% (re)draws traces
-function handles = drawTraces(handles)
-handler = get(handles.axes1,'ButtonDownFcn');
-handles.traceHandles = dispTraces(handles.pc8h,handles.traces,handles.axes1);
-fillList(size(handles.traces),handles);
-handles.origX = get(handles.axes1,'XLim');
-handles.origY = get(handles.axes1,'YLim');
-updateSliders(handles);
-handles.marks = drawMarks(handles, handler);
-zoom on;
-set(handles.traceHandles,'ButtonDownFcn',handler);
-set(handles.axes1,'ButtonDownFcn',handler);
-set(handles.fileName,'String',handles.filename);
-
-
-
-% Generates new mark lines according to values in entry fields
-function marks = drawMarks(handles, clickHandler)
-axes(handles.axes1);
-times = getMarks(handles);
-ydim = get(handles.axes1,'YLim');
-marks.pspbaselinestart = line([times.sPSPBaseline times.sPSPBaseline], ydim);
-set(marks.pspbaselinestart, 'ButtonDownFcn', clickHandler);
-set(marks.pspbaselinestart, 'Color', 'red');
-marks.pspbaselineend = line([times.ePSPBaseline times.ePSPBaseline], ydim);
-set(marks.pspbaselineend, 'ButtonDownFcn', clickHandler);
-set(marks.pspbaselineend, 'Color', 'blue');
-marks.pspslopeend = line([times.endPSP times.endPSP], ydim);
-set(marks.pspslopeend, 'ButtonDownFcn', clickHandler);
-set(marks.pspslopeend, 'Color', 'black');
-marks.resistbaselinestart = line([times.sResistBaseline times.sResistBaseline], ydim);
-set(marks.resistbaselinestart, 'ButtonDownFcn', clickHandler);
-set(marks.resistbaselinestart, 'Color', 'red');
-marks.resistbaselineend = line([times.eResistBaseline times.eResistBaseline], ydim);
-set(marks.resistbaselineend, 'ButtonDownFcn', clickHandler);
-set(marks.resistbaselineend, 'Color', 'blue');
-marks.seriesend = line([times.endSeries times.endSeries], ydim);
-set(marks.seriesend, 'ButtonDownFcn', clickHandler);
-set(marks.seriesend, 'Color', 'green');
-marks.inputend = line([times.endInput times.endInput], ydim);
-set(marks.inputend, 'ButtonDownFcn', clickHandler);
-set(marks.inputend, 'Color', 'black');
-
-% fills text fields with times data
-function setTimes(times,handles)
-set(handles.pspbaselinestart,'String',num2str(times.sPSPBaseline));
-set(handles.pspbaselineend,'String',num2str(times.ePSPBaseline));
-set(handles.pspslopeend,'String',num2str(times.endPSP));
-set(handles.resistbaselinestart,'String',num2str(times.sResistBaseline));
-set(handles.resistbaselineend,'String',num2str(times.eResistBaseline));
-set(handles.seriesend,'String',num2str(times.endSeries));
-set(handles.inputend,'String',num2str(times.endInput));
-set(handles.currentInj,'String',num2str(times.currentInjection));
-
-% updates the marks
-function updateMarks(handles)
-x = str2double(get(handles.inputend,'String'));
-set(handles.marks.inputend,'XData',[x x]);
-x = str2double(get(handles.pspbaselinestart,'String'));
-set(handles.marks.pspbaselinestart,'XData',[x x]);
-x = str2double(get(handles.pspbaselineend,'String'));
-set(handles.marks.pspbaselineend,'XData',[x x]);
-x = str2double(get(handles.pspslopeend,'String'));
-set(handles.marks.pspslopeend,'XData',[x x]);
-x = str2double(get(handles.resistbaselinestart,'String'));
-set(handles.marks.resistbaselinestart,'XData',[x x]);
-x = str2double(get(handles.resistbaselineend,'String'));
-set(handles.marks.resistbaselineend,'XData',[x x]);
-x = str2double(get(handles.seriesend,'String'));
-set(handles.marks.seriesend,'XData',[x x]);
 
