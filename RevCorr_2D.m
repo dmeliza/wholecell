@@ -6,7 +6,7 @@ function varargout = RevCorr_2D(varargin)
 % can be used, for instance on different platforms)
 %
 % Input: The data for the pixel sequence is read from a file.
-% Output: The DAQ toolkit stores the response from the cell
+% Output: The DAQ toolkit stores the response from the ceFll
 %
 %
 % 1.8:
@@ -83,7 +83,7 @@ switch action
 
 case {'init','reinit'}
     cgloadlib; % error checking needed here for missing toolkit
-    cgopen(5,8,0,2);
+    cgopen(1,8,0,2);
     p = defaultParams;
     fig = OpenParamFigure(me, p);
     Scope('init');
@@ -182,6 +182,7 @@ set(wc.ai,'TriggerType','Software');
 set(wc.ai,'TriggerCondition','Rising');
 set(wc.ai,'TriggerConditionValue',curr+sync_v);
 set(wc.ai,'TriggerChannel',wc.ai.Channel(sync));
+set(wc.ai,'TriggerAction',{});
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%55555
 function startSweep()
@@ -201,10 +202,9 @@ function playStimulus()
 % plays the movie at the appropriate frame rate.
 global timing;
 % check that stimulus is the proper length
-a_pix = GetParam(me,'a_frames','value');
 frate = GetParam(me,'t_res','value');
 gprimd = cggetdata('gpd'); %max frame is given by gprimd.NextRASKey - 1
-if gprimd.NextRASKey <= a_pix
+if gprimd.NextRASKey < 2
     queueStimulus;
 end
 CgPlayMovie(frate);
@@ -217,8 +217,7 @@ function queueStimulus()
 % reset display toolkit
 disp = GetParam(me,'display','value');
 cgshut;
-cgopen(5,8,0,disp);
-
+cgopen(1,8,0,disp);
 a_frames = GetParam(me,'a_frames','value');
 mseqfile = GetParam(me,'stim','value');
 stim = LoadMovie(mseqfile);
@@ -299,7 +298,6 @@ t_res = GetParam(me,'t_res','value');
 t_stim = t_res * 1000 / GetParam(me,'v_res','value'); %ms/sample
 r = bindata(data(:,in),fix(t_stim/t_resp));
 r = r - mean(r);
-timing = reshape(timing,length(timing)/t_res,t_res);
 stim_times = timing(:,1) - timing(1);
 % reconstruct the stimulus (as an N by X matrix)
 s_frames = length(r);
