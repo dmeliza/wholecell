@@ -101,12 +101,12 @@ case 'record'
     case 'On'
         feval(me,'stop');
     end
-    setupHardware;
     llf = get(wc.ai,'LogFileName');
     [dir newdir] = fileparts(llf);
     s = mkdir(dir, newdir);
     set(wc.ai,'LogFileName',fullfile(dir,newdir, '0000.daq'));    
     set(wc.ai,{'LoggingMode','LogToDiskMode'}, {'Disk&Memory','Overwrite'});
+    setupHardware;
     startSweep;
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
     
@@ -312,7 +312,7 @@ r = GetParam(me,'repeat','value');
 if r == 0 | r > str2num(fn)
     startSweep;
 else
-    clearDAQ;
+    ClearAI(obj);
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
@@ -331,14 +331,21 @@ t_stim = t_res * 1000 / gpd.RefRate100 * 100; %ms/sample
 r = bindata(data(:,in),fix(t_stim/t_resp));
 r = r - mean(r);
 stim_times = timing(:,1) - timing(1);
-% reconstruct the stimulus (as an N by X matrix)
-s_frames = length(r);
+% recover and condition the stimulus
+r_frames = length(r);
 stim_struct = GetUIParam('scope','status','UserData');
+s = stim_struct.stimulus;
 x_res = GetParam(me,'x_res','value');
 y_res = GetParam(me,'y_res','value');
-pix = x_res * y_res * s_frames; % # of pixels
-s = reshape(stim_struct.stimulus(1:pix),x_res * y_res, s_frames);
-s = permute(s,[2 1]);
+s_frames = size(s,3);
+if s_frames > r_frames
+    frames = r_frames;
+    s = s(:,:,1:frames);
+else
+    frames = s_frames;
+    r = r(1:frames);
+end
+s = reshape(s,x_res*y_res,frames)';
 % reverse correlation:
 options.correct = 'no';
 options.display = 'no';
