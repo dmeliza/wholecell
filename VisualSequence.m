@@ -156,7 +156,7 @@ start([wc.ai]);
 cogstd('spriority','high');
 frate  = GetParam(me,'t_res','value');
 gpd    = cggetdata('gpd');
-if gprimd.NextRASKey < 5
+if gpd.NextRASKey < 5
     s  = GetUIParam('protocolcontrol','status','UserData');
     CgPlayFrames(frate,s);      % if no frames are loaded, this must be an s1 structure
 else
@@ -281,7 +281,7 @@ if ~isempty(am) & ~isnumeric(am) & exist(am,'file')
     % Generate the r1 structure
     % bin the data (rough, ignores variance in timing)
     [pn func ext] = fileparts(am);
-    timing        = Sync2Timing(dat(:,sync));
+    timing        = Sync2Timing(data(:,sync));
     units         = obj.Channel(in).Units;
     t_rate        = get(obj,'SampleRate');
     stim          = GetUIParam('protocolcontrol','status','UserData');
