@@ -174,7 +174,7 @@ if PLOT_RESULT
     if (X > 1)
         % Image Plot %
         imagesc(h1_est,CLIM)
-        axis image
+        %axis image
         set(gca,'XTick',[],'YTick',[])
         xlabel('Parameters')
         ylabel('Lags') 
