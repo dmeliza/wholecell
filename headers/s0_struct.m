@@ -1,4 +1,4 @@
-function [s, fields] = stim_struct()
+function [s, fields] = s0_struct()
 %
 % Defines the stimulus structure (by returning a structure with the proper fields)
 %
