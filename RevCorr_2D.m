@@ -230,7 +230,7 @@ end
 stim = GetUIParam('protocolcontrol','status','UserData');
 if ~strcmp(lower(get(obj,'LoggingMode')),'memory')
     [pn fn ext] = fileparts(get(obj,'logfilename'));
-    WriteStructure([pn filesep 'stim.mat'],stim);
+    WriteStructure([pn filesep 'stim.s0'],stim);
 end
 len = size(stim.stimulus,3);
 
