@@ -118,18 +118,6 @@ global wc;
     p.input.choices = GetChannelList(wc.ai);
     ic = get(wc.control.amplifier,'Index');
     p.input.value = ic;
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55555
-function startSweep()
-% Begins a sweep
-global wc;
-stop([wc.ai wc.ao]);
-flushdata(wc.ai);
-fn = get(wc.ai,'LogFileName');
-set(wc.ai,'LogFileName',NextDataFile(fn));    
-SetUIParam('scope','status','String',get(wc.ai,'logfilename'));
-queueStimulus;
-start([wc.ai wc.ao]);
-trigger([wc.ai wc.ao]);
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function setupHardware()
@@ -158,17 +146,6 @@ set(wc.ao, 'SampleRate', sr);
 Spool('stim','init');
 Spool('resp','init');
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function wn = whitenoise(samples)
-% generates quantized one-dimensional gaussian white noise
-s_max = GetParam(me,'s_max','value');
-s_min = GetParam(me,'s_min','value');
-s_res = GetParam(me,'s_res','value');
-wn = randn(samples,1);
-wn = wn - min(wn);
-wn = round(wn * s_res / max(wn)) * (s_max - s_min) / s_res + s_min;
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
 function queueStimulus()
 % queues data in the ao object and records it to a param in wc
@@ -191,7 +168,17 @@ if (queued < 0.1 * update)
     end
 end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function wn = whitenoise(samples)
+% generates quantized one-dimensional gaussian white noise
+s_max = GetParam(me,'s_max','value');
+s_min = GetParam(me,'s_min','value');
+s_res = GetParam(me,'s_res','value');
+wn = randn(samples,1);
+wn = wn - min(wn);
+wn = round(wn * s_res / max(wn)) * (s_max - s_min) / s_res + s_min;
+    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function writeStimulus(filename, stimulus, stimrate, analysis_interval)
 % writes stimulus waveform to a mat file for later analysis
 [pn fn ext] = fileparts(filename);
@@ -210,6 +197,31 @@ if length(d) == samp*sr % short stuff is discarded
     t = 0:sr:(length(d)-1)*sr;
     plotData(t,d);
 end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function varargout = plotData(time, data)
+% updates the scope with the latest bit of data
+global wc
+
+mode = GetParam('control.telegraph', 'mode');
+gain = GetParam('control.telegraph', 'gain');
+scope = getScope;
+if ~isempty(mode)
+    units = TelegraphReader('units',mean(data(:,mode)));
+else
+    units = 'V';
+end
+if ~isempty(gain)
+    gain = TelegraphReader('gain',mean(data(:,gain)));
+else
+    gain = 1;
+end
+lbl = get(scope,'YLabel');
+set(lbl,'String',['amplifier (' units ')']);
+% plot the data and average response
+index = wc.control.amplifier.Index;
+data = AutoGain(data(:,index), gain, units);
+Scope('scope',time, data);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function analyze(obj, event)
@@ -243,16 +255,8 @@ Spool('stim','delete');
 
 startSweep;
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function scope = getScope()
-scope = GetUIHandle('scope','scope');
-if (isempty(scope) | ~ishandle(scope))
-    Scope('init');
-    scope = GetUIHandle('scope','scope');
-end
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function varargout = setupScope(scope, amp);
+function setupScope();
 % sets up the scope properties
 scope = getScope;
 clearPlot(scope);
@@ -262,33 +266,30 @@ set(scope, 'NextPlot', 'add');
 lbl = get(scope,'XLabel');
 set(lbl,'String','Time (ms)');
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function varargout = plotData(time, data)
-% updates the scope with the latest bit of data
-global wc
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55555
+function startSweep()
+% Begins a sweep
+global wc;
+stop([wc.ai wc.ao]);
+flushdata(wc.ai);
+fn = get(wc.ai,'LogFileName');
+set(wc.ai,'LogFileName',NextDataFile(fn));    
+SetUIParam('scope','status','String',get(wc.ai,'logfilename'));
+queueStimulus;
+start([wc.ai wc.ao]);
+trigger([wc.ai wc.ao]);
 
-mode = GetParam('control.telegraph', 'mode');
-gain = GetParam('control.telegraph', 'gain');
-scope = getScope;
-if ~isempty(mode)
-    units = TelegraphReader('units',mean(data(:,mode)));
-else
-    units = 'V';
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+function scope = getScope()
+scope = GetUIHandle('scope','scope');
+if (isempty(scope) | ~ishandle(scope))
+    Scope('init');
+    scope = GetUIHandle('scope','scope');
 end
-if ~isempty(gain)
-    gain = TelegraphReader('gain',mean(data(:,gain)));
-else
-    gain = 1;
-end
-lbl = get(scope,'YLabel');
-set(lbl,'String',['amplifier (' units ')']);
-% plot the data and average response
-index = wc.control.amplifier.Index;
-data = AutoGain(data(:,index), gain, units);
-Scope('scope',time, data);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function clearPlot(axes)
+function clearPlot()
 Scope('clear');
 
 %%%%%%%%%%%%%%%%%%%%%%%%5

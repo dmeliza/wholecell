@@ -206,10 +206,8 @@ start([wc.ai wc.ao]);
 trigger([wc.ai wc.ao]);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function clearPlot(axes)
-kids = get(axes, 'Children'); 
-delete(kids);
-set(axes,'UserData',[]);
+function clearPlot()
+Scope('clear')
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function scope = getScope()
