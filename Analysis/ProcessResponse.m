@@ -21,7 +21,7 @@ function [] = ProcessResponse(signals)
 
 error(nargchk(0,1,nargin))
 
-filters = {'highpass','bandpass','lowpass','custom','bin','framebin','threshhold',...
+filters = {'highpass','bandpass','lowpass','custom','gaussian','bin','framebin','threshhold',...
            'clip','dcblock','static','combine','null'};
 
 initFigure;
@@ -301,18 +301,32 @@ end
 
 function [] = clickaxes(obj, event)
 % this function is used to synchronize zoom operations between axes
-zoom(gcbf,'down')           % execute matlab's zoom function
-obj  = get(gcbf, 'currentaxes');
-xlim = get(obj,'XLim');
-ylim = get(obj,'YLim');
-tag  = get(obj,'Tag');
-if strcmpi(tag,'input')
-    otag = 'output';
-else
-    otag = 'input';
+% left clicks activate the standard zoom behavior, while right clicks
+% reset both axes to a tight fit.  TODO: implement more sophisticated
+% locking of axes, etc.
+cl   = get(gcbf, 'selectiontype');
+switch lower(cl)
+case 'alt'
+    i   =  GetUIHandle(me,'input');
+    o   =  GetUIHandle(me,'output');
+    axis(i,'tight');
+    axis(o,'tight');
+    
+otherwise
+    zoom(gcbf,'down')           % execute matlab's zoom function
+    obj  = get(gcbf, 'currentaxes');
+    xlim = get(obj,'XLim');
+    ylim = get(obj,'YLim');
+    tag  = get(obj,'Tag');
+    if strcmpi(tag,'input')
+        otag = 'output';
+    else
+        otag = 'input';
+    end
+    SetUIParam(me,otag,'XLim',xlim);
+    SetUIParam(me,otag,'YLim',ylim);
+    
 end
-SetUIParam(me,otag,'XLim',xlim);
-SetUIParam(me,otag,'YLim',ylim);
 
 
 function out = getCallbacks()
