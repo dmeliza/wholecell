@@ -59,15 +59,24 @@ end
 % axis 1
 a   = findobj(f,'tag','trace');
 if ishandle(a)
+    % for each file, plot the individual traces and the average
     h   = findobj(f,'tag','channel');
-    c = str2num(get(h,'String'));
+    ch  = str2num(get(h,'String'));
     axes(a)
     cla
     hold on
-    p = plot(d.time,d.data(:,:,c));
-    set(p,'color',[0.6 0.6 0.6])
-    p = plot(d.time,mean(d.data(:,:,c),2));
-    set(p,'linewidth',2)
+    c   = cat(1,[0 0 0],get(a,'ColorOrder'));      % default colors
+    cd  = (c + 1) / 2;                            % whitened colors
+    for i = 1:length(d)
+        % indivs
+        if length(d) == 1
+            p = plot(d(i).time,d(i).data(:,:,ch));
+            set(p,'color',cd(i,:))
+        end
+        % mean
+        p = plot(d(i).time,squeeze(mean(d(i).data(:,:,ch),2)));
+        set(p,'color',c(i,:),'linewidth',2)
+    end
     axis(a,'tight')
 end
 h   = findobj(f,'tag','type');
@@ -113,7 +122,10 @@ if ishandle(a)
     % find binsize
     axes(a)
     cla
+    c   = get(a,'ColorOrder');
+    c   = cat(1,[0 0 0],c);
     hold on
+    keyboard
     scatter(abstime,res);
     plot(abstime, mean(res),'k:');
 end
