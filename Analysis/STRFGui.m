@@ -153,7 +153,8 @@ case 's0'
     imagesc(s);
 case 's1'
     [A B C]      = unique(stim.param,'rows');
-    plot(B);
+    plot(C);
+    axis tight
 end
 title('Stimulus')
 axis(a,'tight');
