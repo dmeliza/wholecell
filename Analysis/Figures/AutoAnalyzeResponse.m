@@ -66,16 +66,32 @@ nconditions = max([length(pre) length(pst)]);
 if nconditions == 0
     fprintf(fid,'(automatic analysis failed)\n');
 else
+    % figure out length of episodes
+    pre_t   = cat(1,pre.time);
+    pst_t   = cat(1,pst.time);
+    pre_len = max(pre_t) - min(pre_t);
+    pst_len = max(pst_t) - min(pst_t);
+    if ~isempty(pre_len)
+        fprintf(fid,'(pre)  - %3.1f %s\n', pre_len, 'min');
+    end
+    if ~isempty(pst_len)
+        fprintf(fid,'(post) - %3.1f %s\n', pst_len, 'min');
+    end        
     % if at least one side succeeded:
     for i = 1:nconditions
         % this block is necessary to avoid indexing an empty variable
         if isempty(pre)
-            printcomparison(fid,[],pst(i),i);
+            A   = [];
+            B   = pst(i);
         elseif isempty(pst)
-            printcomparison(fid,pre(i),[],i);
+            A   = pre(i);
+            B   = [];
         else
-            printcomparison(fid,pre(i),pst(i),i);
+            A   = pre(i);
+            B   = pst(i);
         end
+        printcomparison(fid, 'RA', A, B, 'resp', i);
+        printcomparison(fid, 'RS', A, B, 'slope', i);
     end
     fprintf(fid,'----\n');
     % extract ir and sr data from all trials
@@ -101,35 +117,43 @@ else
     fprintf(fid,'\n');
 end
 
-function [] = printcomparison(fid,pre,pst,i)
+function [] = printcomparison(fid,prefix,pre,pst,field,i)
 % prints a comparison between two episodes of the same parameter
 % first we have to de-struct any totally empty structures
-pre         = destruct(pre);
-pst         = destruct(pst);
-prefix      = sprintf('R%d:',i);
+ARR         = char(187);    % an arrow character
+pre         = destruct(pre,field);
+pst         = destruct(pst,field);
+prefix      = sprintf('%s%d:',prefix,i);
 if isempty(pre) & isempty(pst)
     fprintf(fid,'%s No event detected.\n',prefix);
 elseif isempty(pre)
-    prefix  = sprintf('%s (post; %3.0f/%3.0f ms)', prefix, pst.t_onset*1000,...
+    prefix  = sprintf('%s (post) [%3.0f/%3.0f ms]', prefix, pst.t_onset*1000,...
         pst.t_peak*1000);
-    printresult(fid, prefix, pst.resp, pst.units);
-    fprintf(fid, ' (%3.1f %s)\n', pst.time(end) - pst.time(1), 'min');
+    printresult(fid, prefix, pst.(field), pst.([field '_units']));
+    % compute slope of response
+    [z, s]  = polyfit(pst.time, pst.(field),1);
+    fprintf(fid,' (%2.1f %s/%s) \n', z(1), pst.units, 'min');
 elseif isempty(pst)
-    prefix  = sprintf('%s (pre; %3.0f/%3.0f ms)', prefix, pre.t_onset*1000,...
+    prefix  = sprintf('%s (pre) [%3.0f/%3.0f ms]', prefix, pre.t_onset*1000,...
         pre.t_peak*1000);
-    printresult(fid, prefix, pre.resp, pre.units);
-    fprintf(fid, ' (%3.1f %s)\n', pre.time(end) - pre.time(1), 'min');    
+    printresult(fid, prefix, pre.(field), pre.([field '_units']));
+    % compute slope of response
+    [z, s]  = polyfit(pre.time, pre.(field),1);
+    fprintf(fid,' (%2.1f %s/%s) \n', z(1), pre.units, 'min');
 else
-    prefix  = sprintf('%s (%3.0f/%3.0f -> %3.0f/%3.0f ms)', prefix,...
-        pre.t_onset*1000, pre.t_peak*1000, pst.t_onset*1000,pst.t_peak*1000);
-    printdifference(fid, prefix, pre.resp, pst.resp, pre.units);
-    fprintf(fid,' (%3.1f ; %3.1f %s)\n',...
-        pre.time(end) - pre.time(1),...
-        pst.time(end) - pst.time(1), 'min');    
+    prefix  = sprintf('%s [%1.0f/%1.0f %s %1.0f/%1.0f ms]', prefix,...
+        pre.t_onset*1000, pre.t_peak*1000, ARR, pst.t_onset*1000,pst.t_peak*1000);
+    printdifference(fid, prefix, pre.(field), pst.(field), pre.([field '_units']));
+    % compute slope of response
+    [z1, s]  = polyfit(pre.time, pre.(field),1);
+    [z2, s]  = polyfit(pst.time, pst.(field),1);
+    fprintf(fid,' (%2.1f;%2.1f %s/%s) \n', z1(1), z2(1), pst.([field '_units']), 'min');
 end
 
 function [] = printdifference(fid, prefix, pre, pst, units)
 % prints the difference between two sets of data
+PLMN    = char(177);    % the plus-minus character
+ARR     = char(187);    % an arrow character
 if isempty(pre) & isempty(pst)
     return
 elseif isempty(pre)
@@ -142,23 +166,24 @@ else
     pre_e       = nanstd(pre)/sqrt(length(pre));
     pst_m       = nanmean(pst);
     pst_e       = nanstd(pst)/sqrt(length(pst));
-    fprintf(fid, '%s %3.2f +/- %3.2f -> %3.2f +/- %3.2f %s (%3.1f%%; P = %3.4f)',...
-        prefix, pre_m, pre_e, pst_m, pst_e, units,...
+    fprintf(fid, '%s %3.2f%s%3.2f %s %3.2f%s%3.2f %s (%3.1f%%; P = %3.3f)',...
+        prefix, pre_m, PLMN, pre_e, ARR, pst_m, PLMN, pst_e, units,...
         pst_m/pre_m * 100 - 100, P);
 end
 
 function [] = printresult(fid, prefix, value, units)
 % prints out the statistics of a single set of data
+PLMN    = char(177);    % the plus-minus character
 val_m   = nanmean(value);
 val_e   = nanstd(value)/sqrt(length(value));
-fprintf(fid, '%s %3.2f +/- %3.2f %s',...
-    prefix, val_m, val_e, units);
+fprintf(fid, '%s %3.2f%s%3.2f %s',...
+    prefix, val_m, PLMN, val_e, units);
 
-function str = destruct(str)
+function str = destruct(str,field)
 % turns an empty struct into an empty variable
 if isstruct(str)
-    if isfield(str,'resp')
-        if isempty(str.resp)
+    if isfield(str,field)
+        if isempty(str.(field))
             str = [];
         end
     end
@@ -166,8 +191,10 @@ end
 
 function [results] = analyzedirectory(fid, times);
 % wrapper function loops through all r0 files in the directory
-empty = struct('resp',[],'ir',[],'sr',[],'leak',[],'time',[],'units',[],...
-    'start',[],'trace',[],'time_trace',[],'t_peak',[],'t_onset',[],'t_sr',[],...
+empty = struct('resp',[],'slope',[],'ir',[],'sr',[],'leak',[],'time',[],...
+    'resp_units',[],'slope_units',[],...
+    'start',[],'trace',[],'filttrace',[],'time_trace',[],...
+    't_peak',[],'t_onset',[],'t_sr',[],...
     't_ir',[],'stim_electrical',[],'stim_start',[],...
     'mode_currentclamp',[]);
 d   = dir('*.r0');
@@ -199,6 +226,7 @@ FILTER_ORDER    = 3;
 WINDOW_BASELN   = 0.05;     % length of the baseline to use in computing the response
 WINDOW_PEAK     = 0.001;    % amount of time on either side of the peak to use
 ARTIFACT_WIDTH  = 0.0015;   % width of the artifact to cut out for certain analyses
+SLOPE_PT        = 0.003;    % point at which to take the slope
 DEBUG_LOC       = 0;    
 
 % load the r0 file, using the accompanying selector file if needed
@@ -266,9 +294,20 @@ if ~isempty(t_onset) & ~isempty(t_peak)
     sel_response    = time>=(t_peak-WINDOW_PEAK) & time<=(t_peak+WINDOW_PEAK);
     leak            = mean(resp(sel_baseline,:),1);
     response        = (mean(resp(sel_response,:),1) - leak)';
+    sel_slope = find(time>=(t_onset + SLOPE_PT - WINDOW_PEAK) & time<=(t_onset + SLOPE_PT + WINDOW_PEAK));
+    % this is the correct way to calculate the average slope
+    t_slope   = (time(sel_slope) - t_onset) * 1000;
+    % slope   = resp(sel_slope,:) - repmat(leak,size(sel_slope,1),1);
+    % slope   = mean(slope ./ repmat(t_slope,1,size(leak,2)),1);
+    % slope   = slope';
+    % this is fudgy and fast and good enough for the kind of girls I go out
+    % with:
+    slope     = (mean(resp(sel_slope,:),1) - leak)';
+    slope     = slope ./ mean(t_slope);
     leak            = leak';
     if ~isCC
         response    = -response;
+        slope       = -slope;
     end
     
     % the mean event is packaged up for later fun, though setting the
@@ -276,12 +315,15 @@ if ~isempty(t_onset) & ~isempty(t_peak)
     %sel_trace       = time>(t_onset(ifile)-WINDOW_BASELN) & time < STIM_VISUAL;
     sel_trace       = time >= -0.1 & time <= 0.5;
     sel_trace_bl    = time>(t_onset-WINDOW_BASELN) & time < t_onset;
-    trace           = filtavg(sel_trace) - mean(filtavg(sel_trace_bl));
+    trace           = avg(sel_trace) - mean(avg(sel_trace_bl));
+    filttrace       = filtavg(sel_trace) - mean(filtavg(sel_trace_bl));
     time_trace      = time(sel_trace);
 else
     leak        = [];
     response    = [];
+    slope       = [];
     trace       = [];
+    filttrace   = [];
     time_trace  = [];
 end
 
@@ -293,8 +335,9 @@ warning on MATLAB:divideByZero
 units   = R.y_unit{1};
 % package in a structure
 at              = R.abstime(:);
-results = struct('resp',response,'ir',ir,'sr',sr,'leak',leak,'time',at,'units',units,...
-    'start',R.start_time,'trace',trace,'time_trace',time_trace,...
+results = struct('resp',response,'slope',slope,'ir',ir,'sr',sr,'leak',leak,...
+    'time',at,'resp_units',units,'slope_units',[units '/ms'],...
+    'start',R.start_time,'trace',trace,'filttrace',filttrace,'time_trace',time_trace,...
     't_peak',num2cell(t_peak),'t_onset',num2cell(t_onset),'t_sr',t_sr,...
     't_ir',t_ir,'stim_electrical',iselectrical,'stim_start',-time(1),...
     'mode_currentclamp',isCC);
