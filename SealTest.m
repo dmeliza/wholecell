@@ -149,8 +149,9 @@ function setupSweep(fcn)
 % samples and time rather too often.
 global wc
 [start, finish, sweeplen] = pulseTimes;
-wc.control.pulse = zeros(sweeplen,1);
-wc.control.pulse(start:finish,:) = wc.sealtest.pulse;
+numouts = length(wc.ao.Channel);
+wc.control.pulse = zeros(sweeplen,numouts);
+wc.control.pulse(start:finish,1) = wc.sealtest.pulse;  % here we assume the first channel is the command
 set(wc.ai,'SamplesPerTrigger',inf);
 set(wc.ao,'SamplesOutputAction',{'SweepAcquired',me}) % calls SweepAcquired m-file, which deals with data
 set(wc.ao,'SamplesOutputActionCount',length(wc.control.pulse)+20)  % some padding

@@ -119,6 +119,11 @@ case 'ystretch_callback'
     xlim = GetUIParam(me,'scope','YLim');
     SetUIParam(me,'scope','YLim',[xlim(1) * .8, xlim(2) * .8]);
     
+case 'load_protocol_callback'
+    [fn pn] = uigetfile('*.m', 'Pick an M-file');
+    SetUIParam(me,'protocolStatus','String',[pn '\' fn]);
+    [a func] = fileparts(fn);
+    feval(fn, 'init'); % this assumes the file is the current directory
     
 case 'wcdump_callback';
     keyboard;

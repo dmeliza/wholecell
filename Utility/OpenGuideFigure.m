@@ -1,4 +1,4 @@
-function OpenGuideFigure(module,varargin)
+function fig = OpenGuideFigure(module,varargin)
 % Opens a figure window using a GUIDE-generated .fig file
 % void OpenGuideFigure(module,[{properties},{values}])
 % opens a figure with the filename module.fig
@@ -21,3 +21,4 @@ end
 
 sf = sprintf('wc.%s = obj;',module);
 eval(sf);
+fig = obj.fig;

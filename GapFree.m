@@ -18,6 +18,8 @@ end
 
 switch action
     
+case 'init'
+    
 case 'start'
     setupScope(wc.wholecell.handles.scope, wc.control.amplifier);
     setupHardware(wc.control.amplifier);
