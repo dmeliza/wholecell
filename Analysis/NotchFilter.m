@@ -23,7 +23,7 @@ X       = fft(data);
 % also have to get the negative frequencies.
 n       = size(data,1);
 f       = notch * [1:OVERTONES];
-k       = f .* n ./ Fs;
+k       = round(f .* n ./ Fs);
 k       = [k + 1, n - k + 1];
 % interpolate with nearest neighbors
 k_plus  = X(k+1,:);
