@@ -29,11 +29,8 @@ function varargout = SweepAcquired(obj, event, callback)
 global wc
 
 samples = length(wc.control.pulse);
-s = get(wc.ai,'SamplesAvailable');
-if (s < samples)
-    samples = s;
-end
 [data, time] = getdata(wc.ai, samples); % extract data
+%flushdata(wc.ai);
 % I would prefer to use peekdata to determine the gain setting
 % but since this call is incompatible with ManualTriggerHwOn
 % there will be a delay of 1 sweep after the telegraph
@@ -49,13 +46,14 @@ if (~isempty(wc.control.telegraph.gain))
     SetUIParam('wholecell','ampgain','String',num2str(gain));
 end
 
-if (~isempty(wc.control.telegraph.mode))
-    modeChannel = wc.control.telegraph.mode;
-    modeVoltage = mean(data(:,modeChannel));
-    mode = mode(modeVoltage);
-    set(wc.control.amplifier,'Units',units(mode));
-    SetUIParam('wholecell','mode','String',mode);
-end
+% mode can't be altered while daq is running. need to rethink this
+% if (~isempty(wc.control.telegraph.mode))
+%     modeChannel = wc.control.telegraph.mode;
+%     modeVoltage = mean(data(:,modeChannel));
+%     mode = mode(modeVoltage);
+%     set(wc.control.amplifier,'Units',units(mode));
+%     SetUIParam('wholecell','mode','String',mode);
+% end
 
 feval(callback,'sweep',data,time);
 

@@ -155,8 +155,10 @@ numouts = length(wc.ao.Channel);
 wc.control.pulse = zeros(sweeplen,numouts);
 wc.control.pulse(start:finish,1) = wc.sealtest.pulse;  % here we assume the first channel is the command
 set(wc.ai,'SamplesPerTrigger',inf);
-set(wc.ao,'SamplesOutputAction',{'SweepAcquired',me}) % calls SweepAcquired m-file, which deals with data
-set(wc.ao,'SamplesOutputActionCount',length(wc.control.pulse)+20)  % some padding
+% set(wc.ao,'SamplesOutputAction',{'SweepAcquired',me}) % calls SweepAcquired m-file, which deals with data
+% set(wc.ao,'SamplesOutputActionCount',length(wc.control.pulse)+20)  % some padding
+set(wc.ai,'SamplesAcquiredAction',{'SweepAcquired',me}); 
+set(wc.ai,'SamplesAcquiredActionCount',length(wc.control.pulse)); 
 set([wc.ai wc.ao],'StopAction','daqaction')
 putdata(wc.ao, wc.control.pulse);
 set(wc.ao,'RepeatOutput',inf);
