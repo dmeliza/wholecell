@@ -19,6 +19,8 @@ function [out] = daq2mat(runmode, channels)
 % 1.13: NOTE: DAQ2MAT NO LONGER WRITES ANYTHING TO THE DISK
 % 1.14: DAQ2MAT is becoming a wrapper for DAQ2R0 and DAQ2R1, and it will
 %      write to disk
+% 1.17: If a sequence.txt file is present, the responses to each stimulus type are
+%       aggregated into separate r0 files.
 
 % $Id$
 
@@ -41,8 +43,19 @@ amp = info.channels(info.amp);
 switch lower(runmode)
 case 'stack'
     
-    r0 = DAQ2R0(names,channels);
-    save('daqdata.r0','r0','-mat');
+    if exist('sequence.txt','file')
+        seq     = load('-ascii','sequence.txt');
+        uni     = unique(seq);
+        for i = 1:length(uni)
+            ind = find(seq==uni(i));
+            n  = names(ind);
+            r0 = DAQ2R0(n, channels);
+            save(sprintf('daqdata-%d.r0',uni(i)),'r0','-mat');
+        end
+    else
+        r0 = DAQ2R0(names,channels);
+        save('daqdata.r0','r0','-mat');
+    end
     out = r0;
 
 case 'cat'
