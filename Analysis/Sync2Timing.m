@@ -19,6 +19,10 @@ function [timing, avg] = Sync2Timing(sync)
 % though this is only a satisfactory solution if we're not trying to account
 % for dropped frames.
 %
+% With the current setup, using a sync value of 1 volt and a simple photovoltaiccell
+% hooked directly to the DAQ, there is a lag of about 6 ms between the appearance of
+% the first frame and the 0 time point.
+%
 % $Id$
 [r c] = size(sync);
 sq    = zeros([r c]);
