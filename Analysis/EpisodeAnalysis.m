@@ -33,6 +33,8 @@ function [] = EpisodeAnalysis()
 %
 % Usage:  EpisodeAnalysis()  [all arguments are internal callbacks]
 %
+% To do: support multiple r0 files
+%
 % $Id$
 
 error(nargchk(0,0,nargin))
@@ -96,6 +98,7 @@ op   = uimenu(gcf,'Label','&Operations');
 m    = uimenu(op, 'Label', 'Remove &Baseline', 'Callback', cb.menu, 'tag', 'm_baseline');
 m    = uimenu(op, 'Label', '&Align Episodes', 'Callback', cb.menu, 'tag', 'm_align');
 m    = uimenu(op, 'Label', 'Re&scale', 'Callback', cb.menu, 'tag', 'm_rescale');
+m    = uimenu(op, 'Label', '&Crop', 'Callback', cb.menu, 'tag', 'm_crop');
 
 % toolbar:
 
@@ -108,6 +111,13 @@ u   = InitUIObject(me,'resetaxes','uipushtool',p);
 p   = cell2struct({cb.menu,'Select Parameter Window',z.mousezoom,'paramselect'},f,2);
 u   = InitUIObject(me,'paramselect','uitoggletool',p);
 
+p   = cell2struct({cb.menu,'Remove Baseline',z.zoominy,'m_baseline'},f,2);
+u   = InitUIObject(me,'m_baseline','uipushtool',p);
+set(u,'Separator','On');
+p   = cell2struct({cb.menu,'Align Episodes',z.zoominx,'m_align'},f,2);
+u   = InitUIObject(me,'m_baseline','uipushtool',p);
+p   = cell2struct({cb.menu,'Rescale',z.zoomouty,'m_rescale'},f,2);
+u   = InitUIObject(me,'m_rescale','uipushtool',p);
 
 function [] = initValues()
 % Initializes some app data so that calls to getappdata don't break
@@ -210,8 +220,10 @@ case 'm_param'
         if isfield(d,'params')
             % we have to delete all the existing parameters
             p  = getappdata(gcf,'parameters');
-            h  = [p.handle];
-            delete(h(find(ishandle(h))));
+            if isstruct(p)
+                h  = [p.handle];
+                delete(h(find(ishandle(h))));
+            end
             setappdata(gcf,'parameters',d.params);
             SetUIParam(me,'parameters','String',{d.params.name});
             SetUIParam(me,'status','String',sprintf('Loaded %d parameters from %s',...
@@ -262,6 +274,17 @@ case 'm_baseline'
         setappdata(gcf,'r0',r0);
         plotTraces;
         SetUIParam(me,'status','String','Baseline subtracted');
+    end
+case 'm_crop'
+    % removes traces not selected in the trace list
+    r0      = getappdata(gcf,'r0')
+    if isstruct(r0)
+        v   = GetUIParam(me,'traces','Value');
+        r0.data     = r0.data(:,v,:);
+        r0.abstime  = r0.abstime(v);
+        setappdata(gcf,'r0',r0);
+        updateDisplay;
+        SetUIParam(me,'status','String','Episode cropped');
     end
 case 'resetaxes'
     % resets axes limits
@@ -323,7 +346,7 @@ if ~isempty(r0)
     [samp sweep chan] = size(r0.data);
     % update trace list
     tr = (1:sweep)';
-    c  = cellstr(num2str(tr));
+    c  = cellstr(num2str(r0.abstime'));
     SetUIParam(me,'traces','String',c);
     SetUIParam(me,'traces','Value',tr);
     % update channel list
