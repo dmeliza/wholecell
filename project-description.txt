@@ -1,0 +1,20 @@
+Project description:
+CVS: $Id$
+
+A message-driven framework for controlling a patch-clamp amplifier through
+a national instruments board.  A central controller m-file generates and
+receives messages from subscriber modules; these messages contain control
+programs and results.  Everything is episode-based.
+
+Messages are sent to the control object with the following stub
+
+varargout = controller(command_name, h, eventdata, handles, varargin)
+
+This is similar to the callbacks used by matlab's GUI functions, which should
+make it easy to make GUI-driven modules whose behavior can be triggered by
+the arrival or loss of data.
+
+The initial implementation will only allow one module to access the controller
+at once; this will elminate the need to write subscription code.
+
+The use of callbacks is an attempt to make this code as object-oriented as possible
