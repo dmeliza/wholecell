@@ -177,8 +177,11 @@ for i = 1:length(n)
     h = findobj('tag',tag);
     if ishandle(h)
         s = getfield(struct, fn);
-        v = setValue(h, s);
-        SetParam(module, fn, v);
+        type = getfield(s, 'fieldtype');
+        if ~strcmp(type,'fixed')
+            v = setValue(h, s);
+            SetParam(module, fn, v);
+        end
     end
 end
         
