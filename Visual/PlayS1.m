@@ -35,7 +35,7 @@ movie           = get(gcf,'UserData');
 mfile           = movie.mfile;
 param           = movie.param;
 [frames params] = size(param);
-set(gca,'xlim',[1 movie.xlim],'ylim',[1 movie.ylim]);
+set(gca,'xlim',[1 movie.x_res],'ylim',[1 movie.y_res]);
 setpref('wholecell_PlayMovie','Running',1);
 for i = 1:frames
     Z    = feval(mfile,movie.static{:},param(i,:));

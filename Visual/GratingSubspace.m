@@ -43,7 +43,7 @@ ind     = repmat(1:frames,repeats,1);
 indind  = randperm(frames*repeats);
 ind     = ind(indind);
 
-s1        = struct('mfile',MFILE,'param',params(ind,:),'xlim',dim,'ylim',dim,...
+s1        = struct('mfile',MFILE,'param',params(ind,:),'x_res',dim,'y_res',dim,...
                    'colmap',gray(MAXCOL-MINCOL));
 s1.static = {dim}; 
 
