@@ -99,15 +99,17 @@ global wc;
     f = {'description','fieldtype','value','units'};
     f_s = {'description','fieldtype','value'};
     f_l = {'description','fieldtype','value','choices'};
-
+    f_cb = {'description','fieldtype','value','callback'};
+    loadStim = @loadStimulus;
+    
     % we need to insert parameters here once there are current injections involved
     p.frameinter    = cell2struct({'Frame interval', 'value', 32,'ms'},f,2);
     p.framelength   = cell2struct({'Frame Length','value',16,'ms'},f,2);
-    p.stim          = cell2struct({'Stim File','fixed',''},f_s,2);
+    p.stim          = cell2struct({'Stim File','fixed','',loadStim},f_cb,2);
     p.display       = cell2struct({'Display', 'value', 2},f_s,2);
     p.frequency     = cell2struct({'Ep. Freq','value',0.2,'Hz'},f,2);
     ic              = get(wc.control.amplifier,'Index');
-    p.sync_c        = cell2struct({'Sync Channel','fixed','hardware',f_s,2);
+    p.sync_c        = cell2struct({'Sync Channel','fixed','hardware'},f_s,2);
     p.input         = cell2struct({'Amplifier Channel','list',ic,GetChannelList(wc.ai)},...
                                   f_l,2);
     
@@ -149,6 +151,7 @@ flushdata(wc.ai);
 fn     = get(wc.ai,'LogFileName');
 set(wc.ai,'LogFileName',NextDataFile(fn));    
 SetUIParam('protocolcontrol','status','String',get(wc.ai,'logfilename'));
+queueStimulus;
 start([wc.ai wc.ao]);
 pause(0.2);
 playFrames
@@ -210,31 +213,46 @@ if ~isempty(stim)
     end
 end
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function pickStimulus(varargin)
-% callback for the stimulus field, allows user to select
-% a file that describes the stimulus
+function loadStimulus(varargin)
 mod         = varargin{3};
 param       = varargin{4};
 s           = varargin{5};
 t           = [mod '.' param];
 h           = findobj(gcbf,'tag',t);
-v           = get(h,'tooltipstring');           % this is the file to load
+v           = get(h,'tooltipstring');
 [pn fn ext] = fileparts(v);
-od          = pwd;
-if ~isempty(pn)
-    cd(pn)
-end
-[fn2 pn2]   = uigetfile({'*.m;*.s0','Stimulus Files (*.m,*.s0)';...
-                         '*.*','All Files (*.*)'});
-cd(od)                 
+[fn2 pn2]   = uigetfile([pn filesep '*.s0']);
 if ~isnumeric(fn2)
     v       = fullfile(pn2,fn2);
     set(h,'string',fn2,'tooltipstring',v)
     s       = SetParam(mod, param, v);
 end
-queueStimulus;
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+% function pickStimulus(varargin)
+% % callback for the stimulus field, allows user to select
+% % a file that describes the stimulus
+% mod         = varargin{3};
+% param       = varargin{4};
+% s           = varargin{5};
+% t           = [mod '.' param];
+% h           = findobj(gcbf,'tag',t);
+% v           = get(h,'tooltipstring');           % this is the file to load
+% [pn fn ext] = fileparts(v);
+% od          = pwd;
+% if ~isempty(pn)
+%     cd(pn)
+% end
+% [fn2 pn2]   = uigetfile({'*.m;*.s0','Stimulus Files (*.m,*.s0)';...
+%                          '*.*','All Files (*.*)'});
+% cd(od)                 
+% if ~isnumeric(fn2)
+%     v       = fullfile(pn2,fn2);
+%     set(h,'string',fn2,'tooltipstring',v)
+%     s       = SetParam(mod, param, v);
+% end
+% queueStimulus;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function clearDAQ()
