@@ -40,7 +40,7 @@ for i = 1:frames
     y = r_y(i);
     z = r_z(i) * 2 + 1; % 1 and 3
     stim.stimulus(x:x+p,y:y+p,i) = z;
-    stim.parameters(:,i) = [x y z];
+    stim.parameters(i,:) = [x y z];
 end
 
 function s = output_matrix(res, pixsize)
