@@ -31,8 +31,14 @@ else
     switch lower(option)
     case 'clip'
         len     = min(len);
-        sf      = sprintf('struct.%s(1:len)',field);
-        arr     = eval(sf);
+        arr     = zeros(len,length(j));
+%         
+%         arr     = eval(sf);
+        for i = 1:length(j)
+            sf       = sprintf('struct(%d).%s(1:len)',i,field);
+            arr(:,i) = eval(sf);
+        end
+              
     case 'pad'
         len     = max(len);
         arr     = zeros(len, length(j));
