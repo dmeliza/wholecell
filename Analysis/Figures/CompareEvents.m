@@ -4,14 +4,15 @@ function [d, t] = CompareEvents(pre, post, time)
 % histogram, and compares the two.
 %
 % $Id$
-SZ  =  [3.4    4.6];
+SZ   =  [3.4    5.6];
 SZ1  = [3.4    2];
 SZ2  = [3.4    2.6];
-BS  = 50;               % binrate
-THRESH  = 1.5;          % z-score
+BS   = 50;               % binrate
+THRESH  = 2;          % z-score
 WIN = 1000:8000;        % samples
 SCATTER = 1;
 xlim    = [-100 600];
+N   = 4;
 
 
 A   = load('-mat',pre);
@@ -24,38 +25,51 @@ b   = bindata(b,BS,1);
 at  = bindata(A.r0.time(WIN),BS,1) * 1000 - 200;
 bt  = bindata(B.r0.time(WIN),BS,1) * 1000 - 200;
 
-AR  = Rasterify(a,THRESH);
-BR  = Rasterify(b,THRESH);
-AH  = -mean(AR,2);
-BH  = -mean(BR,2);
+AR  = -Rasterify(a,THRESH);
+BR  = -Rasterify(b,THRESH);
+AR(AR<0) = 0;
+BR(BR<0) = 0;
+AH  = mean(AR,2);
+BH  = mean(BR,2);
+mx  = max(AH);
 d   = BH - AH;
+%d   = BH ./ mx - AH ./ mx;
 t   = at;
 
 if nargout > 1
     return
 end
 
-if SCATTER
-    f   = figure;
-    set(f,'units','inches','color',[1 1 1])
-    p   = get(f,'position');
-    set(f,'position',[p(1) p(2) SZ1(1) SZ1(2)]);
-    movegui('center')
-    
-    p       = imagesc(at,1:size(AR,2),AR');
-    set(gca,'XTickLabel',[],'Box','On');
-    xlim    = get(gca,'XLim');
-    colormap(gray)
-    ylabel('Trial #')
-end
-
 f   = figure;
 set(f,'units','inches','color',[1 1 1])
 p   = get(f,'position');
-set(f,'position',[p(1) p(2) SZ2(1) SZ2(2)]);
+set(f,'position',[p(1) p(2) SZ(1) SZ(2)],'name',pre);
 movegui('center')
 
-subplot(2,1,1)
+subplot(4,1,1)
+p       = imagesc(at,1:size(AR,2),AR');
+set(gca,'XTickLabel',[],'Box','On');
+xlim    = get(gca,'XLim');
+if nargin > 2
+    vline(time,'k:')
+end
+colormap(flipud(gray))
+ylabel('Trial #')
+
+if N > 3
+    subplot(4,1,2)
+    p       = imagesc(bt,1:size(BR,2),BR');
+    set(gca,'XTickLabel',[],'Box','On');
+    if nargin > 2
+        vline(time,'k:')
+    end
+    ylabel('Trial #')
+else
+    p   = get(gca,'position');
+    set(gca,'position',[p(1) 0.535 p(3) p(4) * 1.6]);
+end
+
+subplot(4,1,3)
 h   = plot(at,AH,'k',bt,BH,'r');
 set(h,'LineWidth',2)
 if nargin > 2
@@ -64,8 +78,8 @@ end
 set(gca,'XTickLabel',[],'Box','On','XLim',xlim)
 ylabel('Mean Event Size (pA)')
 
-subplot(2,1,2)
-h   = plot(at,BH - AH,'k');
+subplot(4,1,4)
+h   = plot(at,d,'k');
 if nargin > 2
     vline(time,'k:')
 end
