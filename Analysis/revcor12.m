@@ -18,13 +18,12 @@ function [h1_est, h2_est, h2_sig] = revcor12(u, y, lags, Fs)
 % h2_sig - the eigenvalues (arranged by rank)
 %
 % For all internal analyses, k2 is composed of the first two eigenvectors
-% in h2_est
+% in h2_est. They may not both be relevant.
 %
 % Dan Meliza & Jon Touryan $Id$
 
 %%%%%%%%%%%%%%%%%
 % Settings
-MEX_CODE = 0;       % Use Mex Code When Multipying Matrices (Uses Less Memory) [1 = yes, 0 = no]
 DISPLAY = 1;        % Display results
 ORTHO = 0;          % Orthogonalize k1
 
@@ -71,12 +70,9 @@ fprintf('Computing 2nd order kernel... \n')
 %z = (S * h1_est) ./ y;
 Sw = S .* repmat(y,1,lags);
 % the covariance matrix is Sw'*S
-if MEX_CODE
-    C = matrix_corr(Sw);    % MEX multiplation (using Sw'*Sw instead of Sw'*S)
-else
-    C = Sw'*S;              % Matlab matrix multiplication
-end
-% Singular value decomposition of covariance matrix
+% Matlab matrix multiplication is fast but uses a lot of memory
+C = Sw'*S; 
+% Singular value decomposition of covariance matrix (insert handwaving)
 [h2_est D U] = svd(C);
 h2_sig = diag(D);
 
@@ -118,23 +114,25 @@ if DISPLAY
     stem(diag(D));
     set(gca,'XTick',[],'YTick',[])
     axis square
-    xlabel('Eigenvector')
-    ylabel('Significance');
-    title('Eigenvalues');
+    xlabel('Rank')
+    ylabel('Eigenvalue');
 
-    % Plot Response, Measured & Predicted %
+    % Plot Response, Measured & Predicted
+    % For linear kernel
     subplot(2,2,3)
-    y_est = S * h1_est;
-    r = corrcoef(y_est,y);
-    y_est = y_est * max(y)/max(y_est);
-    t = 0:1000/Fs:1000*(length(y)-1)/Fs;
-    plot(t,y,'-b')
+    y_est = S * h1_est;  % convolve stimulus with linear kernel (= projection)
+    y_est = y_est(lags+1:end); % clip off zero values
+    z = y(lags+1:end);
+    r = corrcoef(y_est,z); % correlation of projection with response
+    y_est = y_est * max(z)/max(y_est); % normalize response
+    t = 0:1000/Fs:1000*(length(y_est)-1)/Fs; % generate a time vector for plotting
+    plot(t,z,'-b')
     hold on
     plot(t,y_est,'-k')
     axis square
     axis tight
     if frames > 100
-        mx = max(abs(y));
+        mx = max(abs(z));
         axis([0 1e5/Fs -mx mx])
     end
     set(gca,'YTick',[])
@@ -142,16 +140,16 @@ if DISPLAY
     ylabel('Response')
     title(['Corr Coef (k1): ' num2str(r(1,2))])    
 
-    % Plot projection histograms to assess nonlinearity
+    % Plot projection-response histograms to assess nonlinearity
     subplot(2,2,4)
     vecs = 2;
     lines = {'-b','-r'};
-    [x,p] = ProjectionResponse(y,y_est);
+    [x,p] = ProjectionResponse(z,y_est);
     plot(x,p,'-k','Linewidth',2);
     hold on
     for i = 1:vecs
         y_est = S * h2_est(:,i); % estimated response for eigenvector i
-        [x,p] = ProjectionResponse(y,y_est);
+        [x,p] = ProjectionResponse(z,y_est(lags+1:end));
         plot(x,p,lines{i},'Linewidth',2);
     end
     plot(x,zeros(size(x)),':k');
@@ -160,7 +158,6 @@ if DISPLAY
     set(gca,'YTick',[],'XTick',[])
     xlabel('Projection')
     ylabel('Response')
-    %legend('k2(1)','k2(2)');
     title('Response Projection');
     hold off
     

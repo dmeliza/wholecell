@@ -1,13 +1,14 @@
 function [X,P] = projectionresponse(y, y_est, bin_num)
-% Computes the projection of y_est onto y
+% Computes the projection-response histogram for y_est (projection) against y (response)
 % Bins are normalized (-1 is maximum negative projection, +1 maximum positive)
 % [x,p] = project(y, y_est, [bins])
 % y - the response (column vector)
-% y_est - the estimated response (column vector)
+% y_est - the projection (column vector)
 % bins - the number of bins (default 10)
-% x - the bin centers
+% x - the bin centers (-0.9 to +0.9)
 % p - the average y value for y_est = x
 % is there a good way to do this without a loop?
+%
 % $Id$
 
 % check argument count
@@ -42,5 +43,5 @@ end
 
 % calculate bin centers
 X = X(1:end-1) + diff(X)/2;
-% normalize projection
+% normalize projection to the number of points in each bin
 P = P./N;
