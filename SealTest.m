@@ -182,7 +182,7 @@ function [start, finish, total] = pulseTimes;
 global wc
 len     = fix(wc.sealtest.pulse_length .* wc.control.SampleRate);
 total   = 2 .* len;
-start   = fix(.3 .* len);
+start   = fix(.5 .* len);
 finish  = start + len;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
