@@ -16,7 +16,7 @@ end
 
 figure
 subplot(2,1,1)
-plot(t,dR);
+plot(t,mean(dR,2));
 subplot(2,1,2)
 plot(t,mean(dZ,2));
 
