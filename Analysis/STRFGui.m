@@ -15,7 +15,7 @@ initValues;
 
 function initValues()
 % sets initial values
-methods = {'Xcorr','Sparse','PCA'};
+methods = {'Xcorr','Sparse','PCA','Gratings'};
 filters = {'None','Highpass','Lowpass'};
 SetUIParam(me,'directory','String',pwd);
 updateLists;
@@ -100,7 +100,7 @@ h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[480 225 60 20]
     'String','Cutoff:','horizontalalignment','left');    
 
 h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[480 185 60 20],...
-    'String','Method:','horizontalalignment','left');    
+    'String','Method:','horizontalalignment','left');
 
 % 'editables'
 h = InitUIControl(me,'analysiswindow','style','edit','backgroundcolor',BG,...
@@ -130,20 +130,31 @@ h  = InitUIControl(me,'Status','style','text','backgroundcolor',BG,...
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 % Callbacks
 function [] = playstimulus(obj, event)
-stim = GetUIParam(me,'stimulus','UserData');
+stim    = GetUIParam(me,'stimulus','UserData');
+win     = str2num(GetUIParam(me,'analysiswindow','String'));
 if ~isempty(stim)
-    PlayMovie(stim);
+    if strcmpi(stim.type,'s1')
+        PlayS1(stim);
+    else
+        PlayS0(stim);
+    end
 end
 
 function [] = showstimulus(obj, event)
-% Plots stimulus and its 2D FFT
+% Plots stimulus as a time series
 f            = findfig('strfgui_stimulus');
 set(f,'Color',[1 1 1]);
 a            = axes;
 stim         = GetUIParam(me,'stimulus','UserData');
-[X Y FRAMES] = size(stim.stimulus);
-s            = reshape(stim.stimulus,X*Y,FRAMES);
-imagesc(s);
+switch lower(stim.type)
+case 's0'
+    [X Y FRAMES] = size(stim.stimulus);
+    s            = reshape(stim.stimulus,X*Y,FRAMES);
+    imagesc(s);
+case 's1'
+    [A B C]      = unique(stim.param,'rows');
+    plot(B);
+end
 title('Stimulus')
 axis(a,'tight');
 xlabel('Frame')
@@ -181,7 +192,7 @@ function [] = combineresponse(obj, event)
 [fn pn] = uiputfile('*.r1');
 if isa(fn,'char')
     r1      = loadResponse;
-    save(fullfile(pn,fn),'r1','-mat');
+    WriteStructure(fullfile(pn,fn),r1);
     setstatus(['Saved response as ' fullfile(pn,fn)]);
     updateLists;
 end
@@ -278,6 +289,12 @@ else
     case 'xcorr'
         stim = stimuluswindow(stim,win);
         PCA_2D(stim, resp, lags,'xcorr');
+    case 'gratings'
+        if ~strcmpi(stim.type,'s1')
+            setstatus('Analysis failed: Grating Analysis requires parameterized stimulus');
+        else
+            S1Analysis(stim, resp, fix(lags * frate), fix(bin * frate));
+        end
     otherwise
         setstatus('Analysis failed: adaptor has not been written for this analysis method.');
     end
@@ -285,15 +302,13 @@ end
 
 function s = stimuluswindow(s,window)
 s.stimulus = s.stimulus(window(2,1):window(2,2),window(1,1):window(1,2),:);
-% s.x_res    = diff(window(1,:));
-% s.y_res    = diff(window(2,:));
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Internal functions
 function updateLists()
 wd = GetUIParam(me,'directory','String');
 % stimulus:
-opt = GetDirectory(wd,'*.s0','dirs');
+opt = GetDirectory(wd,{'*.s0','*.s1'},'dirs');
 SetUIParam(me,'stimulus','String',opt);
 SetUIParam(me,'stimulus','Value',1);
 % response:
@@ -353,7 +368,10 @@ function [] = plotStimulus(stim)
     cb      = @pickregion;
     a       = GetUIHandle(me,'stimulusaxes');
     set(a,'xlimmode','auto','ylimmode','auto');
-    %S       = stim.stimulus(:,:,1);
+    switch lower(stim.type)
+    case 's1'                                       % generate first frame for s1
+        stim.stimulus = feval(stim.mfile,stim.static{:},stim.param(1,:));
+    end
     S       = permute(stim.stimulus(:,:,1),[2 1]);  % rotate by 90 for proper display
     [X Y]   = size(S);
     h = image(S,'parent',a);
