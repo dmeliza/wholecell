@@ -21,6 +21,11 @@ This control structure has the following structure:
 
 wc.ai - analog input object
 wc.ao - analog output object
+wc.control - stored information about the operation of the daq
+    .telegraph - telegraph channel indices
+    .amplifier - scaled output from the amplifer (channel pointer)
+    .availableChannels - array of numbers indicating available hardware lines
+    .channels - array of numbers indicating used hardware lines
 wc.main - properties of the main window
 wc.(modulename) - data used within a protocol
 
@@ -28,17 +33,4 @@ Acquired data is accessed through callbacks, which run through the
 central application and then are passed on to whatever protocol
 currently has control.
 
-Telegraphs:
 
-Gain:
-0.5 - 2 V
-1   - 2.5 V
-etc (0.5 V steps)
-500 - 6.5 V
-
-Mode:
-Track - 4 V
-VClamp - 6 V
-I=0    - 3 V
-IClamp - 2 V
-Fast Ic - 1 V

@@ -1,0 +1,11 @@
+function varargout = InitWC()
+% initializes the wc structures with common control information
+%
+% $Id$
+global wc;
+
+% wc = struct([]);
+% wc(1).control = struct([]);
+% wc.control(1).telegraph = struct([]);
+% wc.control.telegraph(1).gain = [];
+wc.control.telegraph = '';

@@ -13,24 +13,21 @@ if nargin > 0
 else
 	action = lower(get(gcbo,'tag'));
 end
+
 switch action
     
+case 'standalone'
+
+    initializeHardware(me);
+    SealTest('init');
+    
 case 'init'
-    wc = '';
+    OpenGuideFigure(me);
+
     wc.sealtest.pulse = 5; % 20 mV
     wc.sealtest.pulse_length = .040;  % s
     wc.sealtest.n_sweeps = 3;
-    wc.sealtest.samplerate = 5000;
     wc.sealtest.scaling = [1 0 0 0];  % auto
-
-    initializeHardware(me); % this gets replaced with information from central app
-    
-    fig = openfig(mfilename,'reuse');
-    clfcn = sprintf('%s(''close_Callback'');',me);
-    set(fig,'numbertitle','off','name',me,'tag',me,...
-        'DoubleBuffer','on','menubar','none','closerequestfcn',clfcn);
-    wc.sealtest.handles = guihandles(fig);
-    guidata(fig, wc.sealtest.handles);
 
     set(wc.sealtest.handles.axes,'NextPlot','ReplaceChildren');
     lbl = get(wc.sealtest.handles.axes,'XLabel');
@@ -80,9 +77,8 @@ case 'scaling_callback'
     setScaling(me);
     
 case 'close_callback'
-    daqreset;
-    [obj, figure] = gcbo;
-    delete(figure);
+    stop([wc.ai wc.ao]);
+    delete(gcbf);
     
 case 'run_callback'
     run(me,'switch');
@@ -93,10 +89,12 @@ otherwise
 end
 
 % local functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
 
 function out = me()
 out = mfilename;
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
 function run(fcn,action)
 global wc
     state = get(wc.sealtest.handles.runButton,'Value');
@@ -116,6 +114,7 @@ global wc
         stop([wc.ai wc.ao]);
     end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
 function setScaling(fcn)
 global wc
 % there has GOT to be a better way to handle this
@@ -129,42 +128,48 @@ set(buttons(find(switched < 1)),'Value',0);
 v = get(buttons,'Value');
 wc.sealtest.scaling = [v{1} v{2} v{3} v{4}];
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
 function initializeHardware(fcn)
 global wc
-daqreset
-wc.ai = analoginput('nidaq');
-set(wc.ai,'InputType','SingleEnded');
-wc.ao = analogoutput('nidaq');
-in = addchannel(wc.ai,[0],{'Im'});
-set(in, 'Units', 'nA');
-out = addchannel(wc.ao, 0, 'Vcommand');
-set(out, 'Units', 'mV');
-set(out, 'UnitsRange', [-200 200]); % 20 mV/V
 
-set([wc.ai wc.ao], 'SampleRate', wc.sealtest.samplerate);
-wc.sealtest.samplerate = get(wc.ai, 'SampleRate');
-set([wc.ai wc.ao], 'TriggerType', 'Manual');
-set(wc.ai, 'ManualTriggerHwOn', 'Trigger');
+InitWC;
+InitDAQ(5000);
 
+wc.control.amplifier = CreateChannel(wc.ai, 0, {'ChannelName','Units'}, {'Im','nA'});
+wc.control.telegraph.gain = 2;
+CreateChannel(wc.ai, wc.control.telegraph.gain);
+out = CreateChannel(wc.ao, 0, {'ChannelName','Units','UnitsRange'},{'Vcommand', 'mV', [-200 200]}); % 20 mV/V
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function setupSweep(fcn)
 % each sweep is twice as long as the pulse.  we have to convert between
 % samples and time rather too often.
 global wc
-sweeplen = fix(2 .* wc.sealtest.pulse_length .* wc.sealtest.samplerate);
-start = fix(.3 .* wc.sealtest.pulse_length .* wc.sealtest.samplerate);
-finish = start + (wc.sealtest.pulse_length .* wc.sealtest.samplerate);
+[start, finish, sweeplen] = pulseTimes;
 wc.command = zeros(sweeplen,1);
 wc.command(start:finish,:) = wc.sealtest.pulse;
 set(wc.ai,'SamplesPerTrigger',inf);
 set(wc.ao,'SamplesOutputAction',{'SweepAcquired',me}) % calls SweepAcquired m-file, which deals with data
-set(wc.ao,'SamplesOutputActionCount',length(wc.command))
+set(wc.ao,'SamplesOutputActionCount',length(wc.command)+20)  % some padding
 set([wc.ai wc.ao],'StopAction','daqaction')
 putdata(wc.ao, wc.command);
 set(wc.ao,'RepeatOutput',inf);
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [start, finish, total] = pulseTimes;
+global wc
+len = fix(wc.sealtest.pulse_length .* wc.control.SampleRate);
+total = 2 .* len;
+start = fix(.3 .* len);
+finish = start + len;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function plotData(time, data)
 global wc
 
+channel = wc.control.amplifier.Index;
+% enable this to drop unnecessary channels
+data = data(:,channel);
 if (~isfield(wc.sealtest,'sweeps'))
     wc.sealtest.sweeps = data;
 elseif (size(wc.sealtest.sweeps,3) <= wc.sealtest.n_sweeps)
@@ -174,10 +179,11 @@ else
     wc.sealtest.sweeps = data;
     time = (time(:) - time(1)) .* 1000;
     [Rt, Rs, Ri] = calculateResistance(data, wc.sealtest.pulse);
-    set(wc.sealtest.handles.ri,'String',num2str(Ri));
-    set(wc.sealtest.handles.rs,'String',num2str(Rs));
-    set(wc.sealtest.handles.rt,'String',num2str(Rt));
-    %[Xdim, Ydim] = get(wc.sealtest.handles.axes,{'XLim', 'YLim'});
+    set(wc.sealtest.handles.ri,'String',sprintf('%4.2f',Ri));
+    set(wc.sealtest.handles.rs,'String',sprintf('%4.2f',Rs));
+    set(wc.sealtest.handles.rt,'String',sprintf('%4.2f',Rt));
+    set(wc.sealtest.handles.gain,'String',num2str(get(wc.control.amplifier,'UnitsRange')));
+%    disp(sprintf('%i - %i',length(time),length(data)));
     plot(time, data, 'Parent', wc.sealtest.handles.axes);
     switch num2str(find(wc.sealtest.scaling))
     case '1'
@@ -193,16 +199,33 @@ else
         set(wc.sealtest.handles.axes,'YLimMode','manual');
     end
 end
-    
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
 function [Rt, Rs, Ri] = calculateResistance(data, Vpulse)
 % calculates the input and series resistance from the first column of data
 % the transient will occur at the maximum
-% units are in mV/pA = MOhm
+% units are in mV/pA = MOhm.
+% This function is annoying b/c dividing is really prone to errors.
 d = data(:,1);
-[y, i] = max(d);
-baseline = mean(d(10:i-10));
-Rt = Vpulse/(d(i) - baseline);
-Rs = Vpulse/(d(i+10) - baseline);
-[y, i] = min(d);
-Ri = Vpulse/(d(i-20) - baseline);
+len = length(data);
+[y, start] = max(d);
+[y, finish] = min(d);
+if (start < 21 | start > finish | finish > (len-11))
+    [start, finish] = pulseTimes;
+end
+baseline = mean(d(10:start-10));
+It = (d(start) - baseline);
+Is = (d(start+10) - baseline);
+Ii = (d(finish-20) - baseline);
+[Rt, Rs, Ri] = deal(Inf);
+if (It ~= 0)
+    Rt = Vpulse./It;
+end
+if (Is ~= 0)
+    Rs = Vpulse./Is;
+end
+if (Ii ~= 0)
+    Ri = Vpulse./Ii;
+end
+    
+
