@@ -7,8 +7,10 @@ function out = CompareRFFigure(rf1, rf2, bar, window, pos, mode)
 BINRATE = 53;
 INTERP = 1;
 THRESH = 1;
-IMAGE = 1;
+IMAGE  = 1;
 NORM   = [1:100];
+GAMMA   = 0.6;      % this needs to be fiddled with for individual files
+SZ      =  [3.2    2.2];
 
 error(nargchk(4,6,nargin))
 
@@ -57,6 +59,7 @@ end
 
 if size(a,2) == 1
     figure
+    ResizeFigure(SZ)
     subplot(2,1,1)
     h = plot(T,a,'k',T,b,'r');
     set(h,'Linewidth',2)
@@ -76,35 +79,35 @@ if size(a,2) == 1
     
     out = struct('difference',d,'time',T,'t_induce',bar);
 else
+    % I'd prefer to have different colormaps for the RF and difference
+    % plots, but I don't think this can be done in the same figure.
     [a,T] = smoothRF(a,T,BINRATE,INTERP);
     b     = smoothRF(b,T,BINRATE,INTERP);
     mx  = max(max(abs([a b])));
     figure,colormap(redblue(0.45,200))
+    colormap(flipud(hot))
+    ResizeFigure(SZ)
     if IMAGE
         n   = 2;        
         if strcmpi(u,'pa')
             a   = -a;
             b   = -b;
-        end 
+        end
         subplot(n+1,1,1)
-        imagesc(T,1:size(a,2),a',[-mx mx]);
-        [t,x] = centroid(a.*(a>0) ,T);
-        fprintf('Centroid (pre) = %3.2f, %3.4f\n',x,t);
-        hold on,scatter(t, x, 10, 'k', 'filled')
+        imagesc(T,1:size(a,2),a',[0 mx]);
+        hold on
         colorbar
         set(gca,'YTick',[],'XTickLabel',[]);
         vline(0,'k');
-        ylabel('Pre');
+        ylabel('Before');
         
         subplot(n+1,1,2)
-        imagesc(T,1:size(b,2),b',[-mx mx]);
-        [t,x] = centroid(b.*(b>0) ,T);
-        fprintf('Centroid (post) = %3.2f, %3.4f\n',x,t);
-        hold on,scatter(t, x, 10, 'k', 'filled')
+        imagesc(T,1:size(b,2),b',[0 mx]);
+        hold on
         colorbar
         vline(0,'k');
         set(gca,'YTick',[],'XTickLabel',[]);
-        ylabel('Post');
+        ylabel('After');
     else
         n = size(a,2);
         for i = 1:n
@@ -138,7 +141,7 @@ else
         vline(bar,'k:');
     end
     vline(0,'k');
-    ylabel('Post - Pre');
+    ylabel('Delta');
     xlabel('Time (s)');
 
 
