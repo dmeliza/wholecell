@@ -26,7 +26,8 @@ for i = 1:trials
     pre_center(i)         = centroid(pre(i,:));
     post_center(i)        = centroid(post(i,:));
     [m,peak(i)]           = max(pre(i,:));
-    shift(i)              = (post_center(i) - pre_center(i)) .* -sign(post_center(i) - induction(i));
+    sgn(i)                = -sign(post_center(i) - induction(i));   % used to normalize shifts
+    shift(i)              = (post_center(i) - pre_center(i)) .* sgn(i);
     STDP(i)               = ((post(i,induction(i)) - pre(i,induction(i))))/pre(i,induction(i)); 
     isLTP(i)              = STDP(i) > 0;
     iscenter(i)           = (induction(i) - peak(i)) == 0;
@@ -59,12 +60,15 @@ set(gca,'XTickLabel',NAMES,'Box','On',...
     'Xlim',[-0.5 3.5])
 ylabel('Shift in RF (relative units)')
 
-% compute significance
+% compute significance - wilcoxon sign test
 warning off MATLAB:divideByZero
 for i = 1:length(NAMES)
     ind     = find(X==(i-1));
-    Y       = shift(ind);
-    [h,p]   = ttest(Y);
+    x       = pre_center(ind) .* sgn(ind);
+    y       = post_center(ind) .* sgn(ind);
+    p       = signrank(x,y,0.95);
+%     Y       = shift(ind);
+%     [h,p]   = ttest(Y);
     fprintf('%s: p = %1.3f\n',NAMES{i},p);
 end
 
