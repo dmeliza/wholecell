@@ -259,7 +259,7 @@ startSweep;
 function setupScope();
 % sets up the scope properties
 scope = getScope;
-clearPlot(scope);
+clearPlot;
 %set(scope, 'YLim', [-3 3]);
 set(scope, 'XLim', [0 1000]);
 set(scope, 'NextPlot', 'add');
