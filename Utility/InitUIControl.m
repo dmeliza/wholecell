@@ -7,6 +7,7 @@ function handle = InitUIControl(module, tag, varargin)
 %   tag - the name used to refer to the object
 %   properties - optional cell array used to set some nice properties
 %                (e.g. {'color',[1 1 1],'doublebuffer','on',...})
+%                or a comma-delimited list
 %
 %   $Id$
 global wc
