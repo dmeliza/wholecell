@@ -1,6 +1,6 @@
-function R = CheckFilter(stimulus, response, filter, t_res)
+function R = CheckFilter(stimulus, response, filter, Fs)
 % checks the accuracy of the predicted response for various lengths of the
-% filter
+% filter.
 %
 % $Id$
 l = length(filter);
@@ -24,21 +24,20 @@ if nargout == 1
 end
 
 % plot if no return value is asked for
+t_res = 1/Fs;
+rresp = conv(stimulus, randn(length(filter),1));
 if nargin == 4
     t = 0:t_res:(l-1)*t_res;
-    figure,plot(t,R)
+    figure,plot(t,R),
     s = 'Filter delay (ms)';
 else
     figure,plot(R);
     s = 'Filter delay (samples)';
 end
+c = corrcoef(rresp(1:length(response)),response);
+line([t(1) t(end)],[c(2) c(2)],'linestyle',':','color','red');
 ylabel('R');
 xlabel(s);
 [y i] = max(R);
 text(i*t_res,y,sprintf('  R(max) = %f', y));
-
-function R = rms(prediction, response)
-% root mean square error of equal length vectors
-err = prediction - response;
-var = power(err, 2);
-R = sqrt(mean(var));
+text(i*t_res,c(2),sprintf(' R(noise) = %f', c(2)));
