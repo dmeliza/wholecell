@@ -6,7 +6,7 @@ function f = PlotSTRF(strf)
 % below the graphs for changing frame, and when the user double-clicks on a pixel
 % in the image, a separate window is opened with the time-course of the pixel
 %
-% Usage:   f = PlotSTRF(strf,)
+% Usage:   f = PlotSTRF(strf)
 %
 %
 % strf   - a structure array with the following fields:
@@ -109,6 +109,7 @@ for i = 1:length(a)
     mx  = get(a(i),'CLim');         % keep the CLUT axis the same
     h   = imagesc(R(:,:,val),mx);
     set(h,'buttondownfcn',click);
+    set(h,'UiContextMenu',get(a(i),'UiContextMenu'));
     text(1,1,getTime(val))
 end
 
