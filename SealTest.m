@@ -77,7 +77,7 @@ case 'scaling_callback'
     setScaling(me);
     
 case 'close_callback'
-    stop([wc.ai wc.ao]);
+    StopAcquisition(me, [wc.ai wc.ao]);
     DeleteFigure(me);
     
 case 'run_callback'
@@ -100,17 +100,12 @@ global wc
     state = GetUIParam(me,'runButton','Value');
     if (state > 0)
         SetUIParam(me,'runButton','String','Running');
-        stop([wc.ai wc.ao]);
-        flushdata([wc.ai]);
         setupSweep(me);
         wc.sealtest.resist = [];
-        start([wc.ai wc.ao]);
-        trigger([wc.ai wc.ao]);
-        SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
+        StartAcquisition(me,[wc.ai wc.ao]);
     else
         SetUIParam(me,'runButton','String','Stopped');
-        SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
-        stop([wc.ai wc.ao]);
+        StopAcquisition(me,[wc.ai wc.ao]);
     end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    

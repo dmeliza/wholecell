@@ -18,13 +18,13 @@ end
 
 switch action
     
-case 'init'
+case {'init','reinit'}
+    % these are here in case the user loads GapFree as a protocol
     
 case 'start'
     setupScope(wc.wholecell.handles.scope, wc.control.amplifier);
     setupHardware(wc.control.amplifier);
-    startAcquisition(wc.ai);
-    SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
+    StartAcquisition(me,wc.ai);
     
 case 'record'
     switch get(wc.ai,'Running')
@@ -34,15 +34,11 @@ case 'record'
     setupScope(wc.wholecell.handles.scope, wc.control.amplifier);
     setupHardware(wc.control.amplifier);
     set(wc.ai,{'LoggingMode','LogToDiskMode'}, {'Disk&Memory','Index'});
-    startAcquisition(wc.ai);
-    SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
+    StartAcquisition(me,wc.ai);
     
 case 'stop'
-    stop(wc.ai);
+    StopAcquisition(me,wc.ai);
     set(wc.ai,'LoggingMode','Memory');
-    set(wc.ai,'SamplesAcquiredAction','');
-    SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
-    
     
 case 'sweep'
     data = varargin{2};
@@ -56,14 +52,6 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function out = me()
 out = mfilename;
-
-function varargout = startAcquisition(daq)
-% starts data acquisition
-stop(daq);
-flushdata(daq);
-set(daq,'SamplesAcquiredAction',{'SweepAcquired',me});
-start(daq);
-trigger(daq);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function varargout = setupHardware(amp)

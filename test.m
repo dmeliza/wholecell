@@ -34,10 +34,10 @@ daqreset;
 ao = analogoutput('nidaq');
 addchannel(ao,1);
 set(ao, 'TriggerType', 'Manual');
-set(ao, 'RepeatOutput', 1);
+set(ao, 'RepeatOutput', inf);
 
 pulse = zeros(1000,1);
-pulse(1:500,:) = 10;
+pulse(1:200,:) = 10;
 putdata(ao,pulse);
 start(ao);
 trigger(ao);

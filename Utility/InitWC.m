@@ -15,3 +15,4 @@ wc.control.amplifier = [];
 wc.control.base_dir = pwd;
 wc.control.data_dir = pwd;
 wc.control.data_prefix = [];
+wc.control.protocol = [];

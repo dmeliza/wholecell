@@ -116,8 +116,25 @@ case 'start_record_callback'
     GapFree('record');
     
 case 'stop_callback'
-    GapFree('stop'); % this will need to change when running protocols
+    if (isempty(wc.control.protocol))
+        StopAcquisition(me,[wc.ai wc.ao]);
+    else
+        feval(wc.control.protocol,'stop')
+    end
+    %GapFree('stop'); % this will need to change when running protocols
 
+case 'start_protocol_callback'
+    func = wc.control.protocol;
+    if (isempty(func))
+        pnfn = GetUIParam(me,'protocolStatus','String');
+        [a func] = fileparts(pnfn);
+    end
+    if (exist(func) > 0)
+        feval(func,'start');
+    else
+        WholeCell('load_protocol_callback');
+    end
+    
 case 'xshrink_callback'
     xlim = GetUIParam(me,'scope','XLim');
     SetUIParam(me,'scope','XLim',[xlim(1) xlim(2) * 1.2]);
@@ -136,9 +153,16 @@ case 'ystretch_callback'
     
 case 'load_protocol_callback'
     [fn pn] = uigetfile('*.m', 'Pick an M-file');
-    SetUIParam(me,'protocolStatus','String',[pn fn]);
-    [a func] = fileparts(fn);
-    feval(func, 'init'); % this assumes the file is the current directory
+    if (isstr(fn))
+        SetUIParam(me,'protocolStatus','String',[pn fn]);
+        [a func] = fileparts(fn);
+        wc.control.protocol = func;
+        feval(func, 'init'); % this assumes the file is the current directory
+    end
+    
+case 'reinit_protocol_callback'
+    func = GetParam(me,'protocol');
+    feval(func, 'reinit');
     
 case 'wcdump_callback';
     keyboard;
