@@ -35,16 +35,18 @@ end
 
 % look up center and size
 mod = 'cgdisplay';
+PW  = gprimd.PixWidth;
+PH  = gprimd.PixHeight;
 x   = fix(GetParam(mod,'cent_x','value'));
 y   = fix(GetParam(mod,'cent_y','value'));
 pw  = fix(GetParam(mod,'width','value'));
 ph  = fix(GetParam(mod,'height','value'));
 rot = fix(GetParam(mod,'theta','value')); %  can't do anything with this here, really
 if pw < 1
-    pw = gprimd.PixWidth;
+    pw = PW;
 end
 if ph < 1
-    ph = gprimd.PixHeight;
+    ph = PH;
 end
 
 % reset timing data and clear screen
@@ -55,20 +57,20 @@ cgflip(0);
 if nargin < 2
     syncrect = [0 0 .2 .2];
 end
-sr = (syncrect + [-1 -1 0 0]) .* [pw/2 ph/2 pw ph];
+sr = (syncrect + [-1 -1 0 0]) .* [PW/2 PH/2 PW PH];
 if nargin < 3
     syncmap = [0 1];
 end
 % bombs away
 cgfont('Arial',10)
-cgpencol(255) % should be black
-t = [pw/2 - 100, -ph/2 + 20];
+cgpencol(1) % should be white
+t = [PW/2 - 100, -PH/2 + 20];
 for frame = 1:a_frames;
     for i = 1:frate
         cgdrawsprite(frame,x,y, pw, ph);
         cgrect(sr(1),sr(2),sr(3),sr(4),syncmap(sync+1));
         cgtext(num2str(frame),t(1),t(2));
-        timing(frame,i) = cgflip;
+        timing(frame,i) = cgflip(0);
     end
     sync = ~sync;
 end
