@@ -44,7 +44,7 @@ indind  = randperm(frames*repeats);
 ind     = ind(indind);
 
 s1        = struct('mfile',MFILE,'param',params(ind,:),'x_res',dim,'y_res',dim,...
-                   'colmap',gray(MAXCOL-MINCOL));
+                   'colmap',gray(MAXCOL-MINCOL+1));
 s1.static = {dim}; 
 
         
