@@ -37,23 +37,42 @@ end
 if isempty(alpha)
     alpha   = ALPHA;
 end
-    
-n_groups    = length(stats.n);
-if control > n_groups | control < 1
-    error(sprintf('Control group index must be between 1 and %d',n_groups));
-end
 
-n_control   = stats.n(control);
-m_control   = stats.means(control);
-mse         = power(stats.s,2);
+switch lower(stats.source)
+    case 'anova1'
+        n_groups    = length(stats.n);
+        if control > n_groups | control < 1
+            error(sprintf('Control group index must be between 1 and %d',n_groups));
+        end
+        
+        n_exp       = stats.n;
+        n_control   = n_exp(control);
+        m_exp       = stats.means;
+        m_control   = m_exp(control);
+        mse         = power(stats.s,2);
+        df          = prod([n_groups n_control]) - n_groups;
+    case 'anova2'
+        % assume here that we're using columns
+        n_groups    = stats.rown;
+        if control > n_groups | control < 1
+            error(sprintf('Control group index must be between 1 and %d',n_groups));
+        end
+        n_exp       = repmat(stats.coln,[1 n_groups]);
+        n_control   = n_exp(control);
+        m_exp       = stats.colmeans;
+        m_control   = m_exp(control);
+        mse         = stats.sigmasq;
+        df          = prod([n_groups n_control]) - n_groups;
+end
 
 for i = 1:n_groups
     if i == control
         t(i)    = 0;
     else
-        nh      = harmmean([n_control stats.n(i)]);
-        t(i)    = (stats.means(i) - m_control) / sqrt(2 * mse / nh);
+        nh      = harmmean([n_control n_exp(i)]);
+        t(i)    = (m_exp(i) - m_control) / sqrt(2 * mse / nh);
     end
 end
-p = 1 - tcdf(t, stats.df);
+% this is not the right density function
+p = tpdf(t, stats.df);
 h = p < alpha;
