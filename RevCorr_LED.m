@@ -156,7 +156,8 @@ set(wc.ai,'LogFileName',NextDataFile(fn));
 SetUIParam('protocolcontrol','status','String',get(wc.ai,'logfilename'));
 queueStimulus(wc.ai,wc.ao);
 start([wc.ai wc.ao]);
-pause(0.1);
+frate   = GetParam(me,'f_rate','value');
+pause(2.5 * 1/frate);
 trigger([wc.ai wc.ao]);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -184,7 +185,7 @@ maxV    = GetParam(me,'s_max','value');
 seq     = (seq - min(min(seq))) * (maxV - minV) / max(max(seq)) + minV;
 frate   = GetParam(me,'f_rate','value');    % the real frame rate
 aorate  = get(ao,'SampleRate');             % the sample rate of the ao, higher or equal to frate
-m       = aorate/frate;
+m       = fix(aorate/frate);
 
 nchan   = length(ao.Channel);           % number of channels
 seq     = upsample(seq,m,nchan);        % upsample the sequence
@@ -196,7 +197,7 @@ putdata(ao,seq);                        % here is where the data gets sent to th
 function seq = upsample(seq, mult, nchan)
 % upsamples and pads/truncates the number of channels so that the sequence
 % can be passed directly to the analogoutput. seq should be an array or column vector
-[len n] = size(seq,1);
+[len n] = size(seq);
 if n < nchan
     seq = [seq, zeros(len,nchan-n)];  % pad out channels
 elseif n > nchan
@@ -279,7 +280,6 @@ plot(time,data);
 % quick analysis using danlab_revcor
 y       = bindata(data,srate/frate,1);      % bin response to frame rate
 options = struct('correct','no','display','yes');
-keyboard
 kern    = danlab_revcor(stim,y(1:length(stim)),10,frate,options);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
