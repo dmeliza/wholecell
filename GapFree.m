@@ -81,7 +81,7 @@ set(daq,'SamplesAcquiredAction',{'SweepAcquired',me}) % calls SweepAcquired m-fi
 set(daq,'SamplesAcquiredActionCount',update)
 set(daq,'StopAction','daqaction');
 % may need to turn ManualTriggerHwOn to Start, in which case we need to make sure we put it back
-wc.control.pulse = zeros(1,update); % this is a kludge to get around how SweepAcquired knows how much data to ask for
+set(daq,'UserData',update);
 wc.gapfree.offset = 0;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -89,7 +89,7 @@ function varargout = setupScope(scope, amp);
 % sets up the scope properties
 clearPlot(scope);
 set(scope, {'XLimMode','XLim'}, {'Manual', [0 2000]});  % we'll manage the x axis ourselves.
-set(scope, {'YLimMode','YLim'}, {'Manual', [-2 2]});  % for now, before we figure out how to change this in the GUI
+%set(scope, {'YLimMode','YLim'}, {'Manual', [-2 2]});  % for now, before we figure out how to change this in the GUI
 %set(scope,'XLimMode','Auto','YLimMode','auto');
 set(scope, 'NextPlot', 'add');
 lbl = get(scope,'XLabel');
@@ -106,39 +106,8 @@ function varargout = plotData(data, time, index)
 % finally, we have to keep track of where to plot things, so the endpoint of the last plot
 % is stored in wc.gapfree.offset
 global wc
-
-scope = getScope; % this might be a slowdown
 data = data(:,index);
-%SetUIParam('wholecell','progress','String',num2str(time(1)));
-time = (time - time(1)) * 1000 + wc.gapfree.offset;
-% Condition 1: bounds overstep - move data to beginning of plot
-xlim = get(scope, 'XLim');
-i = find(time >= xlim(2));
-if (~isempty(i))
-    time = time - time(1);
-end
-% We find the closest index for the start of our time vector and replace the y values with
-% our data set
-kids = get(scope,'Children');
-if (~isempty(kids))
-    xdata = get(kids,'XData');
-    if (iscell(xdata))
-        used = cat(1,xdata{:});
-    else
-        used = xdata;
-    end
-    % create a column vector of booleans
-    minmax = [used(:,1), used(:,size(used,2))];
-    s = (time(2) > minmax(:,1)) & (time(2) < minmax(:,2));
-    e = (time(length(time)) > minmax(:,1)) & (time(length(time)) < minmax(:,2));
-    delete(kids(find(s)));
-    delete(kids(find((e - s)>0))); % the minus avoids deleting handles already deleted
-end
-    
-% plot data (finally) and set offset for next plot
-plot(time, data, 'Parent', scope);
-%plot(time(1),data(1),'parent', scope);
-wc.gapfree.offset = time(length(time));
+Scope('scopeplot', time * 1000, data);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function clearPlot(axes)
