@@ -119,7 +119,7 @@ global wc;
     p.y_res = cell2struct({'Y Pixels','value',4},f_s,2);
     p.x_res = cell2struct({'X Pixels','value',4},f_s,2);
     
-    p.a_frames = cell2struct({'Stimulus Frames','value',1000,'s'},f,2);
+    p.a_frames = cell2struct({'Stimulus Frames','value',1000},f_s,2);
     p.stim = cell2struct({'Stim File','file_in',''},f_s,2);
     p.display = cell2struct({'Display', 'value', 2},f_s,2);
     p.input.description = 'Amplifier Channel';
@@ -230,37 +230,78 @@ save([pn filesep fn '.mat'],...
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function analyze(obj, event)
-% this method analyzes the data, using getdata to clear the latest
-% data from the buffer
-global wc
-stop(wc.ai);
-keyboard;
-window = [-1000 200];
-[data, time, abstime] = getdata(obj);
-index = wc.control.amplifier.Index;
-stim = Spool('stim','retrieve');
-samplerate = get(obj,'SampleRate');
-t_res = GetParam(me,'t_res','value');
-stimstart = get(wc.ao,'InitialTriggerTime');
-c = revcorr(data(:,index)', stim, samplerate,...
-    1000 / t_res, stimstart, abstime, window);
-s = [me '.analysis'];
-f = findobj('tag', s);
-if isempty(f) | ~ishandle(f)
-    f = figure('tag', s, 'numbertitle', 'off', 'name', s);
+% all data has been collected and we have timing data
+% if the data is being written to disk the timing data must also be written
+% ASAP
+global timing
+stop(obj);
+param = GetParam(me);
+if strcmp('memory',lower(get(obj,'LoggingMode')))
+    lfn = get(obj,'LogFileName');
+    [pn fn ext] = fileparts(lfn);
+    save(fullfile(pn,fn),'timing','param');
 end
-t = window(1):t_res:window(2);
-figure(f);
-d = get(f,'UserData');
-d = cat(1,d,c);
-a = mean(d,1);
-p = plot(t, [c; a]);
-xlabel('Time (ms)');
-set(f,'name',[s ' - ' num2str(size(d,1)) ' scans']);
-set(f,'UserData',d);
-Spool('stim','delete');
+% get data
+[data, time, abstime] = getdata(obj);
+% align the data
+stim_start = datevec(timing(1) - datenum(abstime));
+stim_start = stim_start(6); % this breaks if there's more than one minute of delay
+i = max(find(time < stim_start)) + 1;
+resp = data(i:end,param.input.value);
+time = time(i:end) - time(i);
+stim_times = timing(:,2) - timing(1,2);
+% bin the data (rough, ignores variance in timing)
+t_resp = 1000 / get(obj,'SampleRate');
+t_stim = param.t_res.value;
+r = bindata(resp,fix(t_stim/t_resp));
+r = r - mean(r);
+% reconstruct the stimulus (as an N by X matrix)
+s_frames = length(r);
+stim = getStimulus(param.stim.value);
+pix = param.x_res.value * param.y_res.value * s_frames; % # of pixels
+s = reshape(stim(1:pix),param.x_res.value*param.y_res.value, s_frames);
+s = permute(s,[2 1]);
+% reverse correlation:
+options.correct = 'no';
+hl_est = danlab_revcor(s,r,5,fix(1000/t_stim),options);
+% combine first 5 lags into a spatial plot
+k = mean(hl_est,1);
+k = reshape(k,6,6)';
+mx = max(max(abs(k)));
+figure,imagesc(k,[-mx mx]);
+colormap(gray);
+set(gca,'XTick',[],'YTick',[])
 
-startSweep;
+%figure,plot(time,resp);
+% xlabel('Time (s)');
+% ylabel('Response (V)');
+
+% window = [-1000 200];
+% [data, time, abstime] = getdata(obj);
+% index = wc.control.amplifier.Index;
+% stim = Spool('stim','retrieve');
+% samplerate = get(obj,'SampleRate');
+% t_res = GetParam(me,'t_res','value');
+% stimstart = get(wc.ao,'InitialTriggerTime');
+% c = revcorr(data(:,index)', stim, samplerate,...
+%     1000 / t_res, stimstart, abstime, window);
+% s = [me '.analysis'];
+% f = findobj('tag', s);
+% if isempty(f) | ~ishandle(f)
+%     f = figure('tag', s, 'numbertitle', 'off', 'name', s);
+% end
+% t = window(1):t_res:window(2);
+% figure(f);
+% d = get(f,'UserData');
+% d = cat(1,d,c);
+% a = mean(d,1);
+% p = plot(t, [c; a]);
+% xlabel('Time (ms)');
+% set(f,'name',[s ' - ' num2str(size(d,1)) ' scans']);
+% set(f,'UserData',d);
+% Spool('stim','delete');
+% 
+% startSweep;
 
 %%%%%%%%%%%%%%%%%%%%%%%%5
 function showerr(obj, event)
