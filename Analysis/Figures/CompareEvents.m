@@ -1,19 +1,20 @@
-function [d, t] = CompareEvents(pre, post, time)
+function [d, t] = CompareEvents(pre, post, time, binsize)
 %
 % Rasterifies two .r0 files, constructs the amplitude-weighted event time
 % histogram, and compares the two.
 %
 % $Id$
-SZ   =  [3.4    5.6];
-SZ1  = [3.4    2];
-SZ2  = [3.4    2.6];
-BS   = 50;               % binrate
-THRESH  = 2;          % z-score
-WIN = 1000:8000;        % samples
-SCATTER = 1;
-xlim    = [-100 600];
-N   = 4;
+SZ      =  [3.4    5.6];    % window size
+BS      = 30;               % default binrate
+THRESH  = 2;                % z-score
+WIN     = 1000:8000;        % analysis window (samples)
+NORM    = 1;                % normalize results?
+xlim    = [-100 600];       % lock graphs to this XLIM
+PP      = 1;                % plot both pre and post events?
 
+if nargin > 3
+    BS  = binsize;
+end
 
 A   = load('-mat',pre);
 B   = load('-mat',post);
@@ -32,8 +33,11 @@ BR(BR<0) = 0;
 AH  = mean(AR,2);
 BH  = mean(BR,2);
 mx  = max(AH);
-d   = BH - AH;
-%d   = BH ./ mx - AH ./ mx;
+if NORM
+    d   = BH ./ mx - AH ./ mx;
+else
+    d   = BH - AH;
+end
 t   = at;
 
 if nargout > 1
@@ -41,9 +45,8 @@ if nargout > 1
 end
 
 f   = figure;
-set(f,'units','inches','color',[1 1 1])
-p   = get(f,'position');
-set(f,'position',[p(1) p(2) SZ(1) SZ(2)],'name',pre);
+set(f,'color',[1 1 1],'name',pre)
+ResizeFigure(f,SZ)
 movegui('center')
 
 subplot(4,1,1)
@@ -56,7 +59,7 @@ end
 colormap(flipud(gray))
 ylabel('Trial #')
 
-if N > 3
+if PP
     subplot(4,1,2)
     p       = imagesc(bt,1:size(BR,2),BR');
     set(gca,'XTickLabel',[],'Box','On');
