@@ -19,8 +19,8 @@ error(nargchk(4,4,nargin));
 stim.colmap = gray(3);
 % stimulus dimensions:
 s = output_matrix([xres yres], pixsize); 
-stim.x_res = xres;
-stim.y_res = yres;
+stim.x_res = s(1);
+stim.y_res = s(2);
 % random numbers:
 r_x = ceil(rand(1,frames) .* xres); % x corner of pixel (1 to xres)
 r_y = ceil(rand(1,frames) .* yres); % y corner of pixel (1 to yres)
