@@ -81,6 +81,10 @@ case 'load_traces_callback'
         wait('Loading data...');
         SetUIParam(me,'filename','String',fullfile(pn,fn));
         d = load(fullfile(pn,fn));
+        if ~isfield(d,'abstime')
+            wait('Invalid .mat file');
+            return;
+        end
         SetUIParam(me,'filename','UserData',d);
         SetUIParam(me,'last_trace','StringVal',length(d.abstime));
         SetUIParam(me,'lp_factor','StringVal',d.info.t_rate);
@@ -583,7 +587,9 @@ else
     data = ydata;
 end
 color = get(tracehandles,'Color');
-color = cat(1,color{:});
+if iscell(color)
+    color = cat(1,color{:});
+end
 if nargin > 0
     traces = varargin{1};
     data = data(traces,:);
