@@ -335,8 +335,8 @@ stim_times = timing(:,1) - timing(1);
 r_frames = length(r);
 stim_struct = GetUIParam('scope','status','UserData');
 s = stim_struct.stimulus;
-x_res = GetParam(me,'x_res','value');
-y_res = GetParam(me,'y_res','value');
+x_res = stim_struct.x_res;
+y_res = stim_struct.y_res;
 s_frames = size(s,3);
 if s_frames > r_frames
     frames = r_frames;
