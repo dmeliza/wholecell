@@ -201,15 +201,15 @@ frame = 1;
 sync = 1;
 cgflip(0);
 gprimd = cggetdata('gpd'); %max frame is given by gprimd.NextRASKey
+cgmakesprite(1,1,1,0); % the white sync pixel
+cgmakesprite(2,1,1,1); % the black sync pixel
 % bombs away
 for i = 1:a_frames;
-    cgdrawsprite(frame+1,0,0, gprimd.PixWidth, gprimd.PixHeight);
-    cgmakesprite(1,1,1,sync);
-    cgdrawsprite(1,-gprimd.PixWidth/2,-gprimd.PixHeight/2,200,200);
+    cgdrawsprite(frame+2,0,0, gprimd.PixWidth, gprimd.PixHeight);
+    cgdrawsprite(sync+1,-gprimd.PixWidth/2,-gprimd.PixHeight/2,200,200);
     if mod(i,frate) == 0
         frame = frame + 1;
         sync = ~sync;
-        % some kind of progress indicator?
     end
     timing(i) = cgflip;
 end
@@ -240,7 +240,7 @@ pix = x_res * y_res;
 h = waitbar(0,['Loading movie (' num2str(a_frames) ' frames)']);
 for i = 1:a_frames
     o = (i - 1) * pix + 1;
-    cgloadarray(i+1,x_res,y_res,stim(o:o+pix-1),colmap,0);
+    cgloadarray(i+2,x_res,y_res,stim(o:o+pix-1),colmap,0);
     waitbar(i/a_frames,h);
 end
 close(h);
