@@ -1,18 +1,64 @@
 function varargout = Episode(varargin)
 %
-% This basic protocol acquires episodes from the amplifier and
-% records the response to stimulation.  It uses the internal clock
-% to trigger, which may be a bugaboo if we want to record but
-% only stimulate at 0.2 Hz.
+% The wholecell toolkit works through modules, which are mfiles that control
+% experiments of a similar type.  This module, Episode.m, is probably the most
+% basic protocol, and should be used as an example for writing other modules.  In an
+% episode, the data acquisition hardware is instructed to acquire data for a brief
+% perioid of time, during which a signal can also be sent through the analogoutput
+% device.  After a pause, the episode is repeated.  Individual episodes can be
+% treated separately, or as is more common, averaged together to minimize noise.  Also,
+% there are usually several parameters that can be extracted from each episode (e.g.
+% input resistance); this module provides online tracking of these parameters (still
+% somewhat limited.)
 %
-% void Episode(action, control)
+% void Episode(action)
 %
-% action is ('init') 'play', 'record', or 'stop'
-% control is a structure that defines parameters for the experiment
+% Input:    The user can specify a pulse on one or both of the analog output channels.
+%           The length, delay, and amplitude of the pulse can be specified, but only
+%           one pulse per channel is permitted.
 %
-% control.length - time, in seconds for each episode
-% control.frequency - frequency, in Hz, of episode acquisition
-% control.stim_delay - time, in seconds, to wait to trigger the stimulator
+% Output:   The module generates the sequences that will cause the analogoutput to
+%           output the pulses specified by the user.  It also instructs the DAQ toolkit
+%           to acquire data at the default samplerate for the length of time specified
+%           by the user.
+%
+% Details:  There are few issues with a protocol this simple.  The biggest one stems
+%           from a bug of some kind in the driver or DAQ toolkit that can cause the ao
+%           and ai objects to not start at the same time, which causes a significant
+%           jitter in the timing of events within individual episodes.  As there does
+%           not seem to be any truly reliable way of eliminating the problem that does
+%           not also greatly complicate the code (for instance, one could use a Software
+%           or Hardware trigger to start the ai object), a post-hoc method of correction
+%           is supplied in the Analysis/AlignEpisodes() function.
+%
+%           Some flexibility is lost because only single pulses can be sent on each
+%           channel.  In my view this is more than made up for by the ease with which
+%           the episode parameters can be set and edited.  Writing a more flexible
+%           episode specification tool/module is left as an exercise to the reader.
+%
+% Notes:    A protocol needs to respond to certain actions, which are passed as string
+%           arguments by the calling function (usually ProtocolControl.m).  The minimum
+%           set of arguments are 'init', 'start', 'record', and 'stop', which are called
+%           when the user clicks the Init, Play, Record, or Stop buttons, respectively.
+%
+%           Aside from responding to these actions, the protocol can operate however it likes.
+%           If the user is expected to change parameters, it may pay, however, to use
+%           the ParamFigure function to create a figure that will present the relevant
+%           parameters to the user.  This figure is created with callbacks that ensure that
+%           the wc control structure is updated whenever the user changes something, so
+%           that the GetParam function can be used to retrieve those parameters whether
+%           or not the parameter window is still open.
+%
+%           The DAQ toolkit works using Actions, which are executed whenever an event
+%           happens (for instance, the requested number of samples have been acquired).
+%           IMPORTANT: this convention was used in the version 2.0 toolkit included with
+%           Matlab R12; in subsequent versions the Actions are functions, with the important
+%           difference that these can be function handles, whereas actions have to be
+%           mfiles, specified by a string.  Thus, to call an internal function, this
+%           module implements a workaround, where the Action is set to {mfilename, fcn},
+%           and a call to isobject() in the main function is used to determine if the
+%           action is a handle or a string.  Using internal functions means that code
+%           tends to be duplicated between protocols, but also simplifies debugging.
 %
 % $Id$
 
@@ -32,16 +78,18 @@ end
 switch action
 
 case {'init','reinit'}
+    % The Init action is called by the Init button in ProtocolControl. It
+    % initializes the parameter window and the scopes.
     p = defaultParams;
-    fig = findobj('tag',[lower(me) '.param']);        % checks if the param window is already
-    if isempty(fig)                                   % open
-        fig = ParamFigure(me, p);
-    end    
+    fig = ParamFigure(me, p);
     getScope;
     
     EpisodeStats('init','min','','PSR_IR');
     
 case 'start'
+    % The start action is called by the Play button in ProtocolControl. It
+    % sets up the driver parameters, queues data in the analog ouput, and
+    % starts acquisition
     setupHardware;
     clearScope;
     llf = get(wc.ai,'LogFileName');
@@ -52,6 +100,9 @@ case 'start'
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
     
 case 'record'
+    % The record action is called by the Record button in ProtocolControl. It
+    % acts like the start action, but sets the driver to record results on
+    % disk as well as in memory.
     switch get(wc.ai,'Running')
     case 'On'
         Episode('stop');
@@ -68,6 +119,10 @@ case 'record'
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));    
     
 case 'stop'
+    % The stop action is called by the Stop button in ProtocolControl. It stops
+    % the protocol and clears important driver settings so that subsequent
+    % acquisitions (which may be called by other protocols) don't generate recordings
+    % or use the wrong callbacks
     ClearAO(wc.ao);
     if (isvalid(wc.ai))
         stop(wc.ai);
@@ -81,15 +136,28 @@ case 'close_callback'
     delete(gcbf);
     
 otherwise
+    % catches actions that have not had cases written for them, and
+    % displays a helpful message (which can be commented out once
+    % debugging is over (hah!))
     disp(['Action ' action ' is unsupported by ' me]);
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function out = me()
+% This function is here merely for convenience so that
+% the value 'me' refers to the name of this mfile (which
+% is used in accessing parameter values)
 out = mfilename;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function p = defaultParams;
+% This function generates a structure that can be passed to
+% ParamFigure.  The structure describes the parameters relevant
+% to this protocol, their types, units, and default values.
+% See Utility/ParamFigure.m for more information on how this structure
+% works.  Cell2Struct() is used to construct the structure for
+% brevity; any structure-generating algorhythm can be used as long
+% as the fields are named correctly.
 global wc;
 f = {'description','fieldtype','value','units'};
 f_s = {'description','fieldtype','value'};
@@ -109,7 +177,10 @@ p.input_channel = cell2struct({'Input','list',1,GetChannelList(wc.ai)},f_l,2);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function setupHardware()
-% Sets up the hardware for this mode of acquisition
+% This function is responsible for setting important values on the
+% ai and ao objects, primarily the number of samples to record before
+% calling the analysis function (and which function to call). This function
+% should be called before each experiment (ie when the user presses Play or Record)
 global wc
 display = @updateDisplay;
 
@@ -125,7 +196,11 @@ set(wc.ai,'ManualTriggerHwOn','Trigger');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function queueStimulus()
-% populates the wc.ao data channels
+% This function is responsible for queuing data in the
+% analog output.  Data is queued using putdata().  A signal
+% for each channel must be supplied, and the ao system
+% will play this sequence back at the samplerate when
+% the device is triggered.
 global wc
 
 len = GetParam(me,'ep_length','value');
@@ -147,7 +222,11 @@ putdata(wc.ao,p);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function updateDisplay(obj, event)
-% plots and analyzes the data
+% This is the function that gets called when the analoginput
+% has acquired the number of samples it was set to acquire.  It
+% extracts the data from the engine, passes it to the plotData()
+% function, and then pauses for the correct amount of time before it
+% calls startSweep() to acquire the next episode.
 [data, time, abstime] = getdata(obj);
 plotData(data, time, abstime);
 t = 1 / GetParam(me,'frequency','value');
@@ -160,7 +239,17 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function plotData(data, time, abstime)
-% plots the data
+% This function handles the display of data in the plot window
+% and in the analysis window (controlled by EpisodeStats).  In this
+% protocol, we plot the most recently acquired sweep, as well as the
+% average of all the sweeps acquired during the current experiment.
+% The second sweep is harder to plot than would be expected, because we have
+% to make data available from previous episodes available to the
+% interpreter when this function is called.  Stateful data can be stored in
+% a lot of places, but in this case we choose to use the 'UserData' field
+% of the plot axis.  The mean trace, along with the number of traces represented
+% by the mean, are stored in this field, allowing us to calculate the new
+% mean trace without storing every single trace.
 index       = GetParam(me,'input_channel','value');
 data        = data(:,index);            % only the amplifier channel is plotted
 axes(getScope)                          % get the scope
@@ -181,7 +270,12 @@ EpisodeStats('plot', abstime, data);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%55555
 function startSweep()
-% Begins a sweep
+% This function initiates a sweep acquisition.  This involves several tasks,
+% the most important of which is that the stimulus must be requeued into the
+% analogoutput object each time we want to play it back.  The function also
+% makes sure the logfile name is advanced to the next number (using
+% NextDataFile()) so that if the user has chosen to save the data, it will not
+% overwrite previous episodes (very important!).
 global wc;
 stop([wc.ai wc.ao]);
 flushdata(wc.ai);
@@ -194,13 +288,17 @@ trigger([wc.ai wc.ao]);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function [] = clearScope()
+% Very basic function; clears the axes and removes any stored data
+% from the UserData field (so that the running average will be reset)
 axes(getScope)
 set(gca,'UserData',[])
 cla
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function a = getScope()
-% retrieves the handle for the scope axes
+% This function retrieves the handle for the scope axes, and if
+% the axes don't exist, creates them and sets them with the proper
+% values.
 f       = findfig([me '.scope']);
 set(f,'position',[288 314 738 508],'name','scope','numbertitle','off');
 a       = get(f,'Children');
@@ -208,6 +306,6 @@ if isempty(a)
     a   = axes;
     set(a,'NextPlot','ReplaceChildren')
     set(a,'XTickMode','Auto','XGrid','On','YGrid','On','YLim',[-5 5])
-    xlabel('Time (ms)')
+    xlabel('Time (s)')
     ylabel('amplifier (V)')
 end
