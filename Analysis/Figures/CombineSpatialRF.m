@@ -14,7 +14,6 @@ function [] = CombineSpatialRF(control)
 % $Id$
 SZ      = [3.0 2.9];
 XLIM    = [-2 2];
-NAMES   = {'LTD/surr','LTP/surr','LTD/cent','LTP/cent'};
 
 [data, files]   = xlsread(control);
 induction       = data(:,1);
@@ -22,37 +21,42 @@ t_peak          = data(:,4);
 
 trials  = length(files);
 for i = 1:trials
-    [pre(i,:),post(i,:)]  = SpatialRF(files{i,1}, files{i,2}, induction(i), t_peak(i));
-    pre_center(i)         = centroid(pre(i,:));
-    post_center(i)        = centroid(post(i,:));
-    [m,peak(i)]           = max(pre(i,:));
-    sgn(i)                = -sign(post_center(i) - induction(i));   % used to normalize shifts
-    shift(i)              = (post_center(i) - pre_center(i)) .* sgn(i);
-    STDP(i)               = ((post(i,induction(i)) - pre(i,induction(i))))/pre(i,induction(i)); 
+    [pre_rf(i,:), pst_rf(i,:), pre_cm(i), pst_cm(i)] = CompareSpatialRF(files{i,1},...
+        files{i,2}, induction(i), t_peak(i));
+%     [pre(i,:),post(i,:)]  = SpatialRF(files{i,1}, files{i,2}, induction(i), t_peak(i));
+%     pre_center(i)         = centroid(pre(i,:));
+%     post_center(i)        = centroid(post(i,:));
+    [m,peak(i)]           = max(pre_rf(i,:));
+    sgn(i)                = -sign(pst_cm(i) - induction(i));   % used to normalize shifts
+    shift(i)              = (pst_cm(i) - pre_cm(i)) .* sgn(i);
+    STDP(i)               = ((pst_rf(i,induction(i)) - pre_rf(i,induction(i))))/pre_rf(i,induction(i)); 
     isLTP(i)              = STDP(i) > 0;
     iscenter(i)           = (induction(i) - peak(i)) == 0;
-    fprintf('%s: Shift from %3.2f to %3.2f (%3.2f)\n', files{i,1}, pre_center(i), post_center(i), shift(i));
+%    fprintf('%s: Shift from %3.2f to %3.2f (%3.2f)\n', files{i,1}, pre_center(i), post_center(i), shift(i));
 end
-
+keyboard
 % Normalize
-mx      = max(pre,[],2);
-mx      = repmat(mx,1,size(pre,2));
-pre     = pre ./ mx;
-post    = post ./ mx;
+% mx      = max(pre_rf,[],2);
+% mx      = repmat(mx,1,size(pre_rf,2));
+% pre     = pre ./ mx;
+% post    = post ./ mx;
 
 % Compute difference
-change  = post - pre;
+% change  = post - pre;
 f       = figure;
 set(f,'Color',[1 1 1])
 ResizeFigure(f,SZ)
 ltd_flank     = (shift(~isLTP & ~iscenter));
 ltp_flank     = (shift(isLTP  & ~iscenter));
-ltd_cent      = (shift(~isLTP & iscenter));
-ltp_cent      = (shift(isLTP  & iscenter));
-h   = bar([0 1 2 3], [mean(ltd_flank) mean(ltp_flank) mean(ltd_cent) mean(ltp_cent)]);
+% ltd_cent      = (shift(~isLTP & iscenter));
+% ltp_cent      = (shift(isLTP  & iscenter));
+cent          = shift(iscenter);
+%h   = bar([0 1 2 3], [mean(ltd_flank) mean(ltp_flank) mean(ltd_cent) mean(ltp_cent)]);
+h   = bar([0 1 2], [mean(ltd_flank) mean(ltp_flank) mean(cent)]);
 set(h,'FaceColor','none')
 hold on
 X   = isLTP + iscenter * 2;
+X(X==3) = 2;
 h2  = plot(X, shift, 'ko');
 set(h2,'Color',[0.7 0.7 0.7],'MarkerFaceColor',[0.7 0.7 0.7],'MarkerSize',4);
 hline(0,'k')
@@ -69,7 +73,8 @@ for i = 1:length(NAMES)
     p       = signrank(x,y,0.95);
 %     Y       = shift(ind);
 %     [h,p]   = ttest(Y);
-    fprintf('%s: p = %1.3f\n',NAMES{i},p);
+    fprintf('%s: %1.3f +/- %1.3f, p = %1.3f\n',NAMES{i},...
+        mean(shift(ind)), std(shift(ind))/sqrt(length(ind)), p);
 end
 
 function [m, e] = meanerr(points)
