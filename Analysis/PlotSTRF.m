@@ -1,4 +1,4 @@
-function [] = PlotSTRF(strf)
+function f = PlotSTRF(strf)
 % 
 % PlotSTRF plots STRFs (or a series of linked STRFs) in a nice window with some
 % useful functionality.  Each STRF is plotted in its own axis and the colormap
@@ -6,7 +6,7 @@ function [] = PlotSTRF(strf)
 % below the graphs for changing frame, and when the user double-clicks on a pixel
 % in the image, a separate window is opened with the time-course of the pixel
 %
-% Usage:   [] = PlotSTRF(strf,)
+% Usage:   f = PlotSTRF(strf,)
 %
 %
 % strf   - a structure array with the following fields:
@@ -40,10 +40,15 @@ if isfield(strf,'frate')
     set(gcf,'UserData',strf(1).frate);
 end
 
+% find the absolute maximum of all the STRFs
+for i = 1:NUM
+    mx(i)    = max(max(max(abs(strf(i).data))));
+end
+mx           = max(mx);
+
 % make plots
 for i = 1:NUM
     subplot(1,NUM,i)
-    mx      = max(max(max(abs(strf(i).data))));     % absolute maximum of STRF
     [X Y T] = size(strf(i).data);
     if X == 1 & Y == 1
         plot(squeeze(strf(i).data))                 % single pixel STRF, use plot
@@ -96,8 +101,8 @@ a       = findobj(f,'type','axes'); % the axes in the window
 for i = 1:length(a)
     axes(a(i))
     R   = get(a(i),'UserData');
-    mx  = max(max(max(abs(R))));
-    h   = imagesc(R(:,:,val),[-mx mx]);
+    mx  = get(a(i),'CLim');         % keep the CLUT axis the same
+    h   = imagesc(R(:,:,val),mx);
     set(h,'buttondownfcn',click);
     text(1,1,getTime(val))
 end
@@ -111,12 +116,12 @@ if strcmpi(type,'open');
     pos     = [pos(1,2) pos(1,1)];              % convert to matrix indices
     r       = get(a,'UserData');                % STRF
     frate   = get(gcf,'UserData');              % frame rate, if there is one
+    mx      = get(a,'CLim');
     
     figure
     movegui(gcf,'southeast')
     s       = sprintf('Pixel [%d %d]',pos);     % pixel ID
     set(gcf,'color',[1 1 1],'name',s,'NumberTitle','off');
-    mx      = max(max(max(abs(r))));            % scale all responses to absolute max
     Y       = squeeze(r(pos(1),pos(2),:));      % our response
     x_mean  = squeeze(mean(mean(r,1),2));       % the "energy" of the STRF through time
     if isempty(frate)
@@ -131,5 +136,5 @@ if strcmpi(type,'open');
     plot(T,x_mean,':k');
     xlabel(str);
         
-    set(gca,'YLim',[-mx mx],'YTick',[0]);
+    set(gca,'YLim',mx,'YTick',[0]);
 end
