@@ -15,7 +15,9 @@ function [rf, t] = CompositeRF(control, mode)
 
 % $Id$
 
-DELTA   = [-65 50]; % only pre-post timings in this range are used
+DELTA   = [0 50]; % only pre-post timings in this range are used
+INDUCED = 'surround'; % can be 'center', 'surround', or 'all'
+MIN_EVENT   = 10;   % set a minimum event size to avoid normalization problems
 WINDOW = 150;       % ms; switch to 250 for the wider window in fig 2
 Fs     = 10;
 SZ      = [3.4 2.9];
@@ -30,9 +32,22 @@ end
 [data, files]   = xlsread(control);
 t_spike         = data(:,2);
 t_peak          = data(:,4);
+x_induced       = data(:,1);
+x_center        = data(:,3);
+% do some prefiltering:
 % determine which expt's have the right induction intervals
 delta           = t_spike - t_peak;
-ind             = find(delta >= DELTA(1) & delta <= DELTA(2));
+ind_d           = delta >= DELTA(1) & delta <= DELTA(2);
+% select center-induced or surround-induced
+switch INDUCED
+    case 'center'
+        ind_i   = x_induced == x_center;
+    case 'surround'
+        ind_i   = x_induced ~= x_center;
+    otherwise
+        ind_i   = ones(size(x_induced));
+end
+ind = ind_d & ind_i;
 % restrict analysis to those expts
 files           = files(ind,:);
 t_spike         = data(ind,2);  % time of spike
