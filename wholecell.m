@@ -18,13 +18,7 @@ switch action
 case 'init'
     
     InitWC;
-	fig = openfig(mfilename,'reuse');
-	set(fig,'Color',get(0,'defaultUicontrolBackgroundColor'));
-	wc.wholecell.handles = guihandles(fig);
-	guidata(fig, wc.wholecell.handles);
-    clfcn = sprintf('%s(''close_Callback'');',me);
-    set(fig,'numbertitle','off','name',me,'tag',me,...
-        'DoubleBuffer','on','menubar','none','closerequestfcn',clfcn);
+    OpenGuideFigure(me);
 
     setupFigure(me);
     initHardware(me);
