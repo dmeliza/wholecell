@@ -15,7 +15,10 @@ function [h1_est, h2_est, h2_sig] = revcor12(u, y, lags, Fs)
 %
 % h1_est - a row vector comprising the first order kernel
 % h2_est - a row matrix of eigenvectors (e.g. h2_est(:,1) is first eigenvector)
-% h2_sig - the eigenvalues
+% h2_sig - the eigenvalues (arranged by rank)
+%
+% For all internal analyses, k2 is composed of the first two eigenvectors
+% in h2_est
 %
 % Dan Meliza & Jon Touryan $Id$
 
@@ -23,7 +26,7 @@ function [h1_est, h2_est, h2_sig] = revcor12(u, y, lags, Fs)
 % Settings
 MEX_CODE = 0;       % Use Mex Code When Multipying Matrices (Uses Less Memory) [1 = yes, 0 = no]
 DISPLAY = 1;        % Display results
-ORTHO = 0;          % Orthogonalize vectors
+ORTHO = 0;          % Orthogonalize k1
 
 % check arguments
 error(nargchk(4,4,nargin));
@@ -65,6 +68,7 @@ h1_est = 1/(frames-1) * inv(M) * (S' * y);
 fprintf('Computing 2nd order kernel... \n')
 % Calculate weighted stimulus matrix: the rows of the
 % stimulus matrix multiplied by Vm (or Iclamp)
+%z = (S * h1_est) ./ y;
 Sw = S .* repmat(y,1,lags);
 % the covariance matrix is Sw'*S
 if MEX_CODE
