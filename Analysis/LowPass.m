@@ -1,8 +1,20 @@
-function d = LowPass(data, lpass, Fs)
-% Filters data using a 3-pole butterworth lowpass filter.
+function data = LowPass(data, pass, Fs, order)
+% Filters data using an n-pole butterworth lowpass filter.
 % Uses FiltFilt to avoid phase offsets.
-% d = LowPass(data, lpass(Hz), Fs(Hz))
-% undefined results if lpass > Fs
-%[b, a] = butter(6,lpass/Fs);
-[b,a] = ellip(3,0.5,20,lpass/Fs);
-d = filtfilt(b,a,data);
+% d = LowPass(data, pass(Hz), Fs(Hz), [order])
+%
+% data  - column array of input data (double)
+% pass  - passband, in Hz
+% Fs    - sampling rate of data, in Hz
+% order - the order of the filter, default = 3
+%
+% undefined results if pass > Fs
+%
+% $Id$
+error(nargchk(3,4,nargin))
+if nargin < 4
+    order   = 3;
+end
+Wn          = pass/(Fs/2);
+[b,a]       = butter(order,Wn);
+data        = filtfilt(b,a,data);
