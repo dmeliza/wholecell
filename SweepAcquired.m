@@ -28,7 +28,7 @@ function varargout = SweepAcquired(obj, event, callback)
 % $Id$
 global wc
 
-samples = length(wc.control.pulse);
+samples = get(wc.ai,'UserData');
 try
     [data, time, abstime] = getdata(wc.ai, samples); % extract data
 catch
