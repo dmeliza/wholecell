@@ -46,12 +46,13 @@ for i = 1:NUM
 end
 mx           = max(mx);
 
+exp   = @exportSTRF;
 % make plots
 for i = 1:NUM
     subplot(1,NUM,i)
     [X Y T] = size(strf(i).data);
     if X == 1 & Y == 1
-        plot(squeeze(strf(i).data))                 % single pixel STRF, use plot
+        h   = plot(squeeze(strf(i).data))                 % single pixel STRF, use plot
         set(gca,'YLim',[-mx mx]);
     else
         h   = imagesc(strf(i).data(:,:,1),[-mx mx]);
@@ -63,6 +64,10 @@ for i = 1:NUM
             title(strf(i).title);
         end
     end
+    m = uicontextmenu;
+    uimenu(m,'Label','Export','Callback',{exp,gca});
+    set(gca,'UiContextMenu',m);
+    set(h,'UiContextMenu',m);
 end
 
 % setup slider
@@ -138,3 +143,17 @@ if strcmpi(type,'open');
         
     set(gca,'YLim',mx,'YTick',[0]);
 end
+
+function [] = exportSTRF(obj,event,handle)
+% handles export commands
+strf = get(handle,'UserData');
+if isempty(strf)
+    errordlg('No data stored in object!');
+    error('Unable to retreive STRF');
+end
+[fn pn] = uiputfile('*.mat');
+if isnumeric(fn)
+    return
+end
+save(fullfile(pn,fn),'strf');
+fprintf('STRF written to file %s\n', fn);
