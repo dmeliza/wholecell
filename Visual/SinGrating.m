@@ -12,6 +12,8 @@ function img = singrating(rho, omega, phi, dim)
 %
 % Z = A sin (<w,r> + phi), where w and r are 2D vectors
 %
+% Note: SinGrating() has been deprecated.  Use HartleyGrating() instead
+%
 % $Id$
 
 error(nargchk(4,4,nargin))
