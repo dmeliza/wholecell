@@ -34,8 +34,8 @@ end
 
 if M == 1
     % equal chunk mode
-    rows = len / timing;    % number of chunks
-    cols = window;          % length of each chunk
+    rows = len / timing;              % number of chunks
+    cols = abs(fix(window));          % length of each chunk
     FRAMES = floor(len / timing - cols / timing);  % maximum number of frames
     out = zeros(FRAMES, cols);
     for i = 1:FRAMES
@@ -55,7 +55,7 @@ else
         warning(['Timing vector truncated to ' num2str(M) ' elements.']);
     end
     rows = M;
-    cols = window;
+    cols = abs(fix(window));
     out = zeros(rows, cols);
     for i = 1:rows
         ind = timing(i)-1;
