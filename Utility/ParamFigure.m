@@ -46,6 +46,9 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function newFigure(module, params, close_callback)
+% Opens a new figure window and sets up the fields for each of the parameters
+name = [module '.param'];
+fig = findobj('tag',name);
 % units are in pixels for my sanity
 w_fn = 100;
 w_f = 90;
@@ -212,6 +215,9 @@ end
 function readParams(varargin)
 mod = varargin{3};
 [fn pn] = uigetfile('*.mat');
+if isnumeric(pn)
+    return
+end
 pnfn = fullfile(pn,fn);
 if exist(pnfn)
     s = load(pnfn);
@@ -238,10 +244,10 @@ function s = removeFixed(s)
 % reflect some critical property of the hardware, etc
 n = fieldnames(s);
 for i = 1:length(n)
-    fn = n{i};
-    type = getfield(fn,'fieldtype');
+    p = getfield(s,n{i});
+    type = getfield(p,'fieldtype');
     if strcmp(lower(type),'fixed')
-        s = rmfield(s, fn);
+        s = rmfield(s, n{i});
     end
 end
 
