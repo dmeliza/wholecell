@@ -11,6 +11,7 @@ function out = FrameShift(y, timing, window, option)
 % timings   - Mx1 vector defining the start points (indices) for each row
 % window    - J number of points per row
 % option    - can be 'correct', in which case the baseline will be subtracted for each row
+%           - or 'correctstart', where the first value is subtracted for each row
 %
 % out       - MxN array
 %
@@ -18,6 +19,9 @@ function out = FrameShift(y, timing, window, option)
 
 % Check input dimensions etc
 error(nargchk(3,4,nargin))
+if nargin < 4
+    option = '';
+end
 [len cols] = size(y);
 [M X] = size(timing);
 if cols > 1
@@ -35,9 +39,12 @@ if M == 1
     for i = 1:FRAMES
         ind = (i - 1) * timing;
         Y = y(ind+1:ind+cols)';
-        if nargin > 3
+        switch lower(option)
+        case 'correct'
             out(i,:) = Y - mean(Y);
-        else
+        case 'correctstart'
+            out(i,:) = Y - Y(1);
+        otherwise
             out(i,:) = Y;
         end
     end
@@ -58,9 +65,12 @@ else
     for i = 1:rows
         ind = timing(i)-1;
         Y = y(ind+1:ind+cols)';
-        if nargin > 3
+        switch lower(option)
+        case 'correct'
             out(i,:) = Y - mean(Y);
-        else
+        case 'correctstart'
+            out(i,:) = Y - Y(1);
+        otherwise
             out(i,:) = Y;
         end
     end
