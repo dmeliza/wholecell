@@ -1,11 +1,17 @@
 function out = InitParam(module, param, struct)
 % Creates fields in wc so that subsequent get and set commands
-% work for this parameter
+% work for this parameter.
 % 
-% OUT = InitParam(MODULE,PARAM,struct)
-% 		Sets the param to struct (described in ParamFigure.m)
-%       returns the actual value
-% 	
+% OUT = InitParam(module,param,struct)
+%
+% module - the module to which this parameter pertains
+% param  - the name of the parameter
+% struct - the param structure
+%
+% returns the param structure as stored in the wc structure
+%
+% See Also:
+%  	headers/param_struct.m  - defines the param structure that should be used
 %
 % adapted from exper, ZF MAINEN, CSHL, 8/00
 %
