@@ -25,7 +25,7 @@ if nargin == 3
     stimulus = data(:,stimchannel);
 elseif exist(s_file,'file') ~= 0
     info = load(s_file);
-    stimrate = 1000 / info.time_resolution;
+    stimrate = info.stimrate;
     stimulus = info.stimulus;
 else
     error([s_file ' does not exist.']);
