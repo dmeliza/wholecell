@@ -133,14 +133,9 @@ global wc;
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function setupHardware()
-% Sets up the hardware for this mode of acquisition.  Some things are held constant:
-% 200 ms acquired before first frame
-% 200 ms after last frame + interframeinterval
-% same frame length and interval for all frames
+% Sets up the hardware for this mode of acquisition.
 global wc
 analyze = @analyze;
-% reset display
-% setupVisual;
 % acq params
 sr       = get(wc.ai, 'SampleRate');
 length   = GetParam(me,'ep_length','value');
@@ -209,6 +204,15 @@ else
     seq     = ones(30);
     seq(13:13+len-1) = 2;                         % offset of 12 frames (200 ms at 60Hz)
 end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+function r = unidrnd(n, i, j)
+% override the stats uniform discrete rand distribution as it sucks
+% i and j are ignored
+ints = repmat(1:n,20,1);        % take the integers from 1 to n, replicate 20 times
+ind  = randperm(length(ints));  % randomly permute the integers
+r    = ints(ind(1));            % pick the first
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [] = loadFrame(s, fnum, snum)
