@@ -62,8 +62,11 @@ h = InitUIControl(me, 'traces', 'style','list',...
     'Callback',cb.picktraces,'Max',2,...
     'position', [20 255 180 140],'backgroundcolor',BG);
 h = InitUIControl(me, 'average', 'style', 'checkbox', 'backgroundcolor', BG,...
-    'Callback',cb.selectaverage,'position',[20 235 180 20], 'String', 'Average Traces',...
+    'Callback',cb.selectaverage,'position',[20 235 100 20], 'String', 'Average Traces',...
     'Value', 1);
+h = InitUIControl(me, 'labels', 'style', 'checkbox', 'backgroundcolor', BG,...
+    'Callback',cb.selectlabel,'position',[140 235 60 20], 'String', 'Labels',...
+    'Value', 0);
 h = InitUIControl(me, 'channels', 'style', 'list',...
     'Callback',cb.pickchannels,'position', [20 165 180 70],'backgroundcolor',BG,'Max',2);
 % Frame 2: Parameter selection
@@ -171,6 +174,9 @@ plotTraces
 function [] = selectaverage(obj, event)
 plotTraces
 
+function [] = selectlabel(obj, event)
+plotTraces
+
 function [] = pickchannels(obj,event)
 updateDS
 plotTraces
@@ -221,13 +227,35 @@ mod = get(obj,'currentmodifier');
 if isempty(key)
     return
 end
-if strcmpi(mod{1},'control')
-    if strcmpi(key,'a')
+switch key
+case 'a'
+    if strcmpi(mod{1},'control')
         c   = GetUIParam(me,'traces','String');
         SetUIParam(me,'traces','Value',1:length(c));
         picktraces([],[])
     end
+case 'downarrow'
+    ui = get(obj, 'CurrentObject');
+    if strcmpi(get(ui,'tag'),'traces')
+        v = get(ui,'Value');
+        c = length(get(ui,'String'));
+        v = (v + 1);
+        v = unique((v <= c) .* v + (v > c) .* c);
+        set(ui,'Value',v)
+        updateDS,plotTraces
+    end
+case 'uparrow'
+    ui = get(obj, 'CurrentObject');
+    if strcmpi(get(ui,'tag'),'traces')
+        v = get(ui,'Value');
+        c = get(ui,'String');
+        v = (v - 1);
+        v = unique((v > 0) .* v + (v < 1) .* 1);
+        set(ui,'Value',v)
+        updateDS,plotTraces
+    end
 end
+    
 
 
 function [] = clickaxes(obj, event)
@@ -600,10 +628,12 @@ if length(ds) == 0
     return
 end
 fls = GetUIParam(me,'files','Value');
+fn  = GetUIParam(me,'files','String');
 r0  = getappdata(gcf,'r0');
 ds  = ds(fls);
 for i = 1:length(fls)
     f               = fls(i);
+    ds(i).fn        = fn{f};
     ds(i).data      = r0(f).data(:,ds(i).sweeps,ds(i).chan);
     ds(i).abstime   = r0(f).abstime(ds(i).sweeps);
     ds(i).time      = r0(f).time;
@@ -615,19 +645,34 @@ function [] = plotTraces()
 ds  = getSelected;
 a   = GetUIHandle(me,'response');
 axes(a),cla,hold on
+lbl = GetUIParam(me,'labels','Value');
+ct  = 0;
 for i = 1:length(ds)
     avg = GetUIParam(me,'average','Value');
     for j = 1:size(ds(i).data,3)
         c   = ds(i).color(ds(i).chan(j),:);
         if ~avg
-            p   = plot(ds(i).time,ds(i).data(:,:,j));
+            pi   = plot(ds(i).time,ds(i).data(:,:,j));
             cd  = (c + 1) / 2;
-            set(p,'Color',cd);
+            set(pi,'Color',cd);
         end
-        m   = mean(ds(i).data(:,:,j),2);
-        p   = plot(ds(i).time, m);
-        set(p,'Color',c,'LineWidth',2);
+        ct      = ct+1;
+        m       = mean(ds(i).data(:,:,j),2);
+        p(ct)   = plot(ds(i).time, m);
+        set(p(ct),'Color',c,'LineWidth',2);
+        if lbl
+            if length(ds(i).sweeps) > 1
+                ats = sprintf('%3.1f - %3.1f', ds(i).abstime(1), ds(i).abstime(end));
+            else
+                ats = sprintf('%3.1f', ds(i).abstime(1));
+            end
+            str{ct} = sprintf('%s:%s(%s) %s ', ds(i).fn, ds(i).channels{ds(i).chan(j)},...
+                      ds.units, ats);
+        end
     end
+end
+if lbl
+    h = legend(p,str{:});
 end
 
 function [] = updateParameters()
@@ -677,7 +722,7 @@ function out = getCallbacks()
 % returns a structure with function handles to functions in this mfile
 % no introspection in matlab so we have to do this by hand
 fns = {'pickfiles','clickaxes','picktraces','pickchannels',...
-        'editparameter','selectaverage','pickparams','menu','keypress'};
+        'editparameter','selectaverage','pickparams','menu','keypress','selectlabel'};
 out = [];
 for i = 1:length(fns)
     sf = sprintf('out.%s = @%s;',fns{i},fns{i});
