@@ -100,11 +100,13 @@ global wc
     state = GetUIParam(me,'runButton','Value');
     if (state > 0)
         SetUIParam(me,'runButton','String','Running');
-        switch action
-        case 'reset'
-            stop([wc.ai wc.ao]);
-        otherwise
-        end
+%         switch action
+%         case 'reset'
+%             stop([wc.ai wc.ao]);
+%         otherwise
+%         end
+        stop([wc.ai wc.ao]);
+        flushdata([wc.ai]);
         setupSweep(me);
         wc.sealtest.sweeps = [];
         start([wc.ai wc.ao]);

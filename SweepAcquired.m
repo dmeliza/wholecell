@@ -51,7 +51,7 @@ end
 
 if (~isempty(wc.control.telegraph.mode))
     modeChannel = wc.control.telegraph.mode;
-    modeVoltage = mean(data(:,modeVoltage));
+    modeVoltage = mean(data(:,modeChannel));
     mode = mode(modeVoltage);
     set(wc.control.amplifier,'Units',units(mode));
     SetUIParam('wholecell','mode','String',mode);

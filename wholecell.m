@@ -56,6 +56,13 @@ case 'ai_edit_callback'
         updateChannels;
     end
     
+case 'ai_delete_callback'
+%     channel = getUIParam(me, 'ai_channels', 'Value');
+%     if (channel > 0)
+%         delete(wc.ai.Channel(channel));
+%         updateChannels;
+%     end
+    
 case 'ao_add_callback'
     ChannelSetup('add','ao');
     updateChannels;
@@ -66,6 +73,13 @@ case 'ao_edit_callback'
         ChannelSetup('edit','ao',channel);
         updateChannels;
     end
+    
+case 'ao_delete_callback'
+%     channel = getUIParam(me, 'ao_channels', 'Value');
+%     if (channel > 0)
+%         delete(wc.ao.Channel(channel));
+%         updateChannels;
+%     end
     
 case 'amplifier_callback'
     channel = GetUIParam(me, 'amplifier', 'Value');
@@ -121,9 +135,9 @@ case 'ystretch_callback'
     
 case 'load_protocol_callback'
     [fn pn] = uigetfile('*.m', 'Pick an M-file');
-    SetUIParam(me,'protocolStatus','String',[pn '\' fn]);
+    SetUIParam(me,'protocolStatus','String',[pn fn]);
     [a func] = fileparts(fn);
-    feval(fn, 'init'); % this assumes the file is the current directory
+    feval(func, 'init'); % this assumes the file is the current directory
     
 case 'wcdump_callback';
     keyboard;

@@ -23,8 +23,7 @@ case 'init'
 case 'start'
     setupScope(wc.wholecell.handles.scope, wc.control.amplifier);
     setupHardware(wc.control.amplifier);
-    start(wc.ai);
-    trigger(wc.ai);
+    startAcquisition(wc.ai);
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
     
 case 'record'
@@ -35,13 +34,13 @@ case 'record'
     setupScope(wc.wholecell.handles.scope, wc.control.amplifier);
     setupHardware(wc.control.amplifier);
     set(wc.ai,{'LoggingMode','LogToDiskMode','LogFileName'}, {'Disk&Memory','Overwrite',NextDataFile});
-    start(wc.ai);
-    trigger(wc.ai);
+    startAcquisition(wc.ai);
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
     
 case 'stop'
     stop(wc.ai);
     set(wc.ai,'LoggingMode','Memory');
+    set(wc.ai,'SamplesAcquiredAction','');
     SetUIParam('wholecell','status','String',get(wc.ai,'Running'));
     
     
@@ -57,6 +56,14 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function out = me()
 out = mfilename;
+
+function varargout = startAcquisition(daq)
+% starts data acquisition
+stop(daq);
+flushdata(daq);
+set(daq,'SamplesAcquiredAction',{'SweepAcquired',me});
+start(daq);
+trigger(daq);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function varargout = setupHardware(amp)
