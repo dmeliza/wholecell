@@ -68,7 +68,7 @@ for i = 1:repeats
     fprintf('Frameshifting response... \n');
     r     = FrameShift(double(resp(i).data),...
                       resp(i).timing,...
-                      window,'correct');               % frame shift data
+                      window,'correctstart');               % frame shift data
     len   = size(r,1);                                      % number of parameters we can look at
     
     if bin > 1
@@ -81,8 +81,8 @@ warning(S);
 
 % parameterize response
 fprintf('Parameterizing response...\n');
-a1.kern      = Parameterize(P,R);          % combine and average
-a1.frate     = getpref('strfGUI','srate');
+[a1.kern, a1.vkern]      = Parameterize(P,R);          % combine and average
+a1.frate               = getpref('strfGUI','srate');
 if nargout == 0                        % no display if output values are assigned
     cb       = @clickme;
     PlotParams(struct('data',a1.kern,...
@@ -120,9 +120,11 @@ uv  = zeros(stim.x_res,stim.y_res,sz);                  % pre-allocate
 for i = 1:sz
     uv(:,:,i) = feval(func, fp{:}, stimulus(i,:));      % generate unit vector
 end
-uv   = reshape(uv, prod([stim.x_res,stim.y_res]),sz);   % reshape to pixel X param
-strf = uv * a1.kern;                                    % matrix multiply to eliminate param
-a1.strf = reshape(strf,stim.x_res,stim.y_res,size(a1.kern,2));
+uv    = reshape(uv, prod([stim.x_res,stim.y_res]),sz);   % reshape to pixel X param
+strf  = uv * a1.kern;                                    % matrix multiply to eliminate param
+vstrf = uv * a1.vkern;                                   % variance strf
+a1.strf  = reshape(strf,stim.x_res,stim.y_res,size(a1.kern,2));
+a1.vstrf = reshape(vstrf,stim.x_res,stim.y_res,size(a1.kern,2));
 
 % display only if output values are unassigned
 if nargout == 0                                         
