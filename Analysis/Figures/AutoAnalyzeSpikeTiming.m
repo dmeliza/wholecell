@@ -19,7 +19,7 @@ WINDOW_RESP     = 0.5;      % no data past this is analyzed for the response
 STIM_VISUAL     = 0.2;      % start time for visual stimulation
 THRESH_SPIKE    = 15;       % the threshhold for spike detection
 LENGTH_SPIKE    = [0.001 0.004];    % spikes in this length range (in seconds)
-DEBUG           = 1;
+DEBUG           = 0;
 
 error(nargchk(1,3,nargin));
 if nargin < 2
@@ -76,7 +76,15 @@ clean_resp      = filterresponse(clean_resp, 1000, 3, R.t_rate);
 
 sptarget       = round(0.8 * size(resp,2));
 thresh         = THRESH_SPIKE;
-thresh_step    = 1;     % this should probably be adaptive...
+thresh_step    = 0.5;
+% this is a simple for loop upseful for debugging
+% iter           = 1;
+% for thresh  = fliplr(0:thresh_step:THRESH_SPIKE)
+%     spikes         = findspikes(clean_resp, thresh, LENGTH_SPIKE, R.t_rate);
+%     nspikes(iter)  = full(sum(sum(spikes)));
+%     iter           = iter + 1;
+% end
+% keyboard
 iter           = 1;
 itermax        = 4;
 domore         = 1;
@@ -96,37 +104,49 @@ while domore
     end
 end
 THRESH_SPIKE    = thresh;
-keyboard
 % figure out the statistics of the spike times
 [sptime,sptrial]    = find(spikes);
 timepdf     = full(sum(spikes,2));
-if DEBUG
-    % plot a useful thing
-    f       = figure;
-    % raw responses
-    subplot(2,1,1)
-    plot(time,resp);
-    axis tight
-    % filtered traces with detected spikes
-    subplot(2,1,2)
-    plot(time,clean_resp),hold on
-    cdf     = cumsum(timepdf);
-    h(1)    = plot(time,cdf,'k');
-    set(h,'LineWidth',2);
-    h(2)    = hline(THRESH_SPIKE);
-    thresh  = find(timepdf ~= 0);
-    mn      = min(thresh);
-    mx      = max(thresh);    
-    legend(h,'Cumulative spike count','Threshhold');
-    set(gca,'XLim',[time(mn)-0.010, time(mx)+0.010])
-end
 sptimes     = time(sptime);
 
 mu          = mean(sptimes);
 med         = median(sptimes);
 sigma       = std(sptimes);
 n           = length(sptimes);
-fprintf(fid,'Spike timing: %3.2f +/- %3.2f (%d)\n', med * 1000, sigma * 1000, n);
+fprintf(fid,'Spike timing: %3.2f +/- %3.2f (n = %d, thresh = %2.1f)\n',...
+    med * 1000, sigma * 1000, n, THRESH_SPIKE);
+
+% plot a useful thing
+f       = figure;
+set(f,'name',pwd,'visible','off'),hold on
+% raw responses
+subplot(2,1,1)
+plot(time,resp);
+axis tight
+vline(med,'k')
+% filtered traces with detected spikes
+subplot(2,1,2)
+plot(time,clean_resp),hold on
+cdf     = cumsum(timepdf);
+h(1)    = plot(time,cdf,'k');
+set(h,'LineWidth',2);
+h(2)    = hline(THRESH_SPIKE);
+thresh  = find(timepdf ~= 0);
+mn      = min(thresh);
+mx      = max(thresh);
+legend(h,'Spike count','Thresh');
+set(gca,'XLim',[time(mn)-0.010, time(mx)+0.010])
+if WRITE_FIGURES
+    fn              = fullfile(pwd,['spikes.fig']);
+    set(f,'visible','on')
+    saveas(f,fn,'fig')
+    set(f,'visible','off')
+end
+if DEBUG
+    set(f,'visible','on')
+else
+    delete(f)
+end
 
 cd(curdir)
 
