@@ -10,6 +10,7 @@ THRESH = 1;
 IMAGE  = 1;
 NORM   = [1:100];
 GAMMA   = 0.6;      % this needs to be fiddled with for individual files
+BAR     = [0 500];
 SZ      =  [3.2    2.2];
 
 error(nargchk(4,6,nargin))
@@ -58,24 +59,30 @@ end
 % d      = d ./ m .* rat;
 
 if size(a,2) == 1
+    % for single traces
     figure
     ResizeFigure(SZ)
     subplot(2,1,1)
     h = plot(T,a,'k',T,b,'r');
-    set(h,'Linewidth',2)
-    set(gca,'XtickLabel',[]);
-    ylabel(['EPSC (' u ')']);
-    %legend(h,{'Pre','Post'});
-    vline(bar,'k:');
+    set(h,'Linewidth',1)
     axis tight
+    mx  = max(max([a b]));
+    mn  = min(min([a b]));
+    set(gca,'ylim',[mn * 1.2, mx * 1.5]);
+    AddScaleBar(gca,{'',u});
+    set(gca,'xcolor','white','xticklabel','');
+%    ylabel(['EPSC (' u ')']);
+    vline(bar,'k:');
     
     subplot(2,1,2)
     h   = plot(T,d,'k');
+    axis tight
     set(h,'Linewidth',2)
     vline(bar,'k:');
-    xlabel('Time (ms)');
-    ylabel(['Pre - Post (pA)']);
-    axis tight
+%    hline(0,'k:');
+    AddScaleBar(gca,{'ms',''});
+    %xlabel('Time (ms)');
+    ylabel(['Delta (pA)']);
     
     out = struct('difference',d,'time',T,'t_induce',bar);
 else
