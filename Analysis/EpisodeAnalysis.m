@@ -105,6 +105,8 @@ h = InitUIControl(me, 'status', 'style', 'text', 'backgroundcolor', BG,...
 file = uimenu(gcf, 'Label', '&File');
 m    = uimenu(file, 'Label', '&Open Response...','Callback',cb.menu, 'tag', 'm_resp');
 m    = uimenu(file, 'Label', 'Open &Parameters...','Callback',cb.menu,'tag','m_param');
+m    = uimenu(file, 'Label', 'Save &Response...','Callback',cb.menu,'tag','m_saveresp');
+m    = uimenu(file, 'Label', 'Save &Traces...','Callback',cb.menu,'tag','m_savetrace');
 m    = uimenu(file, 'Label', '&Save Parameters...', 'Callback', cb.menu,'tag','m_save');
 m    = uimenu(file, 'Label', '&Export Results...', 'Callback', cb.menu,'tag','m_export');
 m    = uimenu(file, 'Label', 'E&xit', 'Callback', cb.menu, 'Separator', 'On','tag','m_exit');
@@ -157,6 +159,8 @@ function [] = initValues()
 setappdata(gcf,'dir',pwd)       % current directory
 setappdata(gcf,'r0',[])         % response file
 setappdata(gcf,'parameters',[]) % parameter data
+setappdata(gcf,'param_handles',[])
+setappdata(gcf,'param_mark_handles',[]);
 setappdata(gcf,'ds',[]);        % dataselector
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -184,7 +188,7 @@ plotTraces
 function [] = pickparams(obj,event)
 button = get(gcbf,'selectiontype');
 switch lower(button)
-case 'open'
+case 'normal'
     updateParameters
 case 'alt'
     % right-click and selected delete
@@ -327,6 +331,42 @@ case 'm_close'
     setappdata(gcf,'ds',ds);
     updateFields;
     plotTraces;
+    
+case 'm_saveresp'
+    % saves the currently selected file in a new r0 file
+    % only works with one file selected (for now)
+    fls     = GetUIParam(me,'files','Value');
+    if length(fls) == 1
+        path    = getappdata(gcf,'dir');
+        [fn pn] = uiputfile([path filesep '*.r0'],'Save Response (r0)');
+        if ~isnumeric(fn)
+            r0  = getappdata(gcf,'r0');
+            r0  = r0(fls);
+            save(fullfile(pn,fn),'r0','-mat')
+            SetUIParam(me,'status','String',['Wrote response to ' fn]);
+        end
+    else
+        SetUIParam(me,'status','String','Only single files can be saved')
+    end
+    
+case 'm_savetrace'
+    % saves the data in the trace window in a matfile
+    % only operates on average traces and the first selected channel
+    % granted, this is not flexible, but screw you flexible-man
+    path    = getappdata(gcf,'dir');
+    [fn pn] = uiputfile([path filesep '*.mat'],'Save Traces (mat)');
+    if isnumeric(fn)
+        return
+    end
+    ds      = getSelected;
+    fname   = {};
+    for i = 1:length(ds)
+        fname{i}    = ds(i).fn;
+        data(:,i)   = mean(ds(i).data(:,:,1),2);
+    end
+    time            = ds(end).time;
+    save(fullfile(pn,fn),'fname','data','time')
+    SetUIParam(me,'status','String',['Traces saved to ' fn]);
     
 case 'm_save'
     % save parameters
@@ -493,6 +533,22 @@ case 'm_filter'
     end
     setappdata(gcf,'r0',r0)
     plotTraces
+    
+case 'm_traceprop'
+    % user can pick a new color for the selected traces
+    f  = GetUIParam(me,'files','Value');
+    ds = getappdata(gcf,'ds');
+    if ~isempty(ds)
+        col  = cat(1,ds(f).color);
+        newc = uisetcolor(col(1,:),'Set Trace Color');
+        % no way to tell if the user has hit cancel...
+        for i = 1:length(f)
+            c   = ds(f(i)).chan;
+            [ds(f(i)).color(c,:)] = repmat(newc,length(c),1);
+        end
+        setappdata(gcf,'ds',ds);
+        plotTraces
+    end
             
 otherwise
     disp(tag)
@@ -517,7 +573,8 @@ else
 end
 cmap  = jet(50);
 cmap  = cmap(randperm(50),:);
-ds = struct('start',r0.info.start_time,'abstime',r0.abstime',...
+at    = r0.abstime(:); % convert to column vector
+ds = struct('start',r0.info.start_time,'abstime',at,...
             'sweeps',(1:length(r0.abstime))','channels',{c},...
             'chan',1,'color',cmap(1:cnum,:));
 
@@ -537,6 +594,7 @@ else
 end
 names   = {params.name};
 SetUIParam(me,'parameters','String',names);
+SetUIParam(me,'parameters','Value',length(names));
 setappdata(gcbf,'parameters',params);
 updateParameters
 
@@ -671,7 +729,7 @@ for i = 1:length(ds)
         end
     end
 end
-if lbl
+if lbl & ~isempty(ds)
     h = legend(p,str{:});
 end
 
@@ -680,16 +738,20 @@ function [] = updateParameters()
 p   = getappdata(gcbf,'parameters');
 v   = GetUIParam(me,'parameters','Value');
 if ~isempty(p)
-    p   = p(v);     % select active parameter
-    SetUIParam(me,'parametername','String',p.name);
+    SetUIParam(me,'parametername','String',p(v).name);
     SetUIParam(me,'parametername','Enable','On');
     c   = GetUIParam(me,'parameteraction','String');
-    i   = strmatch(p.action,c);
+    i   = strmatch(p(v).action,c);
     if isempty(i)
         i = 1;
     end
     SetUIParam(me,'parameteraction','Value',i);
     SetUIParam(me,'parameteraction','Enable','On');
+    % clear marks, draw marks
+    mh  = getappdata(gcbf,'param_handles');
+    delete(mh(ishandle(mh)));
+    mh = vline(p(v).window,{'k','k:'});
+    setappdata(gcbf,'param_handles',mh);
     % calculate things
     plotParameter(p(v));
 else
