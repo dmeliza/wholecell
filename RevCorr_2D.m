@@ -75,6 +75,7 @@ switch action
 
 case {'init','reinit'}
     cgloadlib; % error checking needed here for missing toolkit
+    cgopen(5,8,0,2);
     p = defaultParams;
     fig = OpenParamFigure(me, p);
     Scope('init');
@@ -140,6 +141,9 @@ global wc;
     p.sync_c = cell2struct({'Sync Channel','list',ic,GetChannelList(wc.ai)},f_l,2);
     p.input = cell2struct({'Amplifier Channel','list',ic,GetChannelList(wc.ai)},...
         f_l,2);
+    gprimd = cggetdata('gpd');
+    p.v_res = cell2struct({'Refresh:','fixed',gprimd.RefRate100 / 100},...
+        f_s,2);
     csd = cggetdata('csd');
     p.toolkit = cell2struct({'Toolkit:','fixed',csd.CogStdString},...
         f_s,2);
@@ -149,15 +153,15 @@ function setupHardware()
 % Sets up the hardware for this mode of acquisition
 global wc
 analyze = @analyze;
-sr = get(wc.ai, 'SampleRate');
-t_res = GetParam(me,'t_res','value');
-a_int = sr/1000 * t_res * GetParam(me,'a_frames','value');
+sr = get(wc.ai, 'SampleRate'); %samples/second
+t_res = GetParam(me,'t_res','value'); %1/x
+v_res = GetParam(me,'v_res','value'); %frames/second
+a_int = GetParam(me,'a_frames','value') / v_res * t_res * sr; %samples
 % acq params
 set(wc.ai,'SamplesPerTrigger', a_int);
 set(wc.ai,'SamplesAcquiredActionCount', a_int);
 set(wc.ai,'SamplesAcquiredAction',{me,analyze});
-set(wc.ai,'TriggerType','Manual');
-set(wc.ai,'ManualTriggerHwOn','Trigger');
+set(wc.ai,'ManualTriggerHwOn','Start');
 % hardware triggering:
 sync = GetParam(me,'sync_c','value');
 sync_v = GetParam(me,'sync_val','value');
@@ -165,9 +169,9 @@ curr = getsample(wc.ai);
 curr = curr(sync); % current value of sync detector
 set(wc.ai,'TriggerDelayUnits','seconds');
 set(wc.ai,'TriggerDelay',0);
-set(wc.ai,'TriggerType','HwAnalogChannel');
-set(wc.ai,'TriggerCondition','InsideRegion');
-set(wc.ai,'TriggerConditionValue',[curr+sync_v, curr+sync_v+10]);
+set(wc.ai,'TriggerType','Software');
+set(wc.ai,'TriggerCondition','Rising');
+set(wc.ai,'TriggerConditionValue',curr+sync_v);
 set(wc.ai,'TriggerChannel',wc.ai.Channel(sync));
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%55555
@@ -180,18 +184,19 @@ fn = get(wc.ai,'LogFileName');
 set(wc.ai,'LogFileName',NextDataFile(fn));    
 SetUIParam('scope','status','String',get(wc.ai,'logfilename'));
 start([wc.ai]);
+cogstd('spriority','high');
 playStimulus;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function playStimulus()
 % plays the movie at the appropriate frame rate.
 % need a check to see if a movie of the appropriate length is loaded...
-
+global timing;
 % reset timing data and clear screen
 a_pix = GetParam(me,'a_frames','value');
 frate = GetParam(me,'t_res','value');
 a_frames = a_pix * frate;
-timing = zeros(a_frames+1,1);
+timing = zeros(a_frames,1);
 frame = 1;
 sync = 1;
 cgflip(0);
@@ -200,7 +205,7 @@ gprimd = cggetdata('gpd'); %max frame is given by gprimd.NextRASKey
 for i = 1:a_frames;
     cgdrawsprite(frame+1,0,0, gprimd.PixWidth, gprimd.PixHeight);
     cgmakesprite(1,1,1,sync);
-    cgdrawsprite(1,-gprimd.PixWidth/2,-gprimd.PixHeight/2,100,100);
+    cgdrawsprite(1,-gprimd.PixWidth/2,-gprimd.PixHeight/2,200,200);
     if mod(i,frate) == 0
         frame = frame + 1;
         sync = ~sync;
@@ -222,7 +227,7 @@ mseqfile = GetParam(me,'stim','value');
 stim = getStimulus(mseqfile);
 % reset display toolkit
 cgshut;
-cgopen(1,8,0,disp);
+cgopen(5,8,0,disp);
 
 % setup colormap:
 colmap = gray(2);
@@ -308,18 +313,23 @@ end
 function plotResults(obj, timing)
 % Plots the results of the reverse correlation
 % get data
+in = GetParam(me,'input','value');
+sync = GetParam(me,'sync_c','value');
 [data, time, abstime] = getdata(obj);
-% align the data to the stim times
-stim_start = timing(2) - timing(1);
-i = max(find(time < stim_start)) + 1;
-resp = data(i:end,GetParam(me,'input','value'));
-time = time(i:end) - time(i);
+Scope('plot','plot', time, data(:,in));
+% data is already aligned to the stim times
+% stim_start = timing(2) - timing(1);
+% i = max(find(time < stim_start)) + 1;
+% resp = data(i:end,GetParam(me,'input','value'));
+% time = time(i:end) - time(i);
 % bin the data (rough, ignores variance in timing)
-t_resp = 1000 / get(obj,'SampleRate');
-t_stim = GetParam(me,'t_res','value');
-r = bindata(resp,fix(t_stim/t_resp));
+t_resp = 1000 / get(obj,'SampleRate'); %ms/sample
+t_res = GetParam(me,'t_res','value');
+t_stim = t_res * 1000 / GetParam(me,'v_res','value'); %ms/sample
+r = bindata(data(:,in),fix(t_stim/t_resp));
 r = r - mean(r);
-stim_times = timing(2:length(r)+1) - timing(2);
+timing = reshape(timing,length(timing)/t_res,t_res);
+stim_times = timing(:,1) - timing(1);
 % reconstruct the stimulus (as an N by X matrix)
 s_frames = length(r);
 stim = getStimulus(GetParam(me,'stim','value'));
