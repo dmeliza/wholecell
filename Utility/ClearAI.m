@@ -1,5 +1,11 @@
-function ClearAI(obj, event)
-% stops, and clears the state of an analog input object
+function [] = ClearAI(obj, event)
+% stops, and clears the state of an analog input object. Conforms
+% to the callback stub (obj,event) so that it can be set as an action
+% on an input or output object.
+%
+% Usage: [] = ClearAI(obj,[event])
+%
+% obj - an analogoutput object
 %
 % $Id$
 if isvalid(obj)
