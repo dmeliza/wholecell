@@ -70,7 +70,10 @@ for i = 1:NUM
     end
     if isfield(ptf(i),'title')
         title(ptf(i).title);
-    end    
+    end
+    m = makemenu;
+    set(gca,'UiContextMenu',m);
+    set(h,'UiContextMenu',m);
 end
 colormap(gray)
 
@@ -108,3 +111,40 @@ if strcmpi(type,'open');
     set(gca,'YLim',[-mx mx]);
     title(str);    
 end
+
+function m = makemenu()
+% Generates the context menu
+colmaps   = {'gray','hot','hsv','pink','cool','bone','prism'};
+colmap_cb = @changeColormap;
+exp       = @exportSTRF;
+m = uicontextmenu;
+h = uimenu(m,'Label','Colormap');
+for i = 1:length(colmaps)
+    l(i) = uimenu(h,'Label',colmaps{i},'Callback',colmap_cb);
+end
+set(l(1),'Checked','On');
+uimenu(m,'Label','Export','Callback',{exp,gca});
+
+function [] = changeColormap(obj, event)
+% changes colormap of figure
+sel = get(obj,'Label');     % name of colmap
+colormap(sel);
+par = get(obj,'Parent');
+kid = get(par,'Children');
+set(kid,'Checked','Off');
+set(obj,'Checked','On');
+
+function [] = exportSTRF(obj,event,handle)
+% handles export commands
+c    = findobj(handle,'Type','image');
+if isempty(c)
+    errordlg('No data stored in object!');
+    error('Unable to retreive parameter response');
+end
+param = get(c,'CData');
+[fn pn] = uiputfile('*.mat');
+if isnumeric(fn)
+    return
+end
+save(fullfile(pn,fn),'param');
+fprintf('Params written to file %s\n', fn);
