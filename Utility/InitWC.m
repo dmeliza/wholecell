@@ -4,8 +4,13 @@ function varargout = InitWC()
 % $Id$
 global wc;
 
+wc = [];
 % wc = struct([]);
 % wc(1).control = struct([]);
 % wc.control(1).telegraph = struct([]);
 % wc.control.telegraph(1).gain = [];
-wc.control.telegraph = '';
+wc.control.telegraph = [];
+wc.control.amplifier = [];
+wc.control.base_dir = pwd;
+wc.control.data_dir = pwd;
+wc.control.data_prefix = [];

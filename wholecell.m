@@ -27,6 +27,9 @@ case 'init'
         'DoubleBuffer','on','menubar','none','closerequestfcn',clfcn);
     
     initHardware(me);
+    if (exist([pwd '\wholecell.mat'],'file') > 0)
+        LoadPrefs([pwd '\wholecell.mat']);
+    end
     updateChannels;
 
 case 'setup_mode_callback'
@@ -64,6 +67,24 @@ case 'amplifier_callback'
         wc.control.amplifier = wc.ai.Channel(channel);
     end
     
+case 'load_prefs_callback'
+    LoadPrefs;
+    updateChannels;
+    
+case 'save_prefs_callback'
+    SavePrefs(wc);
+    
+case 'data_dir_callback'
+    if (~isempty(wc.control.data_dir))
+        cd(wc.control.data_dir);
+    end
+    [fn pn] = uiputfile({'*.*', 'Filename Ignored'},'Choose a data directory');
+    if (pn ~= 0)
+        wc.control.data_dir = pn;
+        wc.control.data_prefix = fn;
+    end
+    cd(wc.control.base_dir);
+    
 case 'seal_test_callback'
     SealTest('init');
     
@@ -76,6 +97,7 @@ case 'close_callback'
     DeleteFigure(me);
     
 otherwise
+    disp([action ' is not supported.']);
 end
 
 
@@ -119,11 +141,19 @@ for i=1:size(c,1);
 end
 set(wc.wholecell.handles.ai_channels,'String',cs);
 % amplifier selection
-selected = get(wc.wholecell.handles.amplifier,'Value');
+if (~isempty(wc.control.amplifier))
+    selected = wc.control.amplifier.Index;
+else
+    selected = 1;
+end
 if (length(cs) > 0)
     set(wc.wholecell.handles.amplifier,'String',cs);
     set(wc.wholecell.handles.amplifier,'Value',selected);
     wc.control.amplifier = wc.ai.Channel(selected);
+else
+    set(wc.wholecell.handles.amplifier,'String',' ');
+    set(wc.wholecell.handles.amplifier,'Value',1);
+    wc.control.amplifier = [];
 end
 
 % output
