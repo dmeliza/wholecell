@@ -6,7 +6,7 @@ function fig = OpenParamFigure(module, params, close_callback)
 %
 % properties is a structure with the following fields:
 % s.description - a friendly string to put atop the list of params
-% s.fieldname.fieldtype - {'String', 'Value', 'List', or 'Fixed'}
+% s.fieldname.fieldtype - {'String', 'Value', 'List', 'Hidden', or 'Fixed'}
 %            .description - String that describes field
 %            [.choices] - required for Lists
 %            [.value] - String or number that describes initial value
@@ -22,7 +22,7 @@ function fig = OpenParamFigure(module, params, close_callback)
 global wc
 
 if nargin < 2
-    error(['Usage: ' me '(module, params)']);
+    error(['Usage: ' me '(module, params, [close_callback])']);
 end
 
 % units are in pixels for my sanity
@@ -109,7 +109,9 @@ for i = 1:paramCount
             cb = s.callback;
             u = uicontrol(fig,'position',p_u,'style','pushbutton',...
                 'String','','Callback', {cb, module, name, s});        
-        end        
+        end
+    case 'hidden'
+        % hidden fields are available to GetParam and SetParam but not to the user
     end
     t = [module '.' name];
     u = uicontrol(fig,'position',p,st{:},'tag', t,...
