@@ -8,6 +8,6 @@ function varargout = StopAcquisition(module, devices)
 global wc
 
 stop(devices);
-set(wc.ai,'SamplesAcquiredAction',{'SweepAcquired',''});
+set(wc.ai,'SamplesAcquiredAction','');
 wc.control.protocol = [];
 SetUIParam('wholecell','status','String',get(wc.ai,'Running'));

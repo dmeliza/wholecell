@@ -10,6 +10,11 @@ global wc
 
 module = lower(module);
 
+% find out if the module exists
+if (~isfield(wc,module))
+    handle = [];
+    return;
+end
 % find out if the object exists
 sfp = sprintf('isfield(wc.%s.handles,''%s'')',module,object_name);
 if (eval(sfp))
@@ -17,6 +22,6 @@ if (eval(sfp))
     handle = eval(sf);
 else
     out = [];
-    disp(['no such field ' param ' in module ' module]);
+    disp(['no such object ' param ' in module ' module]);
 end
     

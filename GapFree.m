@@ -19,10 +19,11 @@ end
 switch action
     
 case {'init','reinit'}
-    % these are here in case the user loads GapFree as a protocol
+    Scope('init');
     
 case 'start'
-    setupScope(wc.wholecell.handles.scope, wc.control.amplifier);
+    scope = getScope;
+    setupScope(scope, wc.control.amplifier);
     setupHardware(wc.control.amplifier);
     StartAcquisition(me,wc.ai);
     
@@ -31,7 +32,8 @@ case 'record'
     case 'On'
         stop(wc.ai);
     end
-    setupScope(wc.wholecell.handles.scope, wc.control.amplifier);
+    scope = getScope;
+    setupScope(scope, wc.control.amplifier);
     setupHardware(wc.control.amplifier);
     set(wc.ai,{'LoggingMode','LogToDiskMode'}, {'Disk&Memory','Index'});
     StartAcquisition(me,wc.ai);
@@ -41,9 +43,7 @@ case 'stop'
     set(wc.ai,'LoggingMode','Memory');
     
 case 'sweep'
-    data = varargin{2};
-    time = varargin{3};
-    plotData(data, time, wc.wholecell.handles.scope, wc.control.amplifier.Index);
+    plotData(varargin{2}, varargin{3}, wc.control.amplifier.Index);
     
 otherwise
     disp(['Action ' action ' is unsupported by ' me]);
@@ -54,13 +54,22 @@ function out = me()
 out = mfilename;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function scope = getScope()
+% returns the scope object or opens it if it doesn't exist
+scope = GetUIHandle('scope','scope');
+if (isempty(scope) | ~ishandle(scope))
+    Scope('init');
+    scope = GetUIHandle('scope','scope');
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function varargout = setupHardware(amp)
 % Sets up the hardware for this mode of acquisition
 global wc
 
 daq = amp.Parent;
 sr = get(daq, 'SampleRate');
-update = fix(sr / 20); % update at 5 Hz
+update = fix(sr / 20); % update at 20 Hz
 set(daq,'SamplesPerTrigger',inf);
 set(daq,'SamplesAcquiredAction',{'SweepAcquired',me}) % calls SweepAcquired m-file, which deals with data
 set(daq,'SamplesAcquiredActionCount',update)
@@ -74,7 +83,8 @@ function varargout = setupScope(scope, amp);
 % sets up the scope properties
 clearPlot(scope);
 set(scope, {'XLimMode','XLim'}, {'Manual', [0 2000]});  % we'll manage the x axis ourselves.
-set(scope, 'YLim', [-3 3]);  % for now, before we figure out how to change this in the GUI
+set(scope, {'YLimMode','YLim'}, {'Manual', [-2 2]});  % for now, before we figure out how to change this in the GUI
+%set(scope,'XLimMode','Auto','YLimMode','auto');
 set(scope, 'NextPlot', 'add');
 lbl = get(scope,'XLabel');
 set(lbl,'String','Time (ms)');
@@ -82,7 +92,7 @@ lbl = get(scope,'YLabel');
 set(lbl,'String',[get(amp, 'ChannelName') ' (' get(amp,'Units') ')']);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function varargout = plotData(data, time, scope, index)
+function varargout = plotData(data, time, index)
 % Handles data plotting and scrolling.  There are two tasks to take care of:
 %1: if a plot crosses XLim, it needs to be broken in two and the part that crosses plotted at 0
 %2: if a plot overlaps with another plot, the prior plot needs to be deleted
@@ -91,8 +101,9 @@ function varargout = plotData(data, time, scope, index)
 % is stored in wc.gapfree.offset
 global wc
 
+scope = getScope; % this might be a slowdown
 data = data(:,index);
-SetUIParam('wholecell','progress','String',num2str(time(1)));
+%SetUIParam('wholecell','progress','String',num2str(time(1)));
 time = (time - time(1)) * 1000 + wc.gapfree.offset;
 % Condition 1: bounds overstep - move data to beginning of plot
 xlim = get(scope, 'XLim');
@@ -100,7 +111,8 @@ i = find(time >= xlim(2));
 if (~isempty(i))
     time = time - time(1);
 end
-% condition 2: overlap with plot
+% We find the closest index for the start of our time vector and replace the y values with
+% our data set
 kids = get(scope,'Children');
 if (~isempty(kids))
     xdata = get(kids,'XData');
@@ -119,9 +131,24 @@ end
     
 % plot data (finally) and set offset for next plot
 plot(time, data, 'Parent', scope);
+%plot(time(1),data(1),'parent', scope);
 wc.gapfree.offset = time(length(time));
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 function clearPlot(axes)
 kids = get(axes, 'Children');
 delete(kids);
+
+%condition 2 now implemented by directly editing the datasets of the plot
+% k = get(scope,'Children');
+% if (isempty(k))
+%     plot(time, data, 'Parent', scope);
+% else
+%     t = get(k,'XData');
+%     y = get(k,'YData');
+%     o = find(t >= time(1));
+%     o = o(1):o(1)+length(time)-1;
+%     t(o) = time;
+%     y(o) = data;
+%     plot(t,y,'Parent',scope);
+% end
