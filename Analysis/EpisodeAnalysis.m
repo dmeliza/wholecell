@@ -594,7 +594,7 @@ else
     [data, abstime, color] = getTraceData;
 end
 w = warning('off');
-pspdata = ComputeSlope(data, d.time, [times.pspbs times.pspbe], times.pspm) / 1000;
+pspdata = ComputeDiff(data, d.time, [times.pspbs times.pspbe], times.pspm);
 srdata = ComputeDiff(data, d.time, [times.rbs times.rbe], times.srm);
 irint = [times.srm + (times.irm - times.srm) * 0.5, times.irm];
 irdata = ComputeDiff(data, d.time, [times.rbs times.rbe], irint);
