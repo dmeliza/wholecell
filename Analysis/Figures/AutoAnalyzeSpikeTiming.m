@@ -12,14 +12,14 @@ function [med, var, n, sptimes] = AutoAnalyzeSpikeTiming(data_dir, fid)
 % number, and distribution.
 % 
 % $Id$
+global WRITE_PARAMETERS WRITE_FIGURES WRITE_RESULTS
 
 THRESH_ELEC     = 20;
 WINDOW_RESP     = 0.5;      % no data past this is analyzed for the response
 STIM_VISUAL     = 0.2;      % start time for visual stimulation
-THRESH_SPIKE    = 15;       % in mV, this is tricky because it will tend to pick
-                            % out "negative" spikes (rebound from depol)
+THRESH_SPIKE    = 15;       % the threshhold for spike detection
 LENGTH_SPIKE    = [0.001 0.004];    % spikes in this length range (in seconds)
-DEBUG           = 0;
+DEBUG           = 1;
 
 error(nargchk(1,3,nargin));
 if nargin < 2
@@ -67,43 +67,58 @@ end
 clean_resp      = resp  - repmat(avg,1,size(resp,2));
 % highpass filter to remove any slow residuals
 clean_resp      = filterresponse(clean_resp, 1000, 3, R.t_rate);
-% our sparse array of spike times
-spikes = sparse([],[],[],size(resp,1),size(resp,2),1000);
-% cycle through each trial
-for i = 1:size(resp,2)
-    % threshhold potentials
-    threshed    = clean_resp(2:end-1,i) >= THRESH_SPIKE;
-    above       = find(threshed);
-    if any(above)
-        diffabove   = diff(above);
-        spbegs  = above([ 1; find(diffabove>1)+1 ]);
-        spends  = above([ find(diffabove>1); length(above) ])+1;
-        % eliminate events that are too long or short
-        select  = (spends-spbegs)<=(LENGTH_SPIKE(2)*R.t_rate) & ...
-                  (spends-spbegs)>=(LENGTH_SPIKE(1)*R.t_rate);
-        sptimes = fix((spends(select) + spbegs(select))/2);
-        if any(sptimes)
-            spikes(sptimes,i) = ones(size(sptimes));
+
+% the performance of this algorhythm is sadly rather dependent on the
+% threshhold level.  Too high, no spikes, too low and too few.  So with
+% much distaste I'm going to try to solve for the best threshhold level.
+% This involves lowering the threshhold until the # of spikes is at least
+% 80% of the number of trials, or doesn't increase with more than N steps
+
+sptarget       = round(0.8 * size(resp,2));
+thresh         = THRESH_SPIKE;
+thresh_step    = 1;     % this should probably be adaptive...
+iter           = 1;
+itermax        = 4;
+domore         = 1;
+while domore
+    spikes         = findspikes(clean_resp, thresh, LENGTH_SPIKE, R.t_rate);
+    nspikes(iter)  = full(sum(sum(spikes)));
+    if nspikes(iter) >= sptarget
+        domore  = 0;
+    elseif length(nspikes) >= itermax
+        if all(diff(nspikes(end-itermax+1:end)) == 0)
+            domore = 0;
         end
     end
+    if domore
+        thresh  = thresh - thresh_step;
+        iter    = iter + 1;
+    end
 end
+THRESH_SPIKE    = thresh;
+keyboard
 % figure out the statistics of the spike times
 [sptime,sptrial]    = find(spikes);
 timepdf     = full(sum(spikes,2));
 if DEBUG
     % plot a useful thing
-    thresh  = find(timepdf ~= 0);
-    mn      = min(thresh);
-    mx      = max(thresh);
+    f       = figure;
+    % raw responses
+    subplot(2,1,1)
+    plot(time,resp);
+    axis tight
+    % filtered traces with detected spikes
+    subplot(2,1,2)
+    plot(time,clean_resp),hold on
     cdf     = cumsum(timepdf);
-    figure,plot(time,resp);
-    hold on
     h(1)    = plot(time,cdf,'k');
     set(h,'LineWidth',2);
     h(2)    = hline(THRESH_SPIKE);
+    thresh  = find(timepdf ~= 0);
+    mn      = min(thresh);
+    mx      = max(thresh);    
     legend(h,'Cumulative spike count','Threshhold');
     set(gca,'XLim',[time(mn)-0.010, time(mx)+0.010])
-    % save figure here...
 end
 sptimes     = time(sptime);
 
@@ -122,3 +137,25 @@ tau = 1/cutoff;
 b   = [ 1-(deltat/tau)^2 2*(deltat-tau)/tau ((deltat-tau)/tau)^2];
 a   = [ 1 2*(deltat-tau)/tau ((deltat-tau)/tau)^2];
 out = filter(b,a,data);     % the causal filter works okay here
+
+function spikes = findspikes(resp, THRESH_SPIKE, LENGTH_SPIKE, Fs)
+% our sparse array of spike times
+spikes = sparse([],[],[],size(resp,1),size(resp,2),1000);
+% cycle through each trial
+for i = 1:size(resp,2)
+    % threshhold potentials
+    threshed    = resp(2:end-1,i) >= THRESH_SPIKE;
+    above       = find(threshed);
+    if any(above)
+        diffabove   = diff(above);
+        spbegs  = above([ 1; find(diffabove>1)+1 ]);
+        spends  = above([ find(diffabove>1); length(above) ])+1;
+        % eliminate events that are too long or short
+        select  = (spends-spbegs)<=(LENGTH_SPIKE(2)*Fs) & ...
+                  (spends-spbegs)>=(LENGTH_SPIKE(1)*Fs);
+        sptimes = fix((spends(select) + spbegs(select))/2);
+        if any(sptimes)
+            spikes(sptimes,i) = ones(size(sptimes));
+        end
+    end
+end
