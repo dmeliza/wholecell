@@ -126,8 +126,8 @@ global wc;
     
     p.stim          = cell2struct({'Stim File','fixed','',loadStim},f_cb,2);
     p.display       = cell2struct({'Display', 'value', 2},f_s,2);
-    p.contrast      = cell2struct({'Contrast (0-1)', 'value', 1},f_s,2);
-    p.frequency     = cell2struct({'Ep. Freq','value',0.2,'Hz'},f,2);
+    p.contrast      = cell2struct({'Contrast [-1,1]', 'value', 1},f_s,2);
+    p.iti           = cell2struct({'Ep. Interv','value',3000,'ms'},f,2);
     p.ep_length     = cell2struct({'Ep. Length','value',2000,'ms'},f,2);
     ic              = get(wc.control.amplifier,'Index');
     p.sync_c        = cell2struct({'Sync Channel','fixed','hardware'},f_s,2);
@@ -295,9 +295,8 @@ function analyze(obj, event)
 stop(obj)
 [data, time, abstime] = getdata(obj);
 plotData(data, time, abstime);
-t                     = 1 / GetParam(me,'frequency','value');
-t2                    = GetParam(me,'ep_length','value') / 1000;
-pause(t - t2)
+t                     = GetParam(me,'iti','value');
+pause(t/1000);
 a                     = get(obj,'SamplesAcquiredAction');
 if ~isempty(a)
     startSweep;
