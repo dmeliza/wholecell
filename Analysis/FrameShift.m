@@ -1,22 +1,23 @@
-function out = FrameShift(y, timing, window)
+function out = FrameShift(y, timing, window, option)
 %
 % Generates a frame-shifted matrix from a vector.  Each row in the vector
 % will contain a subset of the vector beginning at a particular offset.
 %
-% out = FrameShift(y, timing, window)
-% out = FrameShift(y, timings, window)
+% out = FrameShift(y, timing, window, [option])
+% out = FrameShift(y, timings, window, [option])
 %
 % y         - Nx1 input vector
 % timing    - If a scalar, each row will be frame-shifted by a fixed amount
 % timings   - Mx1 vector defining the start points (indices) for each row
 % window    - J number of points per row
+% option    - can be 'correct', in which case the baseline will be subtracted for each row
 %
 % out       - MxN array
 %
 % $Id$
 
 % Check input dimensions etc
-error(nargchk(3,3,nargin))
+error(nargchk(3,4,nargin))
 [len cols] = size(y);
 [M X] = size(timing);
 if cols > 1
@@ -34,7 +35,11 @@ if M == 1
     for i = 1:FRAMES
         ind = (i - 1) * timing;
         Y = y(ind+1:ind+cols)';
-        out(i,:) = Y - mean(Y);
+        if nargin > 3
+            out(i,:) = Y - mean(Y);
+        else
+            out(i,:) = Y;
+        end
     end
 else
     % index mode
@@ -53,6 +58,10 @@ else
     for i = 1:rows
         ind = timing(i)-1;
         Y = y(ind+1:ind+cols)';
-        out(i,:) = Y - mean(Y);
+        if nargin > 3
+            out(i,:) = Y - mean(Y);
+        else
+            out(i,:) = Y;
+        end
     end
 end
