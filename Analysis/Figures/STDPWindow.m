@@ -1,4 +1,4 @@
-function [] = STDPWindow(csvfile)
+function [STDP,ltp_p,ltd_p] = STDPWindow(csvfile)
 %
 % Plots the STDP window in a csvfile
 % If this is coming from prism we have to manipulate the post-induction
@@ -10,7 +10,7 @@ function [] = STDPWindow(csvfile)
 % $Id$
 
 WIDTH   = 100;
-YLIM    = [0 2.2];
+YLIM    = [0 220];
 SZ      = [3.5 2.9];
 mode    = 'add';
 LTD_WIN = [-60 -1];
@@ -46,11 +46,11 @@ ResizeFigure(f,SZ);
 
 
 a   = axes;
-h   = plot(delay,STDP,'ko');
+h   = plot(delay,STDP .* 100,'ko');
 %YLIM = [0,max(z(:,2))];
 set(a,'XLim',[-WIDTH WIDTH],'YLim',YLIM)
-hline(1)
-vline(0)
+hline(100,'r:')
+vline(0,'r:')
 xlabel('Pre/Postsynaptic Time Interval (ms)')
-ylabel('Normalized EPSC Amplitude')
+ylabel('Change in EPSC amplitude (%)')
 %text(WIDTH * 0.6, YLIM(2) * 0.9, sprintf('(n = %d)',length(STDP)));
