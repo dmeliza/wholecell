@@ -302,11 +302,20 @@ for ifile = 1:length(dd)
         [m,i]           = max(filtresp,[],1);
         ind_trans2      = i;
         for i = 1:size(resp,2)
-            ind_baseline    = [1:300] - 400 + ind_trans(i);
-            ind_ir          = fix((ind_trans2(i) + ind_trans(i))/2);
-            ind_ir          = [ind_ir:ind_trans2(i)-100];
+            % this breaks horribly if the trace clips, so we try to skip
+            % the trace before that happens and record a NaN
+            IND_B              = [1:300] - 400 + ind_trans(i);
+            IND_R              = fix((ind_trans2(i) + ind_trans(i))/2);
+            IND_R              = [IND_R:ind_trans2(i)-100];
+            if any(IND_B < 0) | isempty(IND_R)
+                IR(i)       = NaN;
+                continue
+            end
+            ind_baseline    = IND_B;
+            ind_ir          = IND_R;
             IR(i)           = mean(resp(ind_baseline,i),1) - mean(resp(ind_ir,i),1);
         end
+        
         ir{ifile}           = IR(:);
         % extract approximate times for resistance measures
         t_sr{ifile}         = r_time(median(ind_trans)) + time(1);
