@@ -62,7 +62,7 @@ out = [];
 switch lower(action)
 case 'none'
     return
-case {'amplitude','difference','-difference','slope'}
+case {'amplitude','difference','-difference','slope','-slope'}
     % computes the difference between two marks
     % if three marks, baseline is mean of values between first two
     % if four marks, 2nd value is mean of values between 2nd two
@@ -85,9 +85,15 @@ case {'amplitude','difference','-difference','slope'}
         out = -out;
     case 'amplitude'
         out = abs(out);
-    case 'slope'
+    case {'slope','-slope'}
         out     = out / dt / 1000;
-        units   = sprintf('%s/%s',units,'ms');
+        if strcmpi(action,'-slope')
+            out = -out;
+        end
+        for i = 1:length(units)
+            units{i} = sprintf('%s/%s',units{i},'ms');
+        end
+%        units   = sprintf('%s/%s',units,'ms');
     end
 case 'mean'
     % computes the mean value of the function between two marks
