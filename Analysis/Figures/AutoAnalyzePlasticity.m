@@ -38,11 +38,13 @@ FOLDER_SELECT   = '*';
 R0_SELECT       = '*.r0';
 ANALYSIS_FN_RESP    = 'AutoAnalyzeResponse';
 ANALYSIS_FN_SPIKE   = 'AutoAnalyzeSpikeTiming';
+ANALYSIS_FN_RF      = 'AutoAnalyzeRF';
 DAQ2MAT_MODE    = 'stack';
 DAQ2MAT_CHAN    = 1;
 LOCAL_CONTROL   = 'auto.mat';
 MIN_TRIALS      = 70;       % minimum number of trials for pre/post dirs
 MIN_INDUCE      = 10;       % minimum nu8mber of trials for induction
+PLOT_FIELD      = 'slope';   %  which field to plot (ampl or slope)
 DEBUG           = 0;
 
 results         = [];
@@ -193,7 +195,7 @@ if isempty(pst) | isempty(pre)
 end
 % generate the figures for each stimulus
 for i = 1:length(pre)
-    fig     = plotdata(pre(i),pst(i),t_spike);
+    fig     = plotdata(pre(i),pst(i),t_spike,PLOT_FIELD);
     set(fig,'Name',sprintf('%s: Stimulus %d',pwd,i));
     if WRITE_FIGURES
         set(fig,'visible','on');
@@ -208,6 +210,10 @@ for i = 1:length(pre)
         set(fig,'visible','on')
     end
 end
+% and if there are more than one, call the 
+%if length(pre) > 1
+%    [rf_t, rf_pre, rf_pst] = feval(ANALYSIS_FN_RF, dd{1}, dd{3}, t_spike)
+%end
 
 % package up the data for return
 if nargout > 0
@@ -221,11 +227,12 @@ if nargout > 0
                      'induced',induced);
 end
 
-function figh   = plotdata(pre, pst, t_spike)
+function figh   = plotdata(pre, pst, t_spike, PLOT_FIELD)
 % the summary figure for this plot is going to depend on whether the
 % stimulus was electrical or visual. For electrical stimulation, we'll
 % plot the response, sr, and ir as a function of trace start time.
 BINSIZE = 1;        % bin the IR and SR data to 1 minutes
+units   = pre.([PLOT_FIELD '_units']);  %  this will be empty if pre is empty, oh well
 figh    = figure;
 set(figh,'visible','off')
 % adjust times (if both episodes are available)
@@ -235,9 +242,9 @@ if ~isempty(pst.start) & ~isempty(pre.start)
 end
 % some serious subplot-fu here
 ax      = subplot(4,3,[1 2 4 5]);
-plotTimeCourse(ax,pre.time,pre.resp,pst.time,pst.resp);
+plotTimeCourse(ax,pre.time,pre.(PLOT_FIELD),pst.time,pst.(PLOT_FIELD));
 xlim    = get(ax,'Xlim');
-ylabel(sprintf('Response (%s)',pre.units));
+ylabel(sprintf('Response (%s)',units));
 title('Time Course');
 
 if ~(isempty(pre.ir) & isempty(pst.sr))
