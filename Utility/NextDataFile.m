@@ -18,11 +18,11 @@ if nargin == 0
     basename = sprintf('%s_%i_%i_%i-',wc.control.data_prefix, d(1:3));
     files = strmatch(basename,n);
     if isempty(files)
-        out = sprintf('%s%s000',wc.control.data_dir,basename);
+        out = sprintf('%s%s%s000',wc.control.data_dir,filesep,basename);
     else
         files = sort(n(files));
         lastfile = files{length(files)};
-        out = NextDataFile([wc.control.data_dir lastfile]);
+        out = NextDataFile([wc.control.data_dir filesep lastfile]);
     end
 else
     lastname = varargin{1};
