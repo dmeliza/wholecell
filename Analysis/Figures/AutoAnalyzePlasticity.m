@@ -1,4 +1,4 @@
-function [] = AutoAnalyzePlasticity(fid)
+function [results] = AutoAnalyzePlasticity(fid)
 % Part of the AutoAnalyze suite.  Analyzes an experiment in the framework
 % of an attempt to induce plasticity, either on electrical or visual
 % responses.  Called from a rat/cell directory.
@@ -9,6 +9,9 @@ function [] = AutoAnalyzePlasticity(fid)
 % Third, if DAQ2MAT has been run in those directories.  Once these have
 % been determined, the script will run a subscript to measure the amplitude
 % of the responses pre and post, and to determine the spike timing.
+%
+% Returns, if asked for, a structure containing the pre and post data, as
+% well as the spike timing data.
 %
 % This mfile will attempt to load a local control file (auto.mat) for help
 % in determining what to do with difficult directories.  This matfile
@@ -40,6 +43,8 @@ LOCAL_CONTROL   = 'auto.mat';
 MIN_TRIALS      = 70;       % minimum number of trials for pre/post dirs
 MIN_INDUCE      = 10;       % minimum nu8mber of trials for induction
 DEBUG           = 0;
+
+results         = [];
 
 % load the control file, if there is one
 if exist(LOCAL_CONTROL) ~= 0
@@ -168,9 +173,9 @@ end
 
 fprintf(fid, '----\n');
 if induced ~= -1
-    t_post       = feval(ANALYSIS_FN_SPIKE,dd{2}, fid);
+    [t_post, var, n, spikes]       = feval(ANALYSIS_FN_SPIKE,dd{2}, fid);
 else
-    t_post       = [];
+    [t_post, var, n, spikes]       = deal([]);
 end
 
 % now we plot and write data to disk, if the correct global variables are
@@ -194,6 +199,17 @@ for i = 1:length(pre)
     else
         set(fig,'visible','on')
     end
+end
+
+% package up the data for return
+if nargout > 0
+    results = struct('pre',pre,...
+                     'pst',pst,...
+                     'spikes',spikes,...
+                     'pre_dir',dd{1},...
+                     'pst_dir',dd{3},...
+                     'spikes_dir',dd{2},...
+                     'induced',induced);
 end
 
 function figh   = plotdata(pre, pst, t_post)

@@ -180,6 +180,7 @@ FILTER_LP       = 1000;     % lowpass filter cutoff (Hz)
 FILTER_ORDER    = 3;
 WINDOW_BASELN   = 0.05;     % length of the baseline to use in computing the response
 WINDOW_PEAK     = 0.001;    % amount of time on either side of the peak to use
+ARTIFACT_WIDTH  = 0.0015;   % width of the artifact to cut out for certain analyses
 DEBUG_LOC       = 0;    
 
 % load the r0 file, using the accompanying selector file if needed
@@ -316,7 +317,7 @@ else
     sel_artifact    = time>-ARTIFACT_WIDTH & time < ARTIFACT_WIDTH;
     in              = avg;
     in(sel_artifact)    = deal(mu);  % this isn't perfect but it's easy
-    filtavg     = filterresponse(in,fp,FILTER_ORDER,R.t_rate);
+    filtavg     = filterresponse(in,fp,FILTER_ORDER,Fs);
 end
 h               = plot(time,filtavg,'k:');
 legend('Response',sprintf('Filtered (%4.0f Hz)',fp));

@@ -1,4 +1,4 @@
-function [med, var, n, sptimes] = AutoAnalyzeSpikeTiming(data_dir, fid)
+function [med, sigma, n, sptimes] = AutoAnalyzeSpikeTiming(data_dir, fid)
 % Part of the AutoAnalyze suite.  Analyzes the induction period to
 % determine the spike timing.
 %
@@ -158,7 +158,6 @@ if DEBUG
 else
     delete(f)
 end
-
 cd(curdir)
 
 function out = filterresponse(data, cutoff, order, Fs)
