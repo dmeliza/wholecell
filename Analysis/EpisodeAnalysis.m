@@ -88,7 +88,13 @@ h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[20 30 40 20],.
 t = {'none','amplitude','difference','slope'};
 h = InitUIControl(me,'parameteraction','style','popup','Callback',cb.editparameter,...
     'position', [100 35 100 20],'backgroundcolor',BG,'String',t,'enable','off');
-%h = InitUIControl(me, '
+h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[20 15 40 15],...
+    'horizontalalignment','left','String','Binsize:');
+h = InitUIControl(me,'binsize','style','edit','Callback',cb.editparameter,...
+    'position', [100 15 70 20],'backgroundcolor',BG,'horizontalalignment','right',...
+    'enable','on','String','0');
+h = uicontrol(gcf,'style','text','backgroundcolor',BG,'position',[175 15 25  15],...
+    'horizontalalignment','left','String','(min.)');
 % Trace Axes:
 h = InitUIObject(me, 'response', 'axes', 'units','pixels','position',[255 190 480 310],...
     'nextplot','replacechildren','Box','On');
@@ -442,25 +448,25 @@ case 'm_export'
     [fn pn] = uiputfile({'*.mat';'*.csv'},'Save Results');
     cd(wd);
     if ~isnumeric(fn)
-        r0  = getappdata(gcf,'r0');
+        ds  = getSelected;
+        bs  = GetUIParam(me,'binsize','Stringval');
         for i = 1:length(p)
-            r            = windowR0(p(i).window,r0);
-            p(i).results = EpisodeParameter('calc',p(i),r);
+            p(i).results = EpisodeParameter(p(i), ds, bs);
         end
+        [pn fi ext] = fileparts(fullfile(pn,fn));
+        switch lower(ext)
+        case '.mat'
+            % store as a parameter structure array with data attached
+            results = p;
+            save(fullfile(pn,fn),'results')
+        case '.csv'
+            % store in columns. no easy way to provide column headers
+            res = cat(1,p.results);
+            d   = [r0.abstime' res'];
+            csvwrite(fullfile(pn,fn),d);
+        end
+        SetUIParam(me,'status','String',sprintf('Wrote results to %s',fn));
     end
-    [pn fi ext] = fileparts(fullfile(pn,fn));
-    switch lower(ext)
-    case '.mat'
-        % store as a parameter structure array with data attached
-        results = p;
-        save(fullfile(pn,fn),'results')
-    case '.csv'
-        % store in columns. no easy way to provide column headers
-        res = cat(1,p.results);
-        d   = [r0.abstime' res'];
-        csvwrite(fullfile(pn,fn),d);
-    end
-    SetUIParam(me,'status','String',sprintf('Wrote results to %s',fn));
         
 case 'm_baseline'
     % adjust baseline (modifies stored r0), subtracting out DC of each trace
@@ -829,7 +835,8 @@ elseif nargin < 1
 end
 ds  = getSelected;
 if ~isempty(ds)
-    res = EpisodeParameter(param, ds);
+    bs  = GetUIParam(me,'binsize','Stringval');
+    res = EpisodeParameter(param, ds, bs);
     ax  = GetUIHandle(me,'timecourse');
     axes(ax)
     cla,hold on
@@ -841,7 +848,7 @@ if ~isempty(ds)
         str{i} = sprintf('%3.2f %s', m, res(i).units);
     end
     lbl = GetUIParam(me,'labels','Value');
-    if lbl
+    if lbl & ~isempty(str)
         legend(h,str);
     end
 end 
