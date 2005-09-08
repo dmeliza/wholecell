@@ -9,14 +9,17 @@ function [s, fields] = r1_struct()
 % Required fields:
 %
 % .data     - the response, which is an NxP array of N samples with P channels of data
-% .timing   - a synchronization "channel" which represents the times at which
-%           - the stimulus changed frames
 % .t_rate   - the sampling rate (in Hz) of the data
 % .y_unit   - a character array (P rows) describing the units of each channel
 %
 % Optional fields:
 %
+% .timing   - a synchronization "channel" which represents the times at which
+%           - the stimulus changed frames
 % .info     - data from the source file
+%
+% 1.3 - .timing SHOULD be optional, but I don't know what it will break to
+%       change it here
 %
 % $Id$
 
