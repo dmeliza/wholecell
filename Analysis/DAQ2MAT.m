@@ -33,7 +33,7 @@ end
 names = {d.name};
 
 % load info from the first file and figure out what to do with subsequent files
-info = getdaqheader(names{1});
+info = GetDAQHeader(names{1});
 if nargin < 2
     traceindices = info.amp;
 end
