@@ -15,7 +15,7 @@ function [out] = daq2r1(files, respchannel, syncchannel)
 %
 % $Id$
 
-error(nargchk(3,3,nargin));
+error(nargchk(2,3,nargin));
 
 out = r1_struct;
 if isa(files,'char')
@@ -32,7 +32,9 @@ for i = 1:length(files);
         fprintf('%s: %d x %d (%s)\n',fn, N, 1, units{1});
         out(i).data   = single(dat(:,respchannel));
         out(i).y_unit = units;
-        out(i).timing = Sync2Timing(dat(:,syncchannel));
+        if nargin > 2
+            out(i).timing = Sync2Timing(dat(:,syncchannel));
+        end
         out(i).t_rate = info.t_rate;
         out(i).info = info;
     end
