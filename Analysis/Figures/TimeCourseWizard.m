@@ -12,7 +12,7 @@ BIN     = 1;    % minutes
 LTP_WINDOW   = [0.1 40];
 LTD_WINDOW   = [-65 -0.1]; 
 BEFORE       = [-12.1 -2];    % minutes, inclusive to use for pre-induction measures
-AFTER        = [-.1 15.1];
+AFTER        = [-.1 20.1];
 CUTOFF       = [-1.5];          % splits before and after
 MINAMPL      = 10;
 
@@ -97,7 +97,6 @@ for i = 1:cells
         INDUCE      = cat(1,INDUCE,repmat(induce,size(a)));
         EXPT        = cat(1,EXPT,repmat(expt,size(a)));
         VALID       = cat(1,VALID,repmat(valid,size(a)));
-        end
     end
 end
 fprintf('\n');
@@ -131,14 +130,14 @@ ltd_ind  = DELTA > LTD_WINDOW(1) & DELTA < LTD_WINDOW(2) & VALID;
 
 figure
 % collect by time and plot timecourse`
-subplot(3,3,1)
+% subplot(3,3,1)
 [t,d,e]     = collect(NORMAMPL, TIME, induced & (before | after) & ltp_ind);
 errorbar(t, d, e, 'bo');
 hold on
 [t,d,e] = collect(NORMAMPL, TIME, induced & (before | after) & ltd_ind);
 errorbar(t, d, e, 'ro');
 axis tight
-
+return
 % compute confidence intervals based on cells as indep observations
 subplot(3,3,4)
 [c,pre,e]   = collect(NORMAMPL, EXPT, induced & (before) & ltp_ind);
@@ -147,7 +146,7 @@ subplot(3,3,4)
 [c,pre,e]   = collect(NORMAMPL, EXPT, induced & (before) & ltd_ind);
 [c,pst,e]   = collect(NORMAMPL, EXPT, induced & (after) & ltd_ind);
 [ltd_m, ltd_ci, ltd_p]     = getdifference(pre, pst);
-whiskerbar(0:1, [ltp_m ltd_m], [ltp_ci(1) ltd_ci(1)], [ltp_ci(2) ltd_ci(2)]);
+WhiskerBar(0:1, [ltp_m ltd_m], [ltp_ci(1) ltd_ci(1)], [ltp_ci(2) ltd_ci(2)]);
 set(gca,'xticklabel',{'LTP','LTD'})
 axis tight
 
@@ -159,37 +158,41 @@ position    = abs(POS - CENT);
 
 subplot(3,3,2)
 ind         = surround & ltp_ind & (before | after);
-%[mu, ci, p] = getpositions(NORMAMPL, TIME, EXPT, ind, position, CUTOFF);
-%whiskerbar(1:conds, mu, ci(:,1), ci(:,2));
 [expt, m_induced, p_induced] = collectcompare(NORMAMPL, EXPT,...
     ind & induced & before, ind & induced & after);
 [expt, m_nonind, p_nonind] = collectcompare(NORMAMPL, EXPT,...
     ind & position==0 & before, ind & position==0 & after);
-whiskerbar(1:2, [mean(m_induced) mean(m_nonind)],...
-    [std(m_induced)/sqrt(length(m_induced)) std(m_nonind)/sqrt(length(m_nonind))]);
-set(gca,'xticklabel',{'Flank','Peak'});
-axis tight
+% whiskerbar(1:2, [mean(m_induced) mean(m_nonind)],...
+%     [std(m_induced)/sqrt(length(m_induced)) std(m_nonind)/sqrt(length(m_nonind))]);
+h   = scatter(repmat(1,size(m_induced)), m_induced, 5);
+set(h(p_induced<0.05),'MarkerFaceColor','black');
+hold on
+h   = scatter(repmat(2,size(m_nonind)), m_nonind, 5);
+set(h(p_induced<0.05),'MarkerFaceColor','black');
+set(gca,'xlim',[0 3],'xtick',[1 2],'xticklabel',{'Flank','Peak'});
+hline(0)
 ylabel('Surround')
 title(sprintf('\\Deltat>0 n=%d',length(m_nonind)))
 
 subplot(3,3,3)
 ind         = surround & ltd_ind & (before | after);
-%[mu, ci, p] = getpositions(NORMAMPL, TIME, EXPT, ind, position, CUTOFF);
-%whiskerbar(1:conds, mu, ci(:,1), ci(:,2));
 [expt, m_induced, p_induced] = collectcompare(NORMAMPL, EXPT,...
     ind & induced & before, ind & induced & after);
 [expt, m_nonind, p_nonind] = collectcompare(NORMAMPL, EXPT,...
     ind & position==0 & before, ind & position==0 & after);
 whiskerbar(1:2, [mean(m_induced) mean(m_nonind)],...
     [std(m_induced)/sqrt(length(m_induced)) std(m_nonind)/sqrt(length(m_nonind))]);
-set(gca,'xticklabel',{'Flank','Peak'});
-axis tight
+h   = scatter(repmat(1,size(m_induced)), m_induced, 5);
+set(h(p_induced<0.05),'MarkerFaceColor','black');
+hold on
+h   = scatter(repmat(2,size(m_nonind)), m_nonind, 5);
+set(h(p_induced<0.05),'MarkerFaceColor','black');
+set(gca,'xlim',[0 3],'xtick',[1 2],'xticklabel',{'Flank','Peak'});
+hline(0)
 title(sprintf('\\Deltat<0 n=%d',length(m_nonind)))
 
 subplot(3,3,5)
 ind         = center & ltp_ind & (before | after);
-%[mu, ci, p] = getpositions(NORMAMPL, TIME, EXPT, ind, position, CUTOFF);
-%whiskerbar(1:conds, mu, ci(:,1), ci(:,2));
 [expt, m_induced, p_induced] = collectcompare(NORMAMPL, EXPT,...
     ind & position==0 & before, ind & position==0 & after);
 [expt, m_ninduced1, p_ninduced1] = collectcompare(NORMAMPL, EXPT,...
