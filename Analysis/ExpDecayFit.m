@@ -45,13 +45,11 @@ b(1)        = Y(i);
 b(2)        = abs(X(i));    % 
 
 % run the fit
-[coefs,R,J]   = nlinfit(X, Y, fun, b);
+[coefs,resid,J]   = nlinfit(X, Y, fun, b);
 
 % only run the statistical tests the user asks for; this makes the function
 % faster to bootstrap
 if nargout > 2
-    Yp      = fun(coefs, X);
-    resid   = Y - Yp;
     SSE     = sum(power(resid,2));
     SST     = sum(power(Y - mean(Y),2));
     r2      = 1 - SSE/SST;
@@ -66,6 +64,6 @@ if nargout > 3
     P       = 1 - fcdf(F,dfr,dfe);
 end
 if nargout > 4
-    CI      = nlparci(coefs,R,J,ALPHA);
+    CI      = nlparci(coefs,resid,J,ALPHA);
     ci      = CI';
 end
