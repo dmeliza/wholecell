@@ -52,7 +52,7 @@ b(2)        = abs(X(i));    %
 if nargout > 2
     SSE     = sum(power(resid,2));
     SST     = sum(power(Y - mean(Y),2));
-    r2      = 1 - SSE/SST;
+    Rsq     = 1 - SSE/SST;
 end
 if nargout > 3
     dfr     = length(coefs);
