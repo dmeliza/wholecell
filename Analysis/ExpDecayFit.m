@@ -1,14 +1,15 @@
-function [coefs, expr, Rsq, P, ci] = ExpDecayFit(X, Y, ALPHA)
+function [coefs, model, Rsq, P, ci] = ExpDecayFit(X, Y, ALPHA)
 %
 % SINGLEEXPFIT: fits a single exponential decay to data
 %
-% [coefs, expr, Rsq] = ExpDecayFit(X, Y) returns the coefficients
+% [coefs, model, Rsq] = ExpDecayFit(X, Y) returns the coefficients
 % for the exponential function defined by: Y = b(1) * exp(-abs(X)/b(2)),
 % where b(1) and b(2) are the coefficients of the fit. X must be a vector;
 % Y must have the same number of rows as X. If Y has multiple columns the
-% fit is calculated from the row means.
+% fit is calculated from the row means. The function handle used for the
+% fit is returned as MODEL.
 %
-% [coefs, expr, Rsq, P, ci] = ExpDecayFit(X, Y, [ALPHA]) also finds the P 
+% [coefs, model, Rsq, P, ci] = ExpDecayFit(X, Y, [ALPHA]) also finds the P 
 % value for the goodness of fit (F test against mean) and the confidence 
 % intervals of the coefficients. If ALPHA is not set it defaults to 0.05
 %
@@ -26,7 +27,7 @@ end
 
 % Set up the fit function
 expr    = 'b(1) * exp(-abs(x)/b(2))';
-fun     = inline(expr,'b','x');
+model   = inline(expr,'b','x');
 
 % Condition the data
 X       = X(:);
@@ -45,7 +46,7 @@ b(1)        = Y(i);
 b(2)        = abs(X(i));    % 
 
 % run the fit
-[coefs,resid,J]   = nlinfit(X, Y, fun, b);
+[coefs,resid,J]   = nlinfit(X, Y, model, b);
 
 % only run the statistical tests the user asks for; this makes the function
 % faster to bootstrap
