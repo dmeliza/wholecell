@@ -69,18 +69,18 @@ if FIT
     select   = delay > 0;
     X   = delay(select);
     Y   = STDP(select) - 100;
-    [p_coefs, expr, Rsq, P, ci] = ExpDecayFit(X, Y);
+    [p_coefs, model, Rsq, P, ci] = ExpDecayFit(X, Y);
     fprintf('LTP fit: A+ = %3.2f%%, t+ = %3.2f ms (P = %4.4f)\n',...
         p_coefs(1), p_coefs(2), P);
     % LTD
     select  = delay < 0;
     X   = delay(select);
     Y   = STDP(select) - 100;
-    [d_coefs, expr, Rsq, P, ci] = ExpDecayFit(X, Y);
+    [d_coefs, model, Rsq, P, ci] = ExpDecayFit(X, Y);
     fprintf('LTD fit: A+ = %3.2f%%, t+ = %3.2f ms (P = %4.4f)\n',...
         d_coefs(1), d_coefs(2), P);
     % plot
-    expr    = [expr ' + 100'];
+    expr    = [char(model) ' + 100'];
     fun     = inline(expr,'x','b');
     hold on
     fplot(fun,[0 WIDTH],[],[],[],p_coefs);
