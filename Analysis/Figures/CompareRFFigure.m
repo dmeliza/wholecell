@@ -1,7 +1,9 @@
-function out = CompareRFFigure(rf1, rf2, bar, window, pos, mode)
+function [d, a, b, T] = CompareRFFigure(rf1, rf2, t_spike, x_spike, window, mode)
 %
 % This is like CompareRF, but designed for producing example figures (no
-% normalization
+% normalization. If run in 'single' mode it will generate the figures used
+% in the top half of Figure 3 (Neuron paper), otherwise it will be the
+% image in figure 4A
 %
 % $Id$
 BINRATE = 53;
@@ -11,9 +13,14 @@ IMAGE  = 1;
 NORM   = [1:100];
 GAMMA   = 0.6;      % this needs to be fiddled with for individual files
 BAR     = [0 500];
-SZ      =  [3.2    2.2];
+SZ_IM   =  [3.2    2.2];
+SZ_S    = [2.6 1.4];
+FILTER  = 1000;
 
 error(nargchk(4,6,nargin))
+if nargin < 6
+    mode    = 'RF';
+end
 
 A = load(rf1);
 B = load(rf2);
@@ -23,8 +30,9 @@ else
     u = '';
 end
 
-win  = [bar - window, bar + window];
+win  = [t_spike - window, t_spike + window];
 T    = double(A.time) * 1000 - 200;
+Fs   = 1/mean(diff(A.time));
 Z    = find(T >= win(1));
 t(1) = Z(1);
 Z    = find(T <= win(2));
@@ -33,12 +41,18 @@ t    = t(1):t(2);
 T    = T(t);
 
 t   = t(:);
-a   = A.data(t,:);
-b   = B.data(t,:);
-if nargin > 5
-    a   = a(:,pos);
-    b   = b(:,pos);
+a   = double(A.data(t,:));
+b   = double(B.data(t,:));
+switch lower(mode)
+    case 'single'
+        a   = a(:,x_spike);
+        b   = b(:,x_spike);
 end
+if ~isempty(FILTER)
+    a   = filterresponse(a,FILTER,3,Fs);
+    b   = filterresponse(b,FILTER,3,Fs);
+end
+    
 ma  = mean(a(NORM,:),1);
 mb  = mean(b(NORM,:),1);
 a   = a - repmat(ma,length(t),1);
@@ -48,111 +62,101 @@ if strcmpi(u,'pa')
     d   = -d;
 end
 
-% normalization is tricky because these are relative values.
-% find the point of largest absolute difference, then use the ratio
-% at that point. It may be better to use the peak of the pre-induction response?
-% [m, i] = max(abs(d));
-% [m, j] = max(abs(m));
-% i      = i(j);
-% val    = [a(i,j) b(i,j)];
-% rat    = max(abs(val)) / min(abs(val));
-% d      = d ./ m .* rat;
-
-if size(a,2) == 1
-    % for single traces
-    figure
-    ResizeFigure(SZ)
-    subplot(2,1,1)
-    h = plot(T,a,'k',T,b,'r');
-    set(h,'Linewidth',1)
-    axis tight
-    mx  = max(max([a b]));
-    mn  = min(min([a b]));
-    set(gca,'ylim',[mn * 1.2, mx * 1.5]);
-    AddScaleBar(gca,{'',u});
-    set(gca,'xcolor','white','xticklabel','');
-%    ylabel(['EPSC (' u ')']);
-    vline(bar,'k:');
-    
-    subplot(2,1,2)
-    h   = plot(T,d,'k');
-    axis tight
-    set(h,'Linewidth',2)
-    vline(bar,'k:');
-%    hline(0,'k:');
-    AddScaleBar(gca,{'ms',''});
-    %xlabel('Time (ms)');
-    ylabel(['Delta (pA)']);
-    
-    out = struct('difference',d,'time',T,'t_induce',bar);
-else
-    % I'd prefer to have different colormaps for the RF and difference
-    % plots, but I don't think this can be done in the same figure.
-    [a,T] = smoothRF(a,T,BINRATE,INTERP);
-    b     = smoothRF(b,T,BINRATE,INTERP);
-    mx  = max(max(abs([a b])));
-    figure,colormap(redblue(0.45,200))
-    colormap(flipud(hot))
-    ResizeFigure(SZ)
-    if IMAGE
-        n   = 2;        
-        if strcmpi(u,'pa')
-            a   = -a;
-            b   = -b;
-        end
-        subplot(n+1,1,1)
-        imagesc(T,1:size(a,2),a',[0 mx]);
-        hold on
-        colorbar
-        set(gca,'YTick',[],'XTickLabel',[]);
-        vline(0,'k');
-        ylabel('Before');
+switch lower(mode)
+    case 'single'
+        % For single traces:
+        f   = figure;
+        set(f,'color',[1 1 1]);
+        ResizeFigure(SZ_S)
         
-        subplot(n+1,1,2)
-        imagesc(T,1:size(b,2),b',[0 mx]);
-        hold on
-        colorbar
-        vline(0,'k');
-        set(gca,'YTick',[],'XTickLabel',[]);
-        ylabel('After');
-    else
-        n = size(a,2);
-        for i = 1:n
-            subplot(n+1,1,i)
-            plot(T,[a(:,i) b(:,i)]);
-            vline(0,'k')
-            vline(bar,'k:')
-            set(gca,'XTickLabel',[]);
-            ylabel(num2str(i))
-        end
-    end
-    
-    
-    subplot(n+1,1,n+1)
-    d     = smoothRF(d,T,BINRATE,INTERP);
-    %d     = thresholdRF(d,THRESH);
-    mx1   = max(max(abs(d)));
-    if IMAGE
-        imagesc(T,1:size(d,2),d',[-mx1 mx1]);
-        set(gca,'Ytick',[]);
-        colorbar
-        if nargin < 5
-            vline(bar,'w');
-        else
+        subplot(2,1,1)
+        h = plot(T,a,'k',T,b,'r');
+        set(h,'Linewidth',1)
+        axis tight
+        mx  = max(max([a b]));
+        mn  = min(min([a b]));
+        set(gca,'ylim',[mn * 1.2, mx * 1.5]);
+        AddScaleBar(gca,{'',u});
+        set(gca,'xcolor','white','xticklabel','');
+        vline(t_spike,'k:');
+
+        subplot(2,1,2)
+        h   = plot(T,d,'k');
+        axis tight
+        set(h,'Linewidth',2)
+        vline(t_spike,'k:');
+        AddScaleBar(gca,{'ms',''},[50 0]);
+        ylabel(['\DeltaResponse (pA)']);
+
+        out = struct('difference',d,'time',T,'t_induce',t_spike);
+    otherwise
+        % I'd prefer to have different colormaps for the RF and difference
+        % plots, but I don't think this can be done in the same figure.
+        [a,T] = smoothRF(a,T,BINRATE,INTERP);
+        b     = smoothRF(b,T,BINRATE,INTERP);
+        mx  = max(max(abs([a b])));
+        figure,colormap(redblue(0.45,200))
+        colormap(flipud(hot))
+        ResizeFigure(SZ)
+        if IMAGE
+            n   = 2;
+            if strcmpi(u,'pa')
+                a   = -a;
+                b   = -b;
+            end
+            subplot(n+1,1,1)
+            imagesc(T,1:size(a,2),a',[0 mx]);
             hold on
-            pos     = pos * INTERP;
-            plot(bar, pos,'k*')
+            colorbar
+            set(gca,'YTick',[],'XTickLabel',[]);
+            vline(0,'k');
+            ylabel('Before');
+
+            subplot(n+1,1,2)
+            imagesc(T,1:size(b,2),b',[0 mx]);
+            hold on
+            colorbar
+            vline(0,'k');
+            set(gca,'YTick',[],'XTickLabel',[]);
+            ylabel('After');
+        else
+            n = size(a,2);
+            for i = 1:n
+                subplot(n+1,1,i)
+                plot(T,[a(:,i) b(:,i)]);
+                vline(0,'k')
+                vline(t_spike,'k:')
+                set(gca,'XTickLabel',[]);
+                ylabel(num2str(i))
+            end
         end
-    else
-        plot(T,d)
-        vline(bar,'k:');
-    end
-    vline(0,'k');
-    ylabel('Delta');
-    xlabel('Time (s)');
 
 
-    out = struct('difference',d,'time',T,'t_induce',bar,'x_induce',pos);    
+        subplot(n+1,1,n+1)
+        d     = smoothRF(d,T,BINRATE,INTERP);
+        %d     = thresholdRF(d,THRESH);
+        mx1   = max(max(abs(d)));
+        if IMAGE
+            imagesc(T,1:size(d,2),d',[-mx1 mx1]);
+            set(gca,'Ytick',[]);
+            colorbar
+            if nargin < 5
+                vline(t_spike,'w');
+            else
+                hold on
+                x_spike     = x_spike * INTERP;
+                plot(t_spike, x_spike,'k*')
+            end
+        else
+            plot(T,d)
+            vline(t_spike,'k:');
+        end
+        vline(0,'k');
+        ylabel('Delta');
+        xlabel('Time (s)');
+
+
+        out = struct('difference',d,'time',T,'t_induce',t_spike,'x_induce',x_spike);
 end
 
 function [d,T] = smoothRF(d,T,binrate,interp)
@@ -180,3 +184,14 @@ x   = sum(sum(d,1) .* (1:size(d,2)))/M;
 t   = sum(sum(d,2) .* T)/M;
 % t   = sum(sum(d,2) .* (1:size(d,1))')/M;
 % t   = T(round(t));
+
+function out = filterresponse(data, cutoff, order, Fs)
+% 60 Hz notch followed by lowpass filter
+%data     = NotchFilter(data, 60, Fs, 20);
+
+Wn      = double(cutoff/(Fs/2));
+if Wn >= 1
+    Wn = 0.999;
+end
+[b,a]   = butter(order,Wn);
+out     = filtfilt(b,a,data);
