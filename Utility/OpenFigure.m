@@ -13,7 +13,7 @@ global wc
 
 % open or find the figure
 module  = lower(module);
-obj.fig = findfig(module);
+obj.fig = FindFig(module);
 % set some default values
 set(obj.fig, 'numbertitle','off','name',module,'DoubleBuffer','on','menubar','none');
 set(obj.fig,'Color',get(0,'defaultUicontrolBackgroundColor'));
