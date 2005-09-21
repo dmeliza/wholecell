@@ -108,7 +108,9 @@ try
         fprintf(fid, 'Wrote results to %s\n', resfile);
     end
     fprintf(fid,'Analysis run completed at %s\n', datestr(now));
-    fclose(fid)
+    if fid > 1
+        fclose(fid)
+    end
     
     
 catch
@@ -117,7 +119,9 @@ catch
         fprintf(fid, 'Wrote results to %s\n', resfile);
         fprintf(fid,'Analysis run terminated with errors at %s\n', datestr(now));
     end
-    fclose(fid)
+    if fid > 1
+        fclose(fid)
+    end
     error(lasterr)
 end
 
