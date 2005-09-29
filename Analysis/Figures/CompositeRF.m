@@ -24,7 +24,9 @@ Fs     = 10;
 SZ      = [6.3 3.0];
 SE      = [1 1 1];        % if 1, plot standard error
 PLOTFUN = @plotbar;
+%PLOTFUN = @plotcomparison;
 BINSIZE = 10;       % 4.3 gives a nice smooth curve
+GRID    = 2;        % a 3x3 grid or a 2x2 grid
 
 % load control data from file
 [data, files]   = xlsread(control);
@@ -66,7 +68,9 @@ for i = 1:trials
 end
 
 % rebin the data
-dd      = bindata(dd,BINSIZE*Fs,1);
+dd      = BinData(dd,BINSIZE*Fs,1);
+aa      = BinData(aa,BINSIZE*Fs,1);
+bb      = BinData(bb,BINSIZE*Fs,1);
 t       = linspace(-WINDOW,WINDOW,size(dd,1));
 
 % generate the figure
@@ -80,7 +84,10 @@ switch lower(mode)
         % plots all the delta curves in separate windows
         for i = 1:size(dd,3)
             figure
-            subplot(3,1,1)
+            subplot(2,1,1)
+            plot(t,aa(:,x_induced(i),i),'k',...
+                t,bb(:,x_induced(i),i),'r')
+            subplot(2,1,2)
             plot(t,dd(:,x_induced(i),i));
             title(files{i,1})
         end
@@ -106,8 +113,8 @@ switch lower(mode)
         LTP    = select(dd(:,:,ind_ltp),x_induced(ind_ltp));
         LTP_rf  = mean(LTP,2);
         LTD_rf  = mean(LTD,2);
-        LTD_er  = std(LTD,[],2)/sqrt(size(LTD,2)) .* SE;% * tinv(.975,size(LTP,2)-1);
-        LTP_er  = std(LTP,[],2)/sqrt(size(LTD,2)) .* SE;% * tinv(.975,size(LTD,2)-1);
+        LTD_er  = std(LTD,[],2)/sqrt(size(LTD,2)) .* SE(1);% * tinv(.975,size(LTP,2)-1);
+        LTP_er  = std(LTP,[],2)/sqrt(size(LTD,2)) .* SE(1);% * tinv(.975,size(LTD,2)-1);
         LTP_ci  = [LTP_rf - LTP_er, LTP_rf + LTP_er];
         LTD_ci  = [LTD_rf - LTD_er, LTD_rf + LTD_er];
         mx      = max(max(abs([LTP_ci LTD_ci])));
@@ -133,78 +140,249 @@ switch lower(mode)
             axis tight
             hline(0)
         set([a1 a2],'Box','On','YLim',[-mx mx]);
-        set(a2,'YAxisLocation','right');%'YTickLabel','')        
+        set(a2,'YAxisLocation','right');%'YTickLabel','')
+    case 'scatter'
+        LTP_WIN = -30;
+        LTD_WIN = 80;        
+        for i = 1:trials
+                bla_pre = aa(:,x_induced(i),i);
+                black   = dd(:,x_induced(i),i);
+                if ind_surround(i)
+                    blue    = dd(:,x_center(i),i);
+                    blu_pre = aa(:,x_center(i),i);
+                    if ind_ltp(i)
+                        GROUP{i}    = 'LTP/SUR';
+%                         INDUCED(i)  = integrate(black,t<=0 & t>=LTP_WIN);
+                    else
+                        GROUP{i}    = 'LTD/SUR';
+%                         INDUCED(i)  = integrate(black,t<=LTD_WIN & t>=0);
+                    end
+                else
+                    blue    = selectneighbors(dd(:,:,i),x_induced(i));
+                    blu_pre = selectneighbors(aa(:,:,i),x_induced(i));
+                    if ind_ltp(i)
+                        GROUP{i}    = 'LTP/CEN';
+%                         INDUCED(i)  = integrate(black,t<=0 & t>=LTP_WIN);
+                    else
+                        GROUP{i}    = 'LTD/CEN';
+%                         INDUCED(i)  = integrate(black,t<=LTD_WIN & t>=0);
+                    end
+                end
+                INDUCED(i)  = integrate(black,t<=LTD_WIN & t >=LTP_WIN);
+%                 PREIND(i)  = integrate(bla_pre,t<=LTD_WIN & t >=LTP_WIN);
+                NONIND(i)   = integrate(blue,t<=LTD_WIN & t>=LTP_WIN);
+%                 PRENON(i)  = integrate(blu_pre,t<=LTD_WIN & t>=LTP_WIN);
+                
+        end
+        % convert relative change to log
+        INDUCED = log(INDUCED+1);
+        NONIND = log(NONIND+1);
+        
+%         ax = subplot(2,2,1);
+%         gscatter(delta,INDUCED,GROUP')
+%         hline(0),vline(0)
+%         legend(ax,'off')
+%         
+%         ax = subplot(2,2,2);
+%         gscatter(delta,NONIND,GROUP');
+%         hline(0),vline(0)
+%         legend(ax,'off');
+        % this is the more informative plot:
+%         subplot(2,2,[3 4])
+%         gscatter(INDUCED,NONIND,GROUP')
+%         [coefs, p, rsq] = LinFit(INDUCED,NONIND);
+%         xpred   = [min(INDUCED) max(INDUCED)];
+%         ypred   = polyval(coefs, xpred);
+%         hold on
+%         plot(xpred,ypred,'k');
+%         hline(0),vline(0)
+%         axis square
+%         keyboard
+
+        % this will actually go in the paper:
+        ax = subplot(2,2,[3 4]);
+        hold on
+        h   = plot(INDUCED, NONIND, 'ko');
+        set(h,'MarkerSize',6)
+        % compute and plot the linear fit
+        [coefs, p, rsq] = LinFit(INDUCED,NONIND);
+        fprintf('Fit: y = %3.2fx + %3.2f; Rsq = %3.4f, p = %4.4f\n',...
+            coefs(1), coefs(2), rsq, p)
+        xpred   = [min(INDUCED) max(INDUCED)];
+        ypred   = polyval(coefs, xpred);
+        h       = plot(xpred,ypred,'k');
+        set(h,'LineWidth',2)
+        % convert the units on the axes to their nonlog values
+        % we pretty much have to hard-wire them in to make it look good
+        tk      = [50 100 200];
+        lt      = log(tk/100);
+        set(ax,'XLim',[lt(1) lt(end)],'YLim',[lt(1) lt(end)],...
+            'XTick',lt,'YTick',lt,...
+            'XTickLabel',num2str(tk'),'YTickLabel',num2str(tk'));
+        % Finalize the plot
+        plot([lt(1) lt(end)],[lt(1) lt(end)],'k:')
+        hline(0,'k:'),vline(0,'k:')
+        xlabel('Paired \DeltaResponse (%)');
+        ylabel('Unpaired \DeltaResponse (%)');
+        set(ax,'Position',[0.2179    0.1100    0.4714    0.5281],...
+            'Box','On');
+        axis square
+%         keyboard
+    case 'rel-change'
+        % plots the change in induced and noninduced bars as a function of
+        % their relative strength in the pre-induction RF. 
+        LTP_WIN = -30;
+        LTD_WIN = 80;
+        % keep track of spike timing to see if there's a dissociation
+        for i = 1:trials
+            for j = 1:size(aa,2)
+                bla_pst = integrate(bb(:,j,i),t<=LTD_WIN & t >=LTP_WIN);
+                bla_pre = integrate(aa(:,j,i),t<=LTD_WIN & t >=LTP_WIN);
+                PRE(i,j)    = bla_pre;
+                PST(i,j)    = bla_pst;
+                DELTA(i,j)  = log(bla_pst / bla_pre);
+                INDUCED(i,j)= j==x_induced(i);
+                dt(i,j)     = delta(i);
+            end
+        end
+        PRE = PRE ./ repmat(max(PRE,[],2),1,size(PRE,2));
+        % eliminate nonsense values (<=0)
+        sel = PRE(:)>0 & PST(:)>0;
+        PRE = PRE(sel);
+        DELTA = DELTA(sel);
+        INDUCED = INDUCED(sel);
+        dt      = dt(sel);
+%         plot(PRE(INDUCED), DELTA(INDUCED), 'r.',...
+%             PRE(~INDUCED),DELTA(~INDUCED),'b.');
+        plot(PRE(~INDUCED), DELTA(~INDUCED), 'ko');
+        % fit blue points
+        hold on
+        [coef,p,r2,ci] = LinFit(PRE(~INDUCED),DELTA(~INDUCED));
+        xfit = linspace(min(PRE(~INDUCED)),max(PRE(~INDUCED)),2);
+        h   = plot(xfit,polyval(coef,xfit),'k');
+        set(h,'LineWidth',2);
+        fprintf('linfit: m = %3.2f±%3.2f, b = %3.2f±%3.2f, P = %4.4f, Rsq = %3.3f\n',... 
+            coef(1), ci(1,1) - coef(1), coef(2), ci(1,2) - coef(2), p, r2);
+        % Relabel the Y axis with unlogged units
+        % We have to hand-pick the ticks if we don't want bizarre %'s
+%         ytk  = [5 15 50 100 300 750 2000];
+        ytk  = [10 100 1000];
+        ylt  = log(ytk/100);
+        set(gca,'YTick',ylt,'YTickLabel',num2str(ytk'));
+        % Finalize the plot    
+        hline(0,'k:'),xlabel('Initial Response (% of Peak)')
+        ylabel('Unpaired \DeltaResponse (%)')
+%         legend({'induced','noninduced'});
+        set(gca,'Position',[0.2179    0.1100    0.4714    0.5281],...
+            'Box','On');
+        axis square
+        xtk  = get(gca,'XTick');
+        xpk  = xtk * 100;
+        set(gca,'XTickLabel',num2str(xpk'));
+        
+%         keyboard
     otherwise
 % the figure will be a grid of 9 graphs
 % things are slightly complicated by the fact that when we're looking in
 % the surround, we want to only look at the effect on the more central
 % position
+pind    = 1;
 
-subplot(3,3,1)
-ind     = ind_surround;
-black   = select(dd(:,:,ind),x_induced(ind));
-blue    = selectcentralneighbor(dd(:,:,ind),x_induced(ind),x_center(ind));
-feval(PLOTFUN,t, {black, blue} , {'flank','peak'},SE,'both');
-title('LTP/LTD');
-ylabel('Condition Surround');
+if GRID > 2
+    subplot(GRID,GRID,pind)
+    pind    = pind + 1;
+    ind     = ind_surround;
+    black   = select(dd(:,:,ind),x_induced(ind));
+    blue    = selectcentralneighbor(dd(:,:,ind),x_induced(ind),x_center(ind));
+    red     = selectflankneighbor(dd(:,:,ind),x_induced(ind),x_center(ind));
+    feval(PLOTFUN,t, {black, blue, red} , {'flank(induced)','peak','flank(uninduced)'},SE,'both');
+    title(sprintf('LTP/LTD (n=%d)',size(black,2)));
+    ylabel('Condition Flank');
+end
 
-subplot(3,3,2)
+subplot(GRID,GRID,pind)
+pind    = pind + 1;
 ind     = ind_surround & ind_ltp;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectcentralneighbor(dd(:,:,ind),x_induced(ind),x_center(ind));
-feval(PLOTFUN,t, {black, blue}, {'flank','peak'},SE,'ltp');
-title('LTP');
+red     = selectflankneighbor(dd(:,:,ind),x_induced(ind),x_center(ind));
+feval(PLOTFUN,t, {black, blue, red}, {'flank(induced)','peak','flank(uninduced)'},SE,'ltp');
+title(sprintf('LTP (n=%d)',size(black,2)));
+if GRID == 2
+    ylabel('Condition Flank');    
+end
 
-subplot(3,3,3)
+subplot(GRID,GRID,pind)
+pind    = pind + 1;
 ind     = ind_surround & ind_ltd;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectcentralneighbor(dd(:,:,ind),x_induced(ind),x_center(ind));
-feval(PLOTFUN,t, {black, blue}, {'flank','peak'},SE,'ltd');
-title('LTD');
+red     = selectflankneighbor(dd(:,:,ind),x_induced(ind),x_center(ind));
+feval(PLOTFUN,t, {black, blue, red}, {'flank(induced)','peak','flank(uninduced)'},SE,'ltd');
+title(sprintf('LTD (n=%d)',size(black,2)));
+if GRID == 2
+    ylabel('Condition Peak');    
+end
 
-subplot(3,3,4)
-ind     = ind_center;
-black   = select(dd(:,:,ind),x_induced(ind));
-blue    = selectneighbors(dd(:,:,ind),x_induced(ind));
-red     = selectneighbors(dd(:,:,ind),x_induced(ind),2);
-feval(PLOTFUN,t, {black, blue, red}, {'peak','1','2'},SE,'both');
-ylabel('Condition Center');
+if GRID > 2
+    subplot(GRID,GRID,pind)
+    pind    = pind + 1;
+    ind     = ind_center;
+    black   = select(dd(:,:,ind),x_induced(ind));
+    blue    = selectneighbors(dd(:,:,ind),x_induced(ind));
+    red     = selectneighbors(dd(:,:,ind),x_induced(ind),2);
+    feval(PLOTFUN,t, {black, blue, red}, {'peak','1','2'},SE,'both');
+    ylabel('Condition Peak');
+    title(sprintf('(n=%d)',size(black,2)));
+end
 
-subplot(3,3,5)
+subplot(GRID,GRID,pind)
+pind    = pind + 1;
 ind     = ind_center & ind_ltp;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectneighbors(dd(:,:,ind),x_induced(ind));
 red     = selectneighbors(dd(:,:,ind),x_induced(ind),2);
 feval(PLOTFUN,t, {black, blue, red}, {'peak','1','2'},SE,'ltp');
-
-subplot(3,3,6)
+title(sprintf('(n=%d)',size(black,2)));
+    
+subplot(GRID,GRID,pind)
+pind    = pind + 1;
 ind     = ind_center & ind_ltd;
 black   = select(dd(:,:,ind),x_induced(ind));
 blue    = selectneighbors(dd(:,:,ind),x_induced(ind));
 red     = selectneighbors(dd(:,:,ind),x_induced(ind),2);
 feval(PLOTFUN,t, {black, blue, red}, {'peak','1','2'},SE,'ltd');
+title(sprintf('(n=%d)',size(black,2)));
 
-subplot(3,3,7)
-black   = select(dd,x_induced);
-blue    = selectneighbors(dd,x_induced);
-red     = selectneighbors(dd(:,:,ind),x_induced(ind),2);
-feval(PLOTFUN,t, {black, blue, red}, {'cond','1','2'},SE,'both');
-ylabel('All locations');
-
-subplot(3,3,8)
-ind     = ind_ltp;
-black   = select(dd(:,:,ind),x_induced(ind));
-blue    = selectneighbors(dd(:,:,ind),x_induced(ind));
-red     = selectneighbors(dd(:,:,ind),x_induced(ind),2);
-feval(PLOTFUN,t, {black, blue, red}, {'cond','1','2'},SE,'ltp');
-xlabel('Time From Spike (ms)')
-
-subplot(3,3,9)
-ind     = ind_ltd;
-black   = select(dd(:,:,ind),x_induced(ind));
-blue    = selectneighbors(dd(:,:,ind),x_induced(ind));
-red     = selectneighbors(dd(:,:,ind),x_induced(ind),2);
-feval(PLOTFUN,t, {black, blue, red}, {'cond','1','2'},SE,'ltd');
+if GRID > 2
+    subplot(GRID,GRID,pind)
+    pind    = pind + 1;
+    black   = select(dd,x_induced);
+    blue    = selectneighbors(dd,x_induced);
+    red     = selectneighbors(dd(:,:,ind),x_induced(ind),2);
+    feval(PLOTFUN,t, {black, blue, red}, {'cond','1','2'},SE,'both');
+    title(sprintf('(n=%d)',size(black,2)));
+    ylabel('All locations');
+    
+    subplot(GRID,GRID,pind)
+    pind    = pind + 1;
+    ind     = ind_ltp;
+    black   = select(dd(:,:,ind),x_induced(ind));
+    blue    = selectneighbors(dd(:,:,ind),x_induced(ind));
+    red     = selectneighbors(dd(:,:,ind),x_induced(ind),2);
+    feval(PLOTFUN,t, {black, blue, red}, {'cond','1','2'},SE,'ltp');
+    title(sprintf('(n=%d)',size(black,2)));
+    xlabel('Time From Spike (ms)')
+    
+    subplot(GRID,GRID,pind)
+    pind    = pind + 1;
+    ind     = ind_ltd;
+    black   = select(dd(:,:,ind),x_induced(ind));
+    blue    = selectneighbors(dd(:,:,ind),x_induced(ind));
+    red     = selectneighbors(dd(:,:,ind),x_induced(ind),2);
+    feval(PLOTFUN,t, {black, blue, red}, {'cond','1','2'},SE,'ltd');
+    title(sprintf('(n=%d)',size(black,2)));
+end
 
 colormap(gray)
 end
@@ -215,19 +393,31 @@ function [] = plotbar(t, traces, legendary, SE, side)
 ncond   = length(traces);
 LTP_WIN = -30;
 LTD_WIN = 80;
-for i = 1:ncond
-    [ltp_m(i), ltp_ci(i), ltp_p(i)] = integrate(traces{i},t<=0 & t>=LTP_WIN);
-    [ltd_m(i), ltd_ci(i), ltd_p(i)] = integrate(traces{i},t>=0 & t<=LTD_WIN);
+SEPARATE_SIDES = 0;
+if SEPARATE_SIDES
+    for i = 1:ncond
+        [ltp_m(i), ltp_ci(i), ltp_p(i)] = integrate(traces{i},t<=0 & t>=LTP_WIN);
+        [ltd_m(i), ltd_ci(i), ltd_p(i)] = integrate(traces{i},t>=0 & t<=LTD_WIN);
+    end
+    h    = WhiskerBar(1:2,[ltp_m; ltd_m],[ltp_ci; ltd_ci],[ltp_ci;ltd_ci],[ltp_p;ltd_p]);
+else
+    for i = 1:ncond
+        [m(i), ci(i), p(i)] = integrate(traces{i},t<=LTD_WIN & t>=LTP_WIN);
+    end
+    h    = WhiskerBar(1:2,[m;m],[ci;ci],[ci;ci],[p;p]);
 end
-h    = whiskerbar(1:2,[ltp_m; ltd_m],[ltp_ci; ltd_ci],[ltp_ci;ltd_ci],[ltp_p;ltd_p]);
 hline(0,'k')
-switch lower(side)
-    case 'ltp'
-        set(gca,'XLim',[0.5 1.5],'XTickLabel',{''});
-    case 'ltd'
-        set(gca,'XLim',[1.5 2.5],'XTickLabel',{''});
-    otherwise
-        set(gca,'XTickLabel',{'dt<0','dt>0'});
+if SEPARATE_SIDES
+    switch lower(side)
+        case 'ltp'
+            set(gca,'XLim',[0.5 1.5],'XTickLabel',{''});
+        case 'ltd'
+            set(gca,'XLim',[1.5 2.5],'XTickLabel',{''});
+        otherwise
+            set(gca,'XTickLabel',{'dt<0','dt>0'});
+    end
+else
+    set(gca,'XLim',[0.5 1.5],'XTickLabel',{''});
 end
 z   = legend(h(1,:),legendary);
 
@@ -238,7 +428,7 @@ m   = mean(A);
 ci  = std(A)/sqrt(length(A));
 [h,p]  = ttest(A);
 
-function [] = plotcomparison(t, traces, legendary, SE)
+function [] = plotcomparison(t, traces, legendary, SE, ignore)
 % plots two traces with a legend. If SE > 0, plots the standard error * SE
 % of the second trace
 trcolors    = {'k','b','r','g'};
@@ -295,3 +485,10 @@ function out = selectcentralneighbor(data, columns, centers)
 % in the center, it will pick the same column, so be careful.
 one_off = columns + sign(centers - columns);
 out     = select(data, one_off);
+
+function out = selectflankneighbor(data, columns, centers)
+% select the more flanking neighbor of the column. If the column is
+% already the center, it will pick the same column, so be careful
+one_off = columns - sign(centers - columns);
+ind     = (one_off > 0 & one_off < 5);
+out     = select(data(:,:,ind), one_off(ind));
