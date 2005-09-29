@@ -175,7 +175,12 @@ else
     % compute slope of response
     [z1, s]  = polyfit(pre.time, pre.(field),1);
     [z2, s]  = polyfit(pst.time, pst.(field),1);
-    fprintf(fid,' (%2.1f;%2.1f %s/%s) \n', z1(1), z2(1), pst.([field '_units']), 'min');
+    % compute CV difference
+    [cv1]    = std(pre.(field))/mean(pre.(field));
+    [cv2]    = std(pst.(field))/mean(pst.(field));
+    fprintf(fid,' (%2.1f;%2.1f %s/%s) (CV: %2.2f;%2.2f) \n',...
+        z1(1), z2(1), pst.([field '_units']), 'min',...
+        cv1, cv2);
 end
 
 function [] = printdifference(fid, prefix, pre, pst, units)
@@ -474,6 +479,8 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [ir, sr, t_sr, t_ir] = computeResistance(R, ind_resist, isCC, t_offset)
+% Computes the input resistance, series resistance of
+% the recording based on the response to a negative voltage step
 % we need to use unfiltered, unaligned data to ensure the transients
 % line up
 resp            = double(R.data(ind_resist,:));
@@ -509,7 +516,6 @@ if ~isCC
         ind_ir          = fix(IND_R(IND_R>0));
         IR(i)           = mean(resp(ind_baseline,i),1) - mean(resp(ind_ir,i),1);
     end
-    
     t_sr         = r_time(fix(median(ind_trans))) + t_offset;
     if ~isempty(IR) & ~all(isnan(IR))
         ir           = IR(:);
