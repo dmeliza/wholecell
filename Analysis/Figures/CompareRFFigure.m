@@ -9,13 +9,13 @@ function [d, a, b, T] = CompareRFFigure(rf1, rf2, t_spike, x_spike, window, mode
 BINRATE = 53;
 INTERP = 1;
 THRESH = 1;
-IMAGE  = 1;
 NORM   = [1:100];
 GAMMA   = 0.6;      % this needs to be fiddled with for individual files
 BAR     = [0 500];
 SZ_IM   =  [3.2    2.2];
 SZ_S    = [2.6 1.4];
 FILTER  = 1000;
+PLOT_ZM = 1;
 
 error(nargchk(4,6,nargin))
 if nargin < 6
@@ -30,7 +30,16 @@ else
     u = '';
 end
 
-win  = [t_spike - window, t_spike + window];
+% different windows are used by the image plot; also they are no longer
+% fixed to the spike time but to the stimulus onset
+switch lower(mode)
+    case 'single'
+        win  = [0 300];
+    otherwise
+        win  = [0 250];
+end
+        
+
 T    = double(A.time) * 1000 - 200;
 Fs   = 1/mean(diff(A.time));
 Z    = find(T >= win(1));
@@ -88,75 +97,79 @@ switch lower(mode)
         AddScaleBar(gca,{'ms',''},[50 0]);
         ylabel(['\DeltaResponse (pA)']);
 
-        out = struct('difference',d,'time',T,'t_induce',t_spike);
     otherwise
         % I'd prefer to have different colormaps for the RF and difference
         % plots, but I don't think this can be done in the same figure.
-        [a,T] = smoothRF(a,T,BINRATE,INTERP);
-        b     = smoothRF(b,T,BINRATE,INTERP);
-        mx  = max(max(abs([a b])));
-        figure,colormap(redblue(0.45,200))
-        colormap(flipud(hot))
-        ResizeFigure(SZ)
-        if IMAGE
-            n   = 2;
-            if strcmpi(u,'pa')
-                a   = -a;
-                b   = -b;
-            end
-            subplot(n+1,1,1)
-            imagesc(T,1:size(a,2),a',[0 mx]);
-            hold on
-            colorbar
-            set(gca,'YTick',[],'XTickLabel',[]);
-            vline(0,'k');
-            ylabel('Before');
-
-            subplot(n+1,1,2)
-            imagesc(T,1:size(b,2),b',[0 mx]);
-            hold on
-            colorbar
-            vline(0,'k');
-            set(gca,'YTick',[],'XTickLabel',[]);
-            ylabel('After');
-        else
-            n = size(a,2);
-            for i = 1:n
-                subplot(n+1,1,i)
-                plot(T,[a(:,i) b(:,i)]);
-                vline(0,'k')
-                vline(t_spike,'k:')
-                set(gca,'XTickLabel',[]);
-                ylabel(num2str(i))
-            end
+        
+        % Turn this on to get the old binned plot
+%         [a,T] = smoothRF(a,T,BINRATE,INTERP);
+%         b     = smoothRF(b,T,BINRATE,INTERP);
+%         d     = smoothRF(d,T,BINRATE,INTERP);      
+        if strcmpi(u,'pa')
+            a   = -a;
+            b   = -b;
         end
+        mx  = max(max(abs([a b])));
+        % The redblue colormap should be used for the difference plot; it's
+        % included here for reference since the user will have to do this
+        % by hand. The arguments are for 196/1, and will have to be
+        % adjusted for other cells.
+        figure,colormap(redblue(0.1,200,0.4))
+        colormap(flipud(hot))
+        ResizeFigure(SZ_IM)
+        set(gcf,'Color',[1 1 1]);
+        
+        ax(1) = subplot(3,1,1);
+        imagesc(T,1:size(a,2),a',[0 mx]);
+        hold on
+        cax(1) = colorbar;
+        set(gca,'YTick',[],'XTickLabel',[]);
+        vline(0,'k');
+        ylabel('Before');
 
+        ax(2) = subplot(3,1,2);
+        imagesc(T,1:size(b,2),b',[0 mx]);
+        hold on
+        cax(2) = colorbar;
+        vline(0,'k');
+        set(gca,'YTick',[],'XTickLabel',[]);
+        ylabel('After');
 
-        subplot(n+1,1,n+1)
-        d     = smoothRF(d,T,BINRATE,INTERP);
-        %d     = thresholdRF(d,THRESH);
+        ax(3) = subplot(3,1,3);
         mx1   = max(max(abs(d)));
-        if IMAGE
+        % should the plot have zero at the mean?
+        if PLOT_ZM
             imagesc(T,1:size(d,2),d',[-mx1 mx1]);
-            set(gca,'Ytick',[]);
-            colorbar
-            if nargin < 5
-                vline(t_spike,'w');
-            else
-                hold on
-                x_spike     = x_spike * INTERP;
-                plot(t_spike, x_spike,'k*')
-            end
         else
-            plot(T,d)
-            vline(t_spike,'k:');
+            imagesc(T,1:size(d,2),d');
+        end
+        set(gca,'Ytick',[]);
+        hold on
+        cax(3) = colorbar;
+        if nargin < 5
+            vline(t_spike,'w');
+        else
+            hold on
+            x_spike     = x_spike * INTERP;
+            plot(t_spike, x_spike,'k*')
         end
         vline(0,'k');
         ylabel('Delta');
-        xlabel('Time (s)');
 
-
-        out = struct('difference',d,'time',T,'t_induce',t_spike,'x_induce',x_spike);
+        % add some extra ticks
+        set(ax,'XTick',[0:50:250]);
+        
+        % Matlab IS INCREDIBLY INCAPABLE OF FORMATTING THIS FIGURE
+        % PROPERLY, so we have to manually specify the size of the images
+        sz_plot = [1.6 0.45];
+        sz_clr  = [.075 0.45];
+        set([ax cax],'Units','Inches');
+        for i = 1:length(ax)
+            p_plot  = get(ax(i),'Position');
+            p_clr   = get(cax(i),'Position');
+            set(ax(i),'Position',[p_plot(1:2) sz_plot]);
+            set(cax(i),'Position',[p_clr(1:2) sz_clr]);
+        end
 end
 
 function [d,T] = smoothRF(d,T,binrate,interp)
@@ -175,15 +188,6 @@ s   = std(d(:)) * n;
 th  = [m - s, m + s];
 i   = (d > th(1)) & (d < th(2));
 d(i) = m;
-
-function [t,x] = centroid(d,T)
-% computes the centroid of the RF.  Note that this function is
-% meaningful only for positive valued d.
-M   = sum(sum(d));
-x   = sum(sum(d,1) .* (1:size(d,2)))/M;
-t   = sum(sum(d,2) .* T)/M;
-% t   = sum(sum(d,2) .* (1:size(d,1))')/M;
-% t   = T(round(t));
 
 function out = filterresponse(data, cutoff, order, Fs)
 % 60 Hz notch followed by lowpass filter
