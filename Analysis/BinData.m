@@ -67,7 +67,7 @@ end
 
 % compute binned modulus here
 if ~isempty(md) & MODULUS
-    mod    = mean(md,1);
+    md     = mean(md,1);
     nd     = cat(1,nd,md);
 end
 
