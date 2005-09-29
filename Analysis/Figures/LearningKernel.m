@@ -159,6 +159,7 @@ else
     coefs   = mean(coefs(keep,:));
     ci      = repmat(coefs,2,1) + [ci; -ci];
     [Rsq, P] = CheckFit(X, mean(Y,2), coefs, E);
+    expr    = E;
 end
 ci  = (ci(2,:) - ci(1,:))/2;
 
