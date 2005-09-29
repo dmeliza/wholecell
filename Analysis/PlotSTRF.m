@@ -137,7 +137,7 @@ function Z = interpolate(data)
 % if data is 1-dimensional, this should not be called
 h  = findobj(gcf,'tag','slider');
 lvl = get(h,'UserData');
-if lvl == 1 | isempty(lvl)
+if all(lvl == 1) | isempty(lvl)
     Z = data;
 else
     [x y] = size(data);             % "real" indices are 0 to x-1 (y-1)
