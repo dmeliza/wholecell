@@ -50,6 +50,11 @@ if nargin > 5
     b   = b(:,x_spike);
 end
 
+% notch filter out the 60Hz
+Fs   = 1/mean(diff(double(A.time)));
+a    = NotchFilter(a, 60, Fs);
+b    = NotchFilter(b, 60, Fs);
+
 % compute threshholds and baselines
 [A, a_mu, sigma]    = computeValues(a, t, BASELINE_THRESH);
 [B, b_mu]           = computeValues(b, t, BASELINE_THRESH, sigma);
@@ -58,14 +63,22 @@ end
 [a,T]               = cutRF(A, t, t_spike, RF_WIN);
 b                   = cutRF(B, t, t_spike, RF_WIN);
 
-% normalize
-[m,i]               = max(abs(a));
+% Normalization:
+% delta is normalized on a bar-by-bar basis
+norm                = repmat(max(a,[],1),size(a,1),1);
+d                   = b ./ norm - a ./ norm;
+% pre and post are normalized by the peak of the RF
+[m,i]              = max(abs(a));
 [norm,j]           = max(abs(m));
 a                   = a ./ norm;
 b                   = b ./ norm;
+% or by the peak of the induced bar?
+% [norm, j]           = max(a(:,x_spike));
+% or by the peaks of all the bars?
+% norm                = repmat(max(a,[],1),size(a,1),1);
 
 % compute differences
-d                   = b - a;
+% d                   = b - a;
 
 if nargout > 0
     return
@@ -185,8 +198,8 @@ d       = d(ind,:,:);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%555
 function [d,T] = smoothRF(d,T,binrate,interp)
-d   = bindata(d,binrate,1);
-T   = bindata(T,binrate,1);
+d   = BinData(d,binrate,1);
+T   = BinData(T,binrate,1);
 s   = size(d);
 X   = linspace(1,s(2),s(2)*interp);  % interpolate in x dimension
 t   = 1:s(1);
