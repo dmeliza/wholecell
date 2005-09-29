@@ -179,6 +179,7 @@ end
 
 fprintf(fid, '----\n');
 if isfield(control,'t_spike')
+    [t_spike, var, n, spikes]       = feval(ANALYSIS_FN_SPIKE,dd{2}, fid);
     t_spike                         = control.t_spike;
     fprintf(fid,'[%s] - spike timing %3.1f\n', LOCAL_CONTROL, t_spike * 1000);
     [var, n, spikes]               = deal([]);
@@ -236,6 +237,11 @@ if nargout > 0
     if ~isfield(control,'comment')
         control.comment = '';
     end
+    if exist('cell.mat') > 0
+        cell    = load('cell.mat');
+    else
+        cell    = struct('d',[],'Ri',[],'Rs',[],'Vm',[]);
+    end
     results = struct('pre',rmfield(pre,{'stim_electrical','mode_currentclamp'}),...
                      'pst',rmfield(pst,{'stim_electrical','mode_currentclamp'}),...
                      't_spike',t_spike,...
@@ -250,6 +256,7 @@ if nargout > 0
                      'skip_sr',control.skip_sr,...
                      'skip_slope',control.skip_slope,...,
                      'skip_time',control.skip_time,...
+                     'cell_data',cell,...
                      'comment',control.comment);
 end
 
