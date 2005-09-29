@@ -3,6 +3,8 @@ function [d, t] = CompareEvents(pre, post, time, binsize)
 % Rasterifies two .r0 files, constructs the amplitude-weighted event time
 % histogram, and compares the two.
 %
+% [d,t] = CompareEvents(pre, post, t_spike, [binsize])
+%
 % $Id$
 SZ   =  [3.4    5.6];
 SZ1  = [3.4    2];
