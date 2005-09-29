@@ -1,4 +1,4 @@
-function [] = abf2mat(filename, episodeInterval, channels)
+function [] = ABF2MAT(filename, episodeInterval, channels)
 % ABF2MAT: reads in an Axon Binary File and writes out a matfile containing
 % an r0 structure. Just a wrapper for ABF2R0
 %
@@ -18,9 +18,9 @@ function [] = abf2mat(filename, episodeInterval, channels)
 error(nargchk(2,3,nargin));
 
 if nargin > 2
-    r0  = abf2r0(filename, episodeInterval, channels);
+    r0  = ABF2R0(filename, episodeInterval, channels);
 else
-    r0  = abf2r0(filename, episodeInterval);
+    r0  = ABF2R0(filename, episodeInterval);
 end
 
 % compress the data and time fields to singles since it's very unlikely
@@ -31,4 +31,4 @@ r0.time = single(r0.time);
 
 [path basename] = fileparts(filename);
 fn              = [basename '.r0'];
-writestructure(fn, r0);
+WriteStructure(fn, r0);

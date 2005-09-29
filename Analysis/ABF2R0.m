@@ -26,7 +26,7 @@ else
     fid = filename;
 end
 
-pc8h = getpc8header(fid);
+pc8h = GetPc8Header(fid);
 
 % figure out some things from the header
 ds      = pc8h.lFileStartDate;
