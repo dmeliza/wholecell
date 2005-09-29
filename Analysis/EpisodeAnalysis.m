@@ -53,11 +53,11 @@ end
 
 function [] = initFigure()
 % initialize the main figure window
+POS = [4 433 750 519];
 cb = getCallbacks;
 BG = [1 1 1];
-f = OpenFigure(me,'position',[4 433 750 519],...
+f = OpenFigure(me,'position',POS,...
     'color',BG,'menubar','none');
-movegui(f,'northwest')
 set(f,'WindowButtonDownFcn',cb.clickaxes,'KeyPressFcn',cb.keypress)
 % Frame 0: File selection
 h = uicontrol(gcf,'style','frame','backgroundcolor',BG,'position',[10 430 200 80]);
@@ -180,6 +180,9 @@ u   = InitUIObject(me,'m_traceprop','uipushtool',p);
 p   = cell2struct({cb.menu,'Toggle Parameter Display',z.markers,'m_showparams'},f,2);
 u   = InitUIObject(me,'m_showparams','uitoggletool',p);
 set(u,'Separator','On','State','On');
+% R14 fucks up the window size so we have to fix it
+set(gcf,'position',POS)
+movegui(gcf,'northwest')
 
 function [] = initValues()
 % Initializes some app data so that calls to getappdata don't break
@@ -381,7 +384,7 @@ case 'm_open'
                 plotTraces;
             end
             setappdata(gcf,'dir',pn);
-            SetUIparam(me,'status','String',str);
+            SetUIParam(me,'status','String',str);
         case '.p0'
             d       = load('-mat',fullfile(pn,fn));
             if isfield(d,'params')
@@ -666,6 +669,10 @@ case 'm_traceprop'
     
 case 'm_showparams'
     updateParameters
+    
+case 'm_exit'
+    delete(gcf);
+        
             
 otherwise
     disp(tag)
