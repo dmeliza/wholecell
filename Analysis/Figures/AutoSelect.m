@@ -165,6 +165,8 @@ for i = 1:length(sel)
     Z(i).pre_slope  = slope(1);
     Z(i).spike_peak = Z(i).t_spike - pre.t_peak;
     Z(i).spike_onset = Z(i).t_spike - pre.t_onset;
+    Z(i).pre_cv     = std(pre_val)/mean(pre_val);
+    Z(i).pst_cv     = std(pst_val)/mean(pst_val);
 
     fprintf('(%3.3f, dt = %3.2f)\n', Z(i).pst_value / Z(i).pre_value, Z(i).spike_peak)
     % also, for futher analysis we're only going to keep the induced bars
