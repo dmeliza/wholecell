@@ -81,6 +81,11 @@ b       = B.data(b_ind, x_pos);
 % Remove DC offset
 a       = a - mean(a(1:50));
 b       = b - mean(b(1:50));
+% Smooth things out, otherwise the plot will look jaggy
+cutoff  = 100;
+Fs      = 1/mean(diff(A.time)) * 1000;
+a       = filterresponse(a,cutoff,3,Fs);
+b       = filterresponse(b,cutoff,3,Fs);
 % Plot
 h       = plot(t,a,'k',t,b,'r');
 % set(h,'LineWidth',2);
@@ -109,3 +114,12 @@ AddScaleBar(gca,{'ms','pA'}, [xtick ytick]);
 % coordinates)
 set(ax1,'Position',[0.1397    0.1583    0.7653    0.4042])
 set(ax2,'Position',[0.5184    0.6000    0.3900    0.3250]);
+
+function out = filterresponse(data, cutoff, order, Fs)
+%data     = NotchFilter(data, 60, Fs, 20);
+Wn      = double(cutoff/(Fs/2));
+if Wn >= 1
+    Wn = 0.999;
+end
+[b,a]   = butter(order,Wn);
+out     = filtfilt(b,a,data);
