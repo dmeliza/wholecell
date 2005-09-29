@@ -12,7 +12,7 @@ function [] = RFWizard(matfile, mode)
 WINDOW  = [-1000 5000];   % in samples, analysis window (relative to onset)
 FIRST   = 'pre';
 EVENT_MIN   = 10.5;         % minimum size of the induced event (to avoid massive noise problems
-NBOOT   = 100;
+NBOOT   = 1;
 NORM    = 1;
 NAMES   = {'peak','1','2','3'};
 
@@ -35,11 +35,6 @@ x_spike = [Z.induced];
 
 warning off MATLAB:divideByZero
 for i = 1:cells
-    t_adjust    = datenum(Z(i).pst(x_spike(i)).start) - datenum(Z(i).pre(x_spike(i)).start);
-    PRE{i}  = Z(i).pre(x_spike(i)).ampl;
-    PRE_T{i}= Z(i).pre(x_spike(i)).time- t_adjust*1440;
-    PST{i}  = Z(i).pst(x_spike(i)).ampl;
-    PST_T{i}= Z(i).pst(x_spike(i)).time;
     for j = 1:length(Z(i).(FIRST))
         mn(j)   = mean(Z(i).(FIRST)(j).ampl);
     end
@@ -104,7 +99,7 @@ compare(Z,t_onset, x_center, WINDOW, ind, NBOOT);
 function [mu] = compare(Z, t_onset, x_center, WINDOW, index, NBOOT)
 [pre, pst, t, INDEX] = combine(Z(index),t_onset(index), x_center(index), WINDOW, 1);
 if NBOOT == 1
-    [mu, sigma, p]          = getdelta(pre, pst, t);
+    [mu, sigma, p, val]      = getdelta(pre, pst, t);
 %    [pre,pre_s,pre_n]       = collapse(pre,2);
 %    [pst,pst_s,pst_n]       = collapse(pst,2);
 %     d         = pre - pst;
@@ -121,14 +116,12 @@ else
     mu       = mean(mu,2);
     sigma    = sigma' - repmat(mu,1,2);
 end
-    bar(0:3,mu);
-    hold on
-    errorbar(0:3,mu,sigma(:,1),sigma(:,2),'.');
+whiskerbar(0:3,mu,sigma(:,1),sigma(:,2));
     axis tight
     hline(0)
         
 
-function [mu, ci, p] = getdelta(pre, pst, t)
+function [mu, ci, p, val] = getdelta(pre, pst, t)
 BASEL_WINDOW    = [-100 0];
 PLAST_WINDOW    = [0 100];
 % mx      = max(max(abs(pre)));
@@ -137,18 +130,24 @@ ind_b   = t >= BASEL_WINDOW(1) & t <= BASEL_WINDOW(2);
 ind     = t >= PLAST_WINDOW(1) & t <= PLAST_WINDOW(2);
 if iscell(pre)
     for i = 1:length(pre)
-        pre_val             = mean(pre{i}(ind,:),1); %- mean(pre{i}(ind_b,:),1);
-        pst_val             = mean(pst{i}(ind,:),1); %- mean(pst{i}(ind_b,:),1);
+%         pre_val             = mean(pre{i}(ind,:),1); %- mean(pre{i}(ind_b,:),1);
+%         pst_val             = mean(pst{i}(ind,:),1); %- mean(pst{i}(ind_b,:),1);
+        pre_val             = -max(abs(pre{i}(ind,:)));
+        pst_val             = -max(abs(pst{i}(ind,:)));
+        val                 = pre_val - pst_val;
         mu(i,:)             = mean(pre_val - pst_val);
         [h,p(i),ci(i,:)]    = ttest2(pre_val, pst_val);
         ci(i,:)             = ci(i,:) - mu(i);
     end
 else
-    pre_val             = mean(pre(ind,:),1);
-    pst_val             = mean(pst(ind,:),1);
+%     pre_val             = mean(pre(ind,:),1);
+%     pst_val             = mean(pst(ind,:),1);
+    pre_val             = -max(abs(pre(ind,:)));
+    pst_val             = -max(abs(pst(ind,:)));
     mu                  = (pre_val - pst_val)';
     p                   = [];
     ci                  = [];
+    val                 = mu;
 end
 
 
