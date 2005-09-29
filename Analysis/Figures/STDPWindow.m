@@ -13,8 +13,8 @@ function [STDP,delay,ltp_p,ltd_p] = STDPWindow(csvfile)
 % $Id$
 
 % Analysis constants
-LTD_WIN = [-60 -1];
-LTP_WIN = [1 40];
+LTD_WIN = [-65 -1];
+LTP_WIN = [1 50];
 
 % Display options
 WIDTH   = 100;
@@ -42,9 +42,9 @@ ltd_e   = std(STDP(ltd_ind))/sqrt(length(ltd_ind));
 [h,ltd_p,ltd_ci,ltd_stats]   = ttest(STDP(ltd_ind),100);
 
 fprintf('LTP (dt = %d to %d): %3.2f %s %3.2f (n = %d, P = %3.3f)\n',...
-    LTP_WIN(1), LTP_WIN(2), ltp_m, char(177), ltp_e, length(ltp_ind), ltp_p);
+    LTP_WIN(1), LTP_WIN(2), ltp_m, char(177), ltp_e, sum(ltp_ind), ltp_p);
 fprintf('LTD (dt = %d to %d): %3.2f %s %3.2f (n = %d, P = %3.3f)\n',...
-    LTD_WIN(1), LTD_WIN(2), ltd_m, char(177), ltd_e, length(ltd_ind), ltd_p);
+    LTD_WIN(1), LTD_WIN(2), ltd_m, char(177), ltd_e, sum(ltd_ind), ltd_p);
 
 % Plot results
 f   = figure;
