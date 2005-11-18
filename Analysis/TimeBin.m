@@ -28,7 +28,8 @@ if nbin == 1
     mn  = mn - mod(mn,bins);
     XI  = mn:bins:max(time);
 else
-    XI  = bins(bins<=max(time));
+    XI  = (bins(bins<=max(time)));
+    XI  = XI(:)';
 end
 nbin    = length(XI);
 
