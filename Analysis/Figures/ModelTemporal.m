@@ -1,15 +1,41 @@
-function [dZ, dR, t] = ModelTemporal(t_spike)
+function [dZ, dR, dw, tt, t] = ModelTemporal(params)
 %
 % A little model of inter-trial variation in vivo, taking into account
 % static and stochastic latency variability.
+%
+% Arguments:
+% t_spike - (if scalar) time of the spike relative to center of 
+%           input distribution (default is 0 for both)
+% params  - (if struct) a structure containing the fixed parameters of the
+%           experiment (described below)
+%
+% stoch   - the ratio of the SDs of the stochastic latency distribution and
+% the fixed latency distribution. Default is 0.1 (and sigma_t defaults to
+% 10)
+%
+% Experiment paramters:
+% t_spike   - time of postsynaptic spike (relative to center of distrib)
+%             [default 0 ms]
+% t_sigma   - SD of distribution of FIXED latencies
+%             [default 10 ms]
+% stoch     - ratio of SD of distriubtion of STOCHASTIC latencies to t_sigma
+%             [default 0.1]
+% n         - number of presynaptic cells (cell number j) [default 100]
+% m         - number of trials [default 2000]
+% Pn        - scaling factor of firing probability (average # of cells that
+%             fire in a trial) [10]
+% tau_p     - time constant of ltp window [20 ms]
+% tau_d     - time constant of ltd window [20 ms]
+% A_p       - amplitude of ltp window [0.005]
+% A_d       - amplitude of ltd window [0.005]
+% Fs        - sampling rate [4 ms]
 %
 % Variables:
 % j - cell number
 % i - trial number
 %
 % Model parameters:
-% n     - number of presynaptic cells (cell number j)
-% m     - number of trials
+
 % w(j)  - weight of presynaptic cell
 % t(j)  - mean latency of presynaptic cell
 % T(j,i)  - latency error (distribution)
@@ -17,126 +43,120 @@ function [dZ, dR, t] = ModelTemporal(t_spike)
 %
 % kern  - EPSC kernel
 %
-% Constants:
-% Fs    - binsize
+% Returns:
+% dZ(tt) - change in weighted PSTH
+% dR(tt) - change in predicted EPSC
+% dw(t) - change (norm) in synaptic weights
+% tt    - time variable in each trial (relative to spike time)
+% t     - latency of each synapse
 %
 % $Id$
+  
 
 % Initialize parameters
-Fs      = 5;           % ms
-time    = (-20*Fs):Fs:(Fs*120); % 30-bin window
+% defaults:
+default = struct('t_spike',0,...
+                 't_sigma',10,...
+                 'stoch',0.1,...
+                 'n',100,...
+                 'm',2000,...
+                 'Pn',10,...
+                 'tau_p',20,...
+                 'tau_d',20,...
+                 'A_p',0.005,...
+                 'A_d',0.005,...
+                 'Fs',4,...
+                 'time',[-100 200]);
+             
+% check the user's arguments
+if nargin > 0
+    if isstruct(params)
+        % here we replace any values that the user supplies
+        fn    = fieldnames(params);
+        for i = 1:length(fn)
+            default.(fn{i}) = params.(fn{i});
+        end
+    else
+        default.t_spike = params;
+    end
+end
+params  = default;
 
-n       = 100;          % cells
-m       = 100;          % trials
-m_ind   = 30;           % induction trials
+% Derive the rest of the parameters
+time    = linspace(params.time(1),params.time(2),diff(params.time)/params.Fs);
 
-t_mu    = 100;
-t_sigma = 10;
-
+t_mu    = 0;
 T_mu    = 0;
-T_sigma = 1;
+T_sigma = params.t_sigma * params.stoch;
 
 P_n     = 1;
-P_p     = 1/n * 2;     % fire ~2 cells per trial
+P_p     = 1/params.n * params.Pn;
 
-
-% spike times are relative to the mean event time
-if nargin == 0
-    t_spike = t_mu + 5;
-else
-    t_spike = t_mu + t_spike;
-end
-
-
-
-%kern    = [-1.022077e-002; -4.542572e-003; -2.225854e-002; -8.116035e-002; -1.263588e-001; -9.774068e-002; -1.582324e-001; -2.760360e-001; -5.181542e-001; -8.536977e-001; -1.000044e+000; -8.453697e-001; -7.141655e-001; -6.559451e-001; -6.200589e-001; -5.348860e-001; -4.931702e-001; -4.675804e-001; -4.266974e-001; -3.665843e-001; -3.462185e-001; -3.158591e-001; -2.748247e-001; -2.784587e-001; -2.640739e-001; -2.291720e-001; -2.233424e-001; -2.291720e-001; -1.913930e-001; -1.852606e-001; -1.883647e-001; -2.007053e-001; -1.762512e-001; -1.705730e-001; -1.670147e-001; -1.201506e-001; -1.375638e-001; -1.425606e-001; -1.045545e-001; -9.993625e-002; -1.269645e-001; -9.478802e-002; -8.116035e-002; -9.471230e-002; -8.441585e-002; -4.603125e-002; -5.965892e-002; -7.139385e-002; -3.830890e-002; -3.043514e-002; -6.223303e-002; -5.572204e-002; -3.793036e-002; -4.936246e-002; -4.777256e-002; -1.892733e-002; -1.900304e-002; -3.444773e-002; -1.279488e-002; -1.467692e-008; -2.945092e-002; -1.635322e-002; -3.179806e-003; -1.567183e-002];
-kern    = [-1.582324e-001; -2.760360e-001; -5.181542e-001; -8.536977e-001; -1.000044e+000; -8.453697e-001; -7.141655e-001; -6.559451e-001; -6.200589e-001; -5.348860e-001; -4.931702e-001; -4.675804e-001; -4.266974e-001; -3.665843e-001; -3.462185e-001; -3.158591e-001; -2.748247e-001; -2.784587e-001; -2.640739e-001; -2.291720e-001; -2.233424e-001; -2.291720e-001; -1.913930e-001; -1.852606e-001; -1.883647e-001; -2.007053e-001; -1.762512e-001; -1.705730e-001; -1.670147e-001; -1.201506e-001; -1.375638e-001; -1.425606e-001; -1.045545e-001; -9.993625e-002; -1.269645e-001; -9.478802e-002; -8.116035e-002; -9.471230e-002; -8.441585e-002; -4.603125e-002; -5.965892e-002; -7.139385e-002; -3.830890e-002; -3.043514e-002; -6.223303e-002; -5.572204e-002; -3.793036e-002; -4.936246e-002; -4.777256e-002; -1.892733e-002; -1.900304e-002; -3.444773e-002; -1.279488e-002; -1.467692e-008; -2.945092e-002; -1.635322e-002; -3.179806e-003; -1.567183e-002];
-
-tau_p   = 50;
-tau_d   = 70;
 expfun  = inline('b(1) .* exp(x ./ b(2))','b','x');
-ltp_kern    = expfun([0.5 tau_p], (-30*Fs):Fs:0);
-ltd_kern    = expfun([-0.5 -tau_d], 0:Fs:(30*Fs));
+% this goes much faster if there is a lookup table, which has to be double
+% the size of the window
+w_kern      = [time(1) time(end)] * 2;
+t_kern      = linspace(w_kern(1),w_kern(2),diff(w_kern)/params.Fs);
+ltd_kern    = expfun([-params.A_d -params.tau_d],t_kern(t_kern>0));
+ltp_kern    = expfun([params.A_p params.tau_p],fliplr(t_kern(t_kern<=0)));
+
+% Load and initialize EPSC convolution kernel
+kernname    = 'EPSC.mat';
+epsc        = load(kernname);
+% downsample to Fs
+Fs_epsc     = mean(diff(epsc.time)) * 1000;    % in seconds
+epsc        = [epsc.data];    
+epsc        = BinData(epsc,fix(params.Fs/Fs_epsc),1);
+
+expfun  = inline('b(1) .* exp(x ./ b(2))','b','x');
 
 % static distributions
-t       = normrnd(t_mu,t_sigma,n,1);
-w       = rand(n,1);                          % equal weight to inputs
+t       = normrnd(t_mu,params.t_sigma,params.n,1);
+w       = ones(params.n,1);
 w_pre   = w;
 
-% pre-induction period
-Z       = zeros(m,length(time));
-R       = Z;
-for i = 1:m
+% continuously apply induction, and compare the first 100 to the last 100.
+Z       = zeros(params.m,length(time));
+t_s     = fix((params.t_spike - min(time))./params.Fs);
+
+for i = 1:params.m
     % generate trial distributions
-    T           = normrnd(T_mu,T_sigma,n,1);
-    P           = binornd(P_n,P_p,n,1);
+    T           = normrnd(T_mu,T_sigma,params.n,1);
+    P           = binornd(P_n,P_p,params.n,1);
     events      = ((t + T - min(time)) .* P);
-    events      = round(events ./ Fs);      % bin # of event
-    event_ind   = find(events);
-    for k = 1:length(event_ind)
-        j       = event_ind(k);                   % cell #
-        tm      = events(j);
-        Z(i,tm)  = Z(i,tm) + w(j);
+    events      = round(events ./ params.Fs);      % bin # of event
+    % with a lot of variance, events can wind up outside the window, in
+    % which case it should be expanded
+    if any(events<0 | events>length(time))
+        error('Event fell outside window. Window needs to be expanded.');
     end
-    r           = conv(Z(i,:),kern);
-    R(i,:)      = r(1:length(time));
-end
-
-Z_pre   = Z;
-R_pre   = R;
-
-% induction period
-Z       = zeros(m,length(time));
-R       = Z;
-t_s     = fix((t_spike - min(time))./Fs);
-for i = 1:m_ind
-    % generate trial distributions
-    T           = normrnd(T_mu,T_sigma,n,1);
-    P           = binornd(P_n,P_p,n,1);
-    events      = ((t + T - min(time)) .* P);
-    events      = fix(events ./ Fs);      % bin # of event
     event_ind   = find(events);
     for k = 1:length(event_ind)
         j       = event_ind(k);                   % cell #
         tm      = events(j);
         Z(i,tm)  = Z(i,tm) + w(j);
         % potentiate and depress
-        dt      = tm - t_s;
+        dt      = (tm - t_s);
         if dt > 0
             w(j)    = w(j) + w(j) * ltd_kern(dt);
         else
-            w(j)    = w(j) + w(j) * ltp_kern(end+dt);
+            w(j)    = w(j) + w(j) * ltp_kern(-dt+1);
         end
     end
-%     r           = conv(Z(i,:),kern);
-%     R(i,:)      = r(1:length(time));
 end
 
-% post-induction period
-Z       = zeros(m,length(time));
-R       = Z;
-for i = 1:m
-    % generate trial distributions
-    T           = normrnd(T_mu,T_sigma,n,1);
-    P           = binornd(P_n,P_p,n,1);
-    events      = ((t + T - min(time)) .* P);
-    events      = fix(events ./ Fs);      % bin # of event
-    event_ind   = find(events);
-    for k = 1:length(event_ind)
-        j       = event_ind(k);                   % cell #
-        tm      = events(j);
-        Z(i,tm)  = Z(i,tm) + w(j);
-    end
-    r           = conv(Z(i,:),kern);
-    R(i,:)      = r(1:length(time));
-end
+Z_pre   = Z(1:100,:);
+r       = conv(sum(Z_pre,1),epsc);
+R_pre   = r(1:length(time));
+Z_post  = Z(end-100:end,:);
+r       = conv(sum(Z_post,1),epsc);
+R_post  = r(1:length(time));
 
-Z_post  = Z;
-R_post  = R;
-
-dZ  = mean(Z_post',2) - mean(Z_pre',2);
-dR  = -(mean(R_post',2) - mean(R_pre',2));
-t   = (time - t_spike)';
+dZ  = mean(Z_post',2) - mean(Z_pre',2);     % delta weighted PSTH
+dR  = (R_post - R_pre) / min(R_pre);        % delta predicted EPSC
+dw  = w ./ w_pre;                           % delta (norm) synaptic weight
+tt  = time - params.t_spike;
+t   = t - params.t_spike;
 
 if nargout > 0
     return
@@ -144,26 +164,26 @@ end
 
 f   = figure;
 set(gcf,'Color',[1 1 1])
-ResizeFigure(f,[3.12 4])
+ResizeFigure(f,[6.5 5])
 colormap(flipud(gray));
-a1 = subplot(3,1,1);
-imagesc(time,1:n,Z_pre);
-vline(t_spike,'k:')
+a1 = subplot(4,2,[1 3]);
+imagesc(time,1:params.m,Z);
+vline(params.t_spike,'k:')
 ylabel('Trial')
-a2 = subplot(3,1,2);
+a2 = subplot(4,2,5);
 % imagesc(time,1:n,Z_post);
 plot(time,mean(Z_pre,1),'k');
 hold on
 plot(time,mean(Z_post,1),'r');
-vline(t_spike,'k:')
+vline(params.t_spike,'k:')
 ylabel('Weighted PSTH')
 % subplot(4,1,3)
 % mtrialplot(time,R_pre');
-a3 = subplot(3,1,3);
-plot(time,mean(R_pre,1),'k');
+a3 = subplot(4,2,7);
+plot(time,R_pre,'k');
 hold on
-plot(time,mean(R_post,1),'r');
-vline(t_spike,'k:')
+plot(time,R_post,'r');
+vline(params.t_spike,'k:')
 ylabel('Predicted EPSC')
 xlabel('Time (ms)')
 
@@ -171,11 +191,11 @@ set([a1 a2 a3],'XLim',[time(1) time(end)],'Box','On')
 set([a1 a2],'XTickLabel',[]);
 set([a1 a2 a3],'YTick',[]);
 
-% rs  = Rasterify(R',2);
-% rs  = -rs';
-% subplot(5,1,4)
-% imagesc(time,1:n,rs);
-% subplot(5,1,5)
-% plot(time,mean(rs,1));
+a4 = subplot(4,2,[4 6]);
+p = plot((t),log10(w),'k.');
+yt  = [0.25 0.5 1 2 4];
+set(a4,'YTick',log10(yt),'YTickLabel',num2str(yt'*100))
+hline(0,'k:'),vline(0,'k:')
+xlabel('Time from Spike (ms)')
+ylabel('\DeltaSynaptic Weight (%)')
 
-% keyboard
