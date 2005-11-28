@@ -15,6 +15,9 @@ function [STDP,delay,ltp_p,ltd_p] = STDPWindow(csvfile)
 % Analysis constants
 LTD_WIN = [-65 -1];
 LTP_WIN = [1 50];
+% for electrical
+% LTD_WIN = [-40 -1];
+% LTP_WIN = [1 20];
 
 % Display options
 WIDTH   = 100;
